@@ -1,2 +1,9 @@
 *.class
 *.log
+out/**
+target/**
+venv/**
+**/scratch/**
+project/target/**
+
+
