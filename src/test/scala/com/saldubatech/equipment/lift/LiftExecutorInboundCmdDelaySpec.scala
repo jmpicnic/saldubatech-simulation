@@ -10,6 +10,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.lift
 
 import akka.actor.{ActorRef, ActorSystem, Props}
