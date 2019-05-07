@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.lift
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -25,7 +29,7 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 
 	val nopStep: HarnessStep = (host, _, at) => { case _ => host.log.info(s"Step in ${host.self.path.name} at $at")}
 	val nopTrigger: HarnessTrigger = (_, _, _) => {}
-	val nopConfigure: HarnessConfigurer = _ => {case _ =>
+	val nopConfigure: HarnessConfigurer = _ => {case _ => }
 
 	def this() = this(ActorSystem("LiftSpec"))
 
@@ -103,20 +107,20 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 	)
 	val downstreamObserver = TestProbe()
 	class DownstreamHarness(configurer: HarnessConfigurer)
-		extends SpecActorHarness(downstreamTrigger,
+		extends SpecActorHarness(
+			downstreamTrigger,
 			downstreamActions,
 			"downstreamHarness",
-			gw, downstreamObserver.testActor.?,
+			gw,
+			downstreamObserver.testActor.?,
 			configurer)
 			with DirectedChannel.Destination[Material] {
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 
-		}
+		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
 
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {
-
-		}
+		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
+
 	val downstreamConfigurer: SpecActorHarness => Configuring = host => {
 		case _ =>
 			inboundChannel.registerStart(host.asInstanceOf[DirectedChannel.Destination[Material]])
