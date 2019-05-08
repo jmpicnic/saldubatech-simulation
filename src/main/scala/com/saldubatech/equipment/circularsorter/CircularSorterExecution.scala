@@ -9,9 +9,10 @@
 package com.saldubatech.equipment.circularsorter
 
 import akka.actor.ActorRef
-import com.saldubatech.base.Geography.ClosedPathGeography
+import com.saldubatech.physics.{Geography, TaggedGeography}
+import com.saldubatech.physics.Geography.{ClosedPathGeography, ClosedPathPoint}
 import com.saldubatech.base.Processor.{ConfigureOwner, Task}
-import com.saldubatech.base.{DirectedChannel, Geography, Material, MultiProcessorHelper}
+import com.saldubatech.base.{DirectedChannel, Material, MultiProcessorHelper}
 import com.saldubatech.ddes.SimActor.Configuring
 import com.saldubatech.ddes.SimActorMixIn.Processing
 import com.saldubatech.ddes.SimActorMixIn.nullProcessing
@@ -23,16 +24,21 @@ import com.saldubatech.ddes.SimDSL._
 import scala.collection.mutable
 
 object CircularSorterExecution {
+	def apply(name: String,
+	          inducts: List[DirectedChannel[Material]],
+	          discharges: List[DirectedChannel[Material]],
+	          geography: TaggedGeography[DirectedChannel.Endpoint[Material], ClosedPathPoint],
+	          physics: CircularPathPhysics
+	         )(implicit gw: Gateway): CircularSorterExecution =
+		new CircularSorterExecution(name, inducts, discharges, geography, physics)
 
 }
 
 class CircularSorterExecution(name: String,
                               inducts: List[DirectedChannel[Material]],
                               discharges: List[DirectedChannel[Material]],
-                              geography: ClosedPathGeography[DirectedChannel.Endpoint[Material]],
-                              physics: CircularPathPhysics,
-                              tray0location: Int,
-                              speed: Int // trayLengths per tick
+                              geography: TaggedGeography[DirectedChannel.Endpoint[Material], ClosedPathPoint],
+                              physics: CircularPathPhysics
                              )(implicit gw: Gateway)
 extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 	import Geography._
@@ -61,9 +67,8 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 	private def emptyTrays(): List[Tray] = trays.filter(t => t.isEmpty)
 
 	def distance(t: Tray, v: DirectedChannel.End[Material]): Long = {
-		val tIndex = physics.indexForElement(t.number)
-		val vIndex = geography.location(v)
-		physics.distance(tIndex, vIndex.coord)
+		val tIndex: ClosedPathPoint = physics.indexForElement(t.number)
+		geography.distance(tIndex, v)
 	}
 
 	private class CloserTrayCompare extends Ordering[Task[Transfer, Tray]] {
@@ -101,7 +106,7 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 		task.resource.!.reserve
 		val timeToPickUp =
 			physics.estimateElapsedFromNumber(task.resource.!.number,
-				geography.location(task.cmd.source).coord) +	physics.timeToLoad
+				geography.location(task.cmd.source))
 		Induct(task) ~> self in ((at, timeToPickUp))
 	}
 
@@ -111,7 +116,7 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 			stageMaterial(task.cmd.uid, task.materials.head._1, task.cmd.source, at)
 			val timeToDischarge =
 				physics.estimateElapsedFromNumber(task.resource.!.number,
-					geography.location(task.cmd.destination).coord) + physics.timeToDischarge
+					geography.location(task.cmd.destination))
 			Discharge(task) ~> self in ((at, timeToDischarge))
 	}
 
@@ -122,8 +127,8 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 	}
 
 	override protected def localFinalizeDelivery(cmdId: String, load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit = {
-		val trayNumber = physics.elementAtIndex(geography.location(via).coord)
-		trays(trayNumber.toInt).>>
+		val trayNumber = physics.pointAtIndex(geography.location(via))
+		trays(trayNumber.coord.toInt).>>
 		completeCommand(cmdId, Seq(load), tick)
 	}
 
