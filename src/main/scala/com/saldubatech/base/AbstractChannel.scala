@@ -6,10 +6,14 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.ActorRef
-import com.saldubatech.base.Geography.Tag
+import com.saldubatech.physics.TaggedGeography.Tag
 import com.saldubatech.ddes.SimActor.Configuring
 import com.saldubatech.ddes.SimActorMixIn
 import com.saldubatech.ddes.SimActorMixIn.Processing

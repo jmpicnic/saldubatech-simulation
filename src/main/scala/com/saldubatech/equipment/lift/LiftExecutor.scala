@@ -6,10 +6,14 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.lift
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.base.Geography.{LinearGeography, LinearPoint}
+import com.saldubatech.physics.Geography.{LinearGeography, LinearPoint}
 import com.saldubatech.base.Processor.{ConfigureOwner, ExecutionResource, Task}
 import com.saldubatech.base.{CarriagePhysics, DirectedChannel, Material, ProcessorHelper}
 import com.saldubatech.ddes.SimActor.Configuring
@@ -17,6 +21,7 @@ import com.saldubatech.ddes.SimActorMixIn.{Processing, nullProcessing}
 import com.saldubatech.ddes.{Gateway, SimActor}
 import com.saldubatech.equipment.elements.XSwitchTransfer
 import com.saldubatech.equipment.elements.XSwitchTransfer.{RouteExecutionCommand, Transfer}
+import com.saldubatech.physics.TaggedGeography
 import com.saldubatech.utils.Boxer._
 
 import scala.languageFeature.postfixOps
@@ -77,7 +82,7 @@ class LiftExecutor(name: String,
 				}.zipWithIndex ++
 					levelConnectors.map {
 						_._2.end
-					}.zipWithIndex).map { case (k, v) => k -> LinearPoint(v) }: _*)
+					}.zipWithIndex).map { case (k, v) => k -> new LinearPoint(v) }: _*)
 
 	override def configure: Configuring = {
 		case ConfigureOwner(p_owner) =>
@@ -94,7 +99,7 @@ class LiftExecutor(name: String,
 				XSwitchTransfer(
 					this,
 					physics,
-					new LinearGeography(tags),
+					new TaggedGeography.Impl[DirectedChannel.Endpoint[Material], LinearPoint](tags, new LinearGeography()),
 					initialLevel
 				)
 			)

@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.circularsorter
 
 import com.saldubatech.base.Material
@@ -13,11 +17,11 @@ import com.saldubatech.base.Processor.ExecutionResourceImpl
 import com.saldubatech.utils.Boxer._
 
 object Tray {
-	def apply(number: Long): Tray = new Tray(number)
+	def apply(number: Int): Tray = new Tray(number)
 }
 
 // This can be made a bit more sophisticated in terms of reservations
-class Tray(val number: Long) extends ExecutionResourceImpl(number.toString) {
+class Tray(val number: Int) extends ExecutionResourceImpl(number.toString) {
 	var slot: Option[Material] = None
 	var isAssigned = false
 	def reserve: Boolean = if(isAssigned) false else {isAssigned = true; true}

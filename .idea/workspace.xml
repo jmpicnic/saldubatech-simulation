@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="c836435a-eaae-4f09-a9c0-855486fefb0b" name="Default Changelist" comment="">
+    <list default="true" id="c836435a-eaae-4f09-a9c0-855486fefb0b" name="Default Changelist" comment="Refactored Geography and Physics to separate concerns in ClosedPathGeographies">
+      <change afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/TaggedGeography.scala" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysicsSpec.scala" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularSorterSingleTaskSpec.scala" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/test/scala/com/saldubatech/physics/GeographySpec.scala" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundCmdDelaySpec.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundCmdDelaySpec.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/CarriagePhysics.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/CarriagePhysics.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/DirectedChannel.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/DirectedChannel.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/Geography.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/Geography.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularSorterExecution.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularSorterExecution.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/Tray.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/Tray.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/XSwitchTransfer.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/XSwitchTransfer.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/lift/LiftExecutor.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/lift/LiftExecutor.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundSpec.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundSpec.scala" afterDir="false" />
     </list>
     <ignored path="$PROJECT_DIR$/target/" />
     <ignored path="$PROJECT_DIR$/project/project/target/" />
@@ -122,98 +135,39 @@
     </system>
   </component>
   <component name="FileEditorManager">
-    <splitter split-orientation="horizontal" split-proportion="0.2894309">
+    <splitter split-orientation="horizontal" split-proportion="0.5139466">
       <split-first>
         <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
           <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutorSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2190">
-                  <caret line="160" column="35" selection-start-line="160" selection-start-column="35" selection-end-line="160" selection-end-column="35" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
             <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="2730">
-                  <caret line="193" column="71" selection-start-line="193" selection-start-column="71" selection-end-line="193" selection-end-column="71" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/.gitignore">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="90">
-                  <caret line="6" column="17" selection-start-line="6" selection-start-column="17" selection-end-line="6" selection-end-column="17" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/events/EventSpooler.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="210">
-                  <caret line="18" column="5" selection-start-line="18" selection-start-column="5" selection-end-line="18" selection-end-column="5" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/elements/SimpleRandomExecutionSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="645">
-                  <caret line="57" column="81" selection-start-line="57" selection-start-column="81" selection-end-line="57" selection-end-column="81" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/base/DirectedChannelSingleMessageSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="975">
-                  <caret line="78" column="31" selection-start-line="78" selection-start-column="31" selection-end-line="78" selection-end-column="31" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/ReversibleChannel.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1320">
-                  <caret line="95" column="37" selection-start-line="95" selection-start-column="37" selection-end-line="95" selection-end-column="37" />
+                <state relative-caret-position="135">
+                  <caret line="11" column="46" selection-start-line="11" selection-start-column="46" selection-end-line="11" selection-end-column="46" />
                 </state>
               </provider>
             </entry>
           </file>
           <file pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutor.scala">
+            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysicsSpec.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1498">
-                  <caret line="160" column="58" selection-start-line="160" selection-start-column="58" selection-end-line="160" selection-end-column="58" />
+                <state relative-caret-position="553">
+                  <caret line="40" column="22" selection-start-line="40" selection-start-column="22" selection-end-line="40" selection-end-column="22" />
                   <folding>
                     <element signature="n#!!doc" expanded="true" />
+                    <element signature="e#202#268#0" expanded="true" />
                   </folding>
                 </state>
               </provider>
             </entry>
           </file>
           <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/shuttle/ShuttleLevelExecutorSpec.scala">
+            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/TaggedGeography.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1095">
-                  <caret line="87" column="35" selection-start-line="87" selection-start-column="35" selection-end-line="87" selection-end-column="35" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/SpecActorFlowHarness.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1425">
-                  <caret line="104" column="15" selection-start-line="104" selection-start-column="15" selection-end-line="104" selection-end-column="15" />
+                <state relative-caret-position="201">
+                  <caret line="18" column="26" selection-start-line="18" selection-start-column="26" selection-end-line="18" selection-end-column="26" />
+                  <folding>
+                    <element signature="e#109#151#0" expanded="true" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -221,84 +175,25 @@
         </leaf>
       </split-first>
       <split-second>
-        <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-          <file pinned="false" current-in-tab="true">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundCmdDelaySpec.scala">
+        <leaf>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularSorterExecution.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="225">
-                  <caret line="27" column="57" selection-start-line="27" selection-start-column="57" selection-end-line="27" selection-end-column="57" />
+                <state relative-caret-position="391">
+                  <caret line="66" column="33" selection-start-line="66" selection-start-column="33" selection-end-line="66" selection-end-column="33" />
+                  <folding>
+                    <element signature="n#!!doc" expanded="true" />
+                    <element signature="e#126#152#0" expanded="true" />
+                  </folding>
                 </state>
               </provider>
             </entry>
           </file>
           <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/generic/SimpleServerSpec.scala">
+            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/physics/GeographySpec.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1440">
-                  <caret line="113" column="47" selection-start-line="113" selection-start-column="47" selection-end-line="113" selection-end-column="47" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/cases/expsource/runner2.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="960">
-                  <caret line="76" column="53" selection-start-line="76" selection-start-column="53" selection-end-line="76" selection-end-column="53" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/elements/InductSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1425">
-                  <caret line="113" column="19" selection-start-line="113" selection-start-column="19" selection-end-line="113" selection-end-column="19" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/generic/SourceServerSinkTimingSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1665">
-                  <caret line="129" column="31" selection-start-line="129" selection-start-column="31" selection-end-line="129" selection-end-column="31" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/analysis/src/main/python/com/saldubatech/analysis/scratch.sql">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="390">
-                  <caret line="26" column="18" selection-start-line="26" selection-start-column="18" selection-end-line="26" selection-end-column="18" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/generic/SinkSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="375">
-                  <caret line="39" column="63" selection-start-line="39" selection-start-column="63" selection-end-line="39" selection-end-column="63" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/base/DirectedChannelSpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="1545">
-                  <caret line="118" column="47" selection-start-line="118" selection-start-column="47" selection-end-line="118" selection-end-column="47" />
-                </state>
-              </provider>
-            </entry>
-          </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/ddes/GatewaySpec.scala">
-              <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="635">
-                  <caret line="99" column="54" selection-start-line="99" selection-start-column="54" selection-end-line="99" selection-end-column="54" />
+                <state relative-caret-position="180">
+                  <caret line="12" lean-forward="true" selection-start-line="12" selection-end-line="12" />
                   <folding>
                     <element signature="n#!!doc" expanded="true" />
                   </folding>
@@ -306,11 +201,23 @@
               </provider>
             </entry>
           </file>
-          <file pinned="false" current-in-tab="false">
-            <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/ddes/GlobalClockSpec.scala">
+          <file pinned="false" current-in-tab="true">
+            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala">
               <provider selected="true" editor-type-id="text-editor">
-                <state relative-caret-position="165">
-                  <caret line="17" column="6" selection-start-line="17" selection-start-column="6" selection-end-line="17" selection-end-column="6" />
+                <state relative-caret-position="256">
+                  <caret line="29" column="37" selection-start-line="29" selection-start-column="37" selection-end-line="29" selection-end-column="37" />
+                </state>
+              </provider>
+            </entry>
+          </file>
+          <file pinned="false" current-in-tab="false">
+            <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/Geography.scala">
+              <provider selected="true" editor-type-id="text-editor">
+                <state relative-caret-position="448">
+                  <caret line="46" column="43" lean-forward="true" selection-start-line="46" selection-start-column="43" selection-end-line="46" selection-end-column="43" />
+                  <folding>
+                    <element signature="n#!!doc" expanded="true" />
+                  </folding>
                 </state>
               </provider>
             </entry>
@@ -384,7 +291,7 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="circular_sorter" />
+        <entry key="$PROJECT_DIR$" value="develop" />
       </map>
     </option>
     <favorite-branches>
@@ -407,29 +314,14 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/Aisle.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/FSM/State.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/ddes/SimDSL.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/ProcessingCommand.scala" />
-        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/BaseActorSpec.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/events/OperationalEvent.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/example/TCReversibleEndpoint.scala" />
-        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/BaseSpec.scala" />
-        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/SimTestProbeForwarder.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/example/AkkaQuickstart.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/events/EventCollector.scala" />
-        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/SpecActorHarness.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/system/EquipmentSimulationHarness2.scala" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/ddes/SimActorSpec.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/resource/UseState.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/Discharge.scala" />
-        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundSpec.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/StepProcessor.scala" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorOutboundCmdDelayedSpec.scala" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorOutboundDelayDeliverySpec.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/cases/mm1/runner2.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/generic/Source.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/Geography.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/ddes/SimActor.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/generic/Sink.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/events/EventStore.scala" />
@@ -437,11 +329,9 @@
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/generic/SinkSpec.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/SimpleRandomExecution.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/SimpleExecutionProxy.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/elements/SimpleRandomExecutionSpec.scala" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/base/DirectedChannelSingleMessageSpec.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/ReversibleChannel.scala" />
-        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala" />
         <option value="$PROJECT_DIR$/.gitignore" />
         <option value="$PROJECT_DIR$/analysis/src/main/python/com/saldubatech/analysis/db_access.py" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/generic/SourceSpec.scala" />
@@ -458,6 +348,23 @@
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/SpecActorFlowHarness.scala" />
         <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutor.scala" />
         <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundCmdDelaySpec.scala" />
+        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundSpec.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/CarriagePhysics.scala" />
+        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularPhysicsSpec.scala" />
+        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularSorterSingleTaskSpec.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/Geography.scala" />
+        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/physics/GeometrySpec.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/base/DirectedChannel.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/XSwitchTransfer.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/lift/LiftExecutor.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/Tray.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/TaggedGeography.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularSorterExecution.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/Geography.scala" />
+        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysicsSpec.scala" />
+        <option value="$PROJECT_DIR$/src/test/scala/com/saldubatech/physics/GeographySpec.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala" />
       </list>
     </option>
   </component>
@@ -471,9 +378,7 @@
   <component name="NamedScopeManager">
     <scope name="C-Like comments" pattern="src:com.saldubatech.*..*||test:com.saldubatech.*..*" />
   </component>
-  <component name="ProjectFrameBounds" fullScreen="true">
-    <option name="x" value="-2560" />
-    <option name="y" value="119" />
+  <component name="ProjectFrameBounds" extendedState="6" fullScreen="true">
     <option name="width" value="2560" />
     <option name="height" value="1440" />
   </component>
@@ -592,6 +497,16 @@
               <item name="scala" type="462c0819:PsiDirectoryNode" />
               <item name="com" type="462c0819:PsiDirectoryNode" />
               <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
+              <item name="base" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
+              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="scala" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
               <item name="cases" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
@@ -624,7 +539,40 @@
               <item name="com" type="462c0819:PsiDirectoryNode" />
               <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
               <item name="equipment" type="462c0819:PsiDirectoryNode" />
-              <item name="shuttle" type="462c0819:PsiDirectoryNode" />
+              <item name="circularsorter" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
+              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="scala" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
+              <item name="equipment" type="462c0819:PsiDirectoryNode" />
+              <item name="elements" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
+              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="scala" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
+              <item name="equipment" type="462c0819:PsiDirectoryNode" />
+              <item name="generic" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
+              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="scala" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
+              <item name="equipment" type="462c0819:PsiDirectoryNode" />
+              <item name="lift" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
@@ -640,6 +588,16 @@
               <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
               <item name="simAkka" type="462c0819:PsiDirectoryNode" />
               <item name="src" type="462c0819:PsiDirectoryNode" />
+              <item name="main" type="462c0819:PsiDirectoryNode" />
+              <item name="scala" type="462c0819:PsiDirectoryNode" />
+              <item name="com" type="462c0819:PsiDirectoryNode" />
+              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
+              <item name="physics" type="462c0819:PsiDirectoryNode" />
+            </path>
+            <path>
+              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
+              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
+              <item name="src" type="462c0819:PsiDirectoryNode" />
               <item name="test" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
@@ -665,26 +623,6 @@
               <item name="scala" type="462c0819:PsiDirectoryNode" />
               <item name="com" type="462c0819:PsiDirectoryNode" />
               <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
-              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="test" type="462c0819:PsiDirectoryNode" />
-              <item name="scala" type="462c0819:PsiDirectoryNode" />
-              <item name="com" type="462c0819:PsiDirectoryNode" />
-              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
-              <item name="base" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
-              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="test" type="462c0819:PsiDirectoryNode" />
-              <item name="scala" type="462c0819:PsiDirectoryNode" />
-              <item name="com" type="462c0819:PsiDirectoryNode" />
-              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
-              <item name="ddes" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
@@ -705,18 +643,7 @@
               <item name="com" type="462c0819:PsiDirectoryNode" />
               <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
               <item name="equipment" type="462c0819:PsiDirectoryNode" />
-              <item name="elements" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
-              <item name="simAkka" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="test" type="462c0819:PsiDirectoryNode" />
-              <item name="scala" type="462c0819:PsiDirectoryNode" />
-              <item name="com" type="462c0819:PsiDirectoryNode" />
-              <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
-              <item name="equipment" type="462c0819:PsiDirectoryNode" />
-              <item name="generic" type="462c0819:PsiDirectoryNode" />
+              <item name="circularsorter" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
@@ -737,8 +664,7 @@
               <item name="scala" type="462c0819:PsiDirectoryNode" />
               <item name="com" type="462c0819:PsiDirectoryNode" />
               <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
-              <item name="equipment" type="462c0819:PsiDirectoryNode" />
-              <item name="shuttle" type="462c0819:PsiDirectoryNode" />
+              <item name="physics" type="462c0819:PsiDirectoryNode" />
             </path>
             <path>
               <item name="simAkka" type="b2602c69:ProjectViewProjectNode" />
@@ -748,7 +674,7 @@
               <item name="scala" type="462c0819:PsiDirectoryNode" />
               <item name="com" type="462c0819:PsiDirectoryNode" />
               <item name="saldubatech" type="462c0819:PsiDirectoryNode" />
-              <item name="utils" type="462c0819:PsiDirectoryNode" />
+              <item name="randomVariables" type="462c0819:PsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -829,18 +755,18 @@
       <recent name="$PROJECT_DIR$/src/main/scala/" />
     </key>
     <key name="MoveClassesOrPackagesDialog.RECENTS_KEY">
+      <recent name="com.saldubatech.physics" />
       <recent name="com.saldubatech.equipment.shuttle" />
       <recent name="com.saldubatech.base" />
       <recent name="com.example" />
       <recent name="com.saldubatech.utils" />
-      <recent name="com.saldubatech.equipment.elements" />
     </key>
     <key name="CopyClassDialog.RECENTS_KEY">
+      <recent name="com.saldubatech.physics" />
+      <recent name="com.saldubatech.equipment.circularsorter" />
       <recent name="com.saldubatech.base" />
       <recent name="com.saldubatech.equipment.shuttle" />
       <recent name="com.saldubatech.equipment.lift2" />
-      <recent name="com.saldubatech.equipment.lift" />
-      <recent name="com.saldubatech.test.utils" />
     </key>
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment" />
@@ -882,9 +808,9 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <configuration name="DirectedChannelSpec.A Material Channel when created must allow registering Origin and Destination&#10;A Material Channel when created must call the destination consumeInput when sent a load&#10;A Material Channel when created must reject the 4th call to sendLoad&#10;A Material Channel when created must Free up a resource when doneWithLoad&#10;A Material Channel when created must Then accept one more load" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
+    <configuration name="CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
       <module name="simAkka" />
-      <setting name="path" value="com.saldubatech.base.DirectedChannelSpec" />
+      <setting name="path" value="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
       <setting name="vmparams" value="" />
       <setting name="params" value="" />
       <setting name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -895,15 +821,53 @@
       <setting name="jrePath" value="" />
       <envs />
       <setting name="testKind" value="Test name" />
-      <setting name="path" value="com.saldubatech.base.DirectedChannelSpec" />
-      <setting name="testName" value="A Material Channel when created must allow registering Origin and Destination&#10;A Material Channel when created must call the destination consumeInput when sent a load&#10;A Material Channel when created must reject the 4th call to sendLoad&#10;A Material Channel when created must Free up a resource when doneWithLoad&#10;A Material Channel when created must Then accept one more load" />
+      <setting name="path" value="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <setting name="testName" value="A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="LiftExecutorInboundCmdDelaySpec" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
+    <configuration name="CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should keep the number of trays value invariant and time = 0&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray to go to from a fixed index to another&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray with a number to go to a fixed index" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
       <module name="simAkka" />
-      <setting name="path" value="com.saldubatech.equipment.lift.LiftExecutorInboundCmdDelaySpec" />
+      <setting name="path" value="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <setting name="vmparams" value="" />
+      <setting name="params" value="" />
+      <setting name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <setting name="searchForTest" value="Across module dependencies" />
+      <setting name="showProgressMessages" value="true" />
+      <setting name="useSbt" value="false" />
+      <setting name="useUiWithSbt" value="false" />
+      <setting name="jrePath" value="" />
+      <envs />
+      <setting name="testKind" value="Test name" />
+      <setting name="path" value="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <setting name="testName" value="A CircularPathPhysics when just initialized should keep the number of trays value invariant and time = 0&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray to go to from a fixed index to another&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray with a number to go to a fixed index" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should keep the number of trays, timeToLoad and timeToDischarge values invariant&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
+      <module name="simAkka" />
+      <setting name="path" value="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <setting name="vmparams" value="" />
+      <setting name="params" value="" />
+      <setting name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <setting name="searchForTest" value="Across module dependencies" />
+      <setting name="showProgressMessages" value="true" />
+      <setting name="useSbt" value="false" />
+      <setting name="useUiWithSbt" value="false" />
+      <setting name="jrePath" value="" />
+      <envs />
+      <setting name="testKind" value="Test name" />
+      <setting name="path" value="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <setting name="testName" value="A CircularPathPhysics when just initialized should keep the number of trays, timeToLoad and timeToDischarge values invariant&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="GeographySpec" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
+      <module name="simAkka" />
+      <setting name="path" value="com.saldubatech.physics.GeographySpec" />
       <setting name="vmparams" value="" />
       <setting name="params" value="" />
       <setting name="workingDirectory" value="file://$PROJECT_DIR$" />
@@ -914,25 +878,7 @@
       <setting name="jrePath" value="" />
       <envs />
       <setting name="testKind" value="Class" />
-      <setting name="path" value="com.saldubatech.equipment.lift.LiftExecutorInboundCmdDelaySpec" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="LiftExecutorInboundSpec" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
-      <module name="simAkka" />
-      <setting name="path" value="com.saldubatech.equipment.lift.LiftExecutorInboundSpec" />
-      <setting name="vmparams" value="" />
-      <setting name="params" value="" />
-      <setting name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <setting name="searchForTest" value="Across module dependencies" />
-      <setting name="showProgressMessages" value="true" />
-      <setting name="useSbt" value="false" />
-      <setting name="useUiWithSbt" value="false" />
-      <setting name="jrePath" value="" />
-      <envs />
-      <setting name="testKind" value="Class" />
-      <setting name="path" value="com.saldubatech.equipment.lift.LiftExecutorInboundSpec" />
+      <setting name="path" value="com.saldubatech.physics.GeographySpec" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -961,6 +907,10 @@
       <buffered bufClass="com.saldubatech.ddes.GlobalClockSpec" />
       <buffered bufClass="com.saldubatech.ddes.SimActorSpec" />
       <buffered bufClass="com.saldubatech.ddes.SimActorSpec" />
+      <buffered bufClass="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <buffered bufClass="com.saldubatech.equipment.circularsorter.CircularPathPhysicsSpec" />
+      <buffered bufClass="com.saldubatech.equipment.circularsorter.CircularSorterSingleTaskSpec" />
+      <buffered bufClass="com.saldubatech.equipment.circularsorter.CircularSorterSingleTaskSpec" />
       <buffered bufClass="com.saldubatech.equipment.elements.CarriagePhysicsSpec" />
       <buffered bufClass="com.saldubatech.equipment.elements.CarriagePhysicsSpec" />
       <buffered bufClass="com.saldubatech.equipment.elements.InductSpec" />
@@ -995,6 +945,8 @@
       <buffered bufClass="com.saldubatech.equipment.shuttle.ShuttleLevelExecutorSpec" />
       <buffered bufClass="com.saldubatech.events.EventStoreSpec" />
       <buffered bufClass="com.saldubatech.events.EventStoreSpec" />
+      <buffered bufClass="com.saldubatech.physics.GeographySpec" />
+      <buffered bufClass="com.saldubatech.physics.GeographySpec" />
       <buffered bufClass="com.saldubatech.randomVariables.DistributionsSpec" />
       <buffered bufClass="com.saldubatech.randomVariables.DistributionsSpec" />
       <buffered bufClass="com.saldubatech.test.utils.DeclarativeRunnerSpec" />
@@ -1003,24 +955,6 @@
       <buffered bufClass="com.saldubatech.test.utils.ProtocolUseCaseSpec" />
       <buffered bufClass="com.saldubatech.test.utils.SampleWordSpecLike" />
       <buffered bufClass="com.saldubatech.test.utils.SampleWordSpecLike" />
-      <method v="2">
-        <option name="Make" enabled="true" />
-      </method>
-    </configuration>
-    <configuration name="ShuttleLevelExecutorSpec" type="ScalaTestRunConfiguration" factoryName="ScalaTest" temporary="true">
-      <module name="simAkka" />
-      <setting name="path" value="com.saldubatech.equipment.shuttle.ShuttleLevelExecutorSpec" />
-      <setting name="vmparams" value="" />
-      <setting name="params" value="" />
-      <setting name="workingDirectory" value="file://$PROJECT_DIR$" />
-      <setting name="searchForTest" value="Across module dependencies" />
-      <setting name="showProgressMessages" value="true" />
-      <setting name="useSbt" value="false" />
-      <setting name="useUiWithSbt" value="false" />
-      <setting name="jrePath" value="" />
-      <envs />
-      <setting name="testKind" value="Class" />
-      <setting name="path" value="com.saldubatech.equipment.shuttle.ShuttleLevelExecutorSpec" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -1088,19 +1022,19 @@
       <method v="2" />
     </configuration>
     <list>
+      <item itemvalue="ScalaTest.CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should keep the number of trays, timeToLoad and timeToDischarge values invariant&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" />
+      <item itemvalue="ScalaTest.CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" />
+      <item itemvalue="ScalaTest.CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should keep the number of trays value invariant and time = 0&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray to go to from a fixed index to another&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray with a number to go to a fixed index" />
+      <item itemvalue="ScalaTest.GeographySpec" />
       <item itemvalue="ScalaTest.ScalaTests in 'saldubatech'" />
-      <item itemvalue="ScalaTest.DirectedChannelSpec.A Material Channel when created must allow registering Origin and Destination&#10;A Material Channel when created must call the destination consumeInput when sent a load&#10;A Material Channel when created must reject the 4th call to sendLoad&#10;A Material Channel when created must Free up a resource when doneWithLoad&#10;A Material Channel when created must Then accept one more load" />
-      <item itemvalue="ScalaTest.LiftExecutorInboundSpec" />
-      <item itemvalue="ScalaTest.LiftExecutorInboundCmdDelaySpec" />
-      <item itemvalue="ScalaTest.ShuttleLevelExecutorSpec" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="ScalaTest.ShuttleLevelExecutorSpec" />
-        <item itemvalue="ScalaTest.LiftExecutorInboundCmdDelaySpec" />
-        <item itemvalue="ScalaTest.LiftExecutorInboundSpec" />
-        <item itemvalue="ScalaTest.DirectedChannelSpec.A Material Channel when created must allow registering Origin and Destination&#10;A Material Channel when created must call the destination consumeInput when sent a load&#10;A Material Channel when created must reject the 4th call to sendLoad&#10;A Material Channel when created must Free up a resource when doneWithLoad&#10;A Material Channel when created must Then accept one more load" />
         <item itemvalue="ScalaTest.ScalaTests in 'saldubatech'" />
+        <item itemvalue="ScalaTest.GeographySpec" />
+        <item itemvalue="ScalaTest.CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should keep the number of trays value invariant and time = 0&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray to go to from a fixed index to another&#10;A CircularPathPhysics when just initialized should Estimate the number of ticks requried for a tray with a number to go to a fixed index" />
+        <item itemvalue="ScalaTest.CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" />
+        <item itemvalue="ScalaTest.CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should keep the number of trays, timeToLoad and timeToDischarge values invariant&#10;A CircularPathPhysics when just initialized should have all indexes offset by the value of the tray0Location&#10;A CircularPathPhysics when just initialized should have all number offset by the negative of the tray0Location&#10;A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" />
       </list>
     </recent_temporary>
   </component>
@@ -1196,25 +1130,17 @@
       <option name="project" value="LOCAL" />
       <updated>1557271924246</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Fixed typo syntax error">
+      <created>1557273161045</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1557273161045</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TestHistory">
-    <history-entry file="ShuttleLevelExecutorSpec - 2019.05.03 at 22h 21m 04s.xml">
-      <configuration name="ShuttleLevelExecutorSpec" configurationId="ScalaTestRunConfiguration" />
-    </history-entry>
-    <history-entry file="ShuttleLevelExecutorSpec - 2019.05.03 at 22h 24m 55s.xml">
-      <configuration name="ShuttleLevelExecutorSpec" configurationId="ScalaTestRunConfiguration" />
-    </history-entry>
-    <history-entry file="ShuttleLevelExecutorSpec - 2019.05.03 at 22h 26m 38s.xml">
-      <configuration name="ShuttleLevelExecutorSpec" configurationId="ScalaTestRunConfiguration" />
-    </history-entry>
-    <history-entry file="ShuttleLevelExecutorSpec - 2019.05.03 at 22h 26m 47s.xml">
-      <configuration name="ShuttleLevelExecutorSpec" configurationId="ScalaTestRunConfiguration" />
-    </history-entry>
-    <history-entry file="ScalaTests_in_'saldubatech' - 2019.05.03 at 22h 27m 09s.xml">
-      <configuration name="ScalaTests in 'saldubatech'" configurationId="ScalaTestRunConfiguration" />
-    </history-entry>
     <history-entry file="ScalaTests_in_'saldubatech' - 2019.05.03 at 22h 27m 27s.xml">
       <configuration name="ScalaTests in 'saldubatech'" configurationId="ScalaTestRunConfiguration" />
     </history-entry>
@@ -1230,9 +1156,24 @@
     <history-entry file="ScalaTests_in_'saldubatech' - 2019.05.07 at 15h 23m 20s.xml">
       <configuration name="ScalaTests in 'saldubatech'" configurationId="ScalaTestRunConfiguration" />
     </history-entry>
+    <history-entry file="ScalaTests_in_'saldubatech' - 2019.05.07 at 16h 46m 27s.xml">
+      <configuration name="ScalaTests in 'saldubatech'" configurationId="ScalaTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="CircularPathPhysicsSpec_A_CircularPathPhysics_when_just_initialized_should_Traverse_speed_(trayLenth_time)_in_a_given_time - 2019.05.07 at 22h 24m 06s.xml">
+      <configuration name="CircularPathPhysicsSpec.A CircularPathPhysics when just initialized should Traverse speed/(trayLenth*time) in a given time" configurationId="ScalaTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="GeographySpec - 2019.05.07 at 22h 28m 13s.xml">
+      <configuration name="GeographySpec" configurationId="ScalaTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="ScalaTests_in_'saldubatech' - 2019.05.07 at 22h 30m 11s.xml">
+      <configuration name="ScalaTests in 'saldubatech'" configurationId="ScalaTestRunConfiguration" />
+    </history-entry>
+    <history-entry file="ScalaTests_in_'saldubatech' - 2019.05.07 at 22h 30m 27s.xml">
+      <configuration name="ScalaTests in 'saldubatech'" configurationId="ScalaTestRunConfiguration" />
+    </history-entry>
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="1182375000" />
+    <option name="totallyTimeSpent" value="1195567000" />
   </component>
   <component name="TodoView">
     <todo-panel id="selected-file">
@@ -1244,11 +1185,11 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="-2560" y="119" width="2560" height="1440" extended-state="0" />
+    <frame x="0" y="0" width="2048" height="1280" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.5265823" visible="true" weight="0.26669317" />
-      <window_info id="Structure" order="1" sideWeight="0.47341773" side_tool="true" visible="true" weight="0.26669317" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.74465406" visible="true" weight="0.15918164" />
+      <window_info id="Structure" order="1" sideWeight="0.2553459" side_tool="true" visible="true" weight="0.15918164" />
       <window_info id="Designer" order="2" />
       <window_info id="Image Layers" order="3" />
       <window_info id="DB Browser" order="4" sideWeight="0.49957806" weight="0.32984033" />
@@ -1256,23 +1197,23 @@
       <window_info id="UI Designer" order="6" />
       <window_info id="Favorites" order="7" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
-      <window_info anchor="bottom" id="Find" order="1" sideWeight="0.49920508" weight="0.2698885" />
-      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49880764" weight="0.20966543" />
+      <window_info anchor="bottom" id="Find" order="1" sideWeight="0.49920508" weight="0.26835442" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.498503" weight="0.23797469" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.39553905" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32890365" />
       <window_info anchor="bottom" id="DB Execution Console" order="7" weight="0.32936803" />
-      <window_info anchor="bottom" id="sbt-shell-toolwindow" order="8" sideWeight="0.498004" weight="0.25427508" />
+      <window_info anchor="bottom" id="sbt-shell-toolwindow" order="8" sideWeight="0.498004" weight="0.25400844" />
       <window_info anchor="bottom" id="Terminal" order="9" sideWeight="0.49960256" weight="0.32911393" />
       <window_info anchor="bottom" id="Docker" order="10" weight="0.32936803" />
-      <window_info anchor="bottom" id="Event Log" order="11" sideWeight="0.2744511" side_tool="true" weight="0.48101267" />
+      <window_info anchor="bottom" id="Event Log" order="11" sideWeight="0.50149703" side_tool="true" weight="0.23797469" />
       <window_info anchor="bottom" id="Build" order="12" sideWeight="0.7255489" weight="0.33924052" />
       <window_info anchor="bottom" id="Database Changes" order="13" weight="0.32862455" />
       <window_info anchor="bottom" id="Version Control" order="14" />
-      <window_info active="true" anchor="bottom" id="Problems" order="15" sideWeight="0.49841017" visible="true" weight="0.4126394" />
+      <window_info anchor="bottom" id="Problems" order="15" sideWeight="0.6442116" weight="0.29957807" />
       <window_info anchor="bottom" id="Database Console" order="16" weight="0.28921932" />
-      <window_info anchor="bottom" id="Messages" order="17" weight="0.32936803" />
+      <window_info active="true" anchor="bottom" id="Messages" order="17" visible="true" weight="0.32911393" />
       <window_info anchor="bottom" id="Mypy" order="18" />
       <window_info anchor="bottom" id="GraphQL" order="19" weight="0.32936803" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
@@ -1344,7 +1285,9 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="Initial Commit. CircularSorter is not tested yet." />
-    <option name="LAST_COMMIT_MESSAGE" value="Initial Commit. CircularSorter is not tested yet." />
+    <MESSAGE value="Fixed typo syntax error" />
+    <MESSAGE value="Refactored Geography and Physics to separate concerns in ClosedPathGeographies" />
+    <option name="LAST_COMMIT_MESSAGE" value="Refactored Geography and Physics to separate concerns in ClosedPathGeographies" />
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
     <SUITE FILE_PATH="coverage/simAkka$ScalaTests_in__saldubatech_.ic" NAME="ScalaTests in 'saldubatech' Coverage Results" MODIFIED="1556688020628" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="idea" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" />
@@ -1366,104 +1309,6 @@
     </expressions>
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/BaseActorSpec.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="300">
-          <caret line="20" column="6" selection-start-line="20" selection-start-column="6" selection-end-line="20" selection-end-column="6" />
-          <folding>
-            <element signature="e#36#77#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/events/OperationalEvent.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="150">
-          <caret line="10" column="48" selection-start-line="10" selection-start-column="48" selection-end-line="10" selection-end-column="48" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/example/TCReversibleEndpoint.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="270">
-          <caret line="20" column="41" selection-start-line="20" selection-start-column="41" selection-end-line="20" selection-end-column="41" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/BaseSpec.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="165">
-          <caret line="12" column="6" selection-start-line="12" selection-start-column="6" selection-end-line="12" selection-end-column="6" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/SimTestProbeForwarder.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="255">
-          <caret line="20" column="66" selection-start-line="20" selection-start-column="66" selection-end-line="20" selection-end-column="66" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/example/AkkaQuickstart.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="225">
-          <caret line="46" column="16" lean-forward="true" selection-start-line="46" selection-start-column="16" selection-end-line="46" selection-end-column="16" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/events/EventCollector.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="555">
-          <caret line="93" column="21" lean-forward="true" selection-start-line="93" selection-start-column="21" selection-end-line="93" selection-end-column="21" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/SpecActorHarness.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="645">
-          <caret line="54" column="110" selection-start-line="54" selection-start-column="110" selection-end-line="54" selection-end-column="110" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/system/EquipmentSimulationHarness2.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="270">
-          <caret line="27" lean-forward="true" selection-start-line="27" selection-end-line="27" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/ddes/SimActorSpec.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="52" column="29" selection-start-line="52" selection-start-column="29" selection-end-line="52" selection-end-column="29" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/resource/UseState.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="25" column="23" lean-forward="true" selection-start-line="25" selection-start-column="23" selection-end-line="25" selection-end-column="23" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/Discharge.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="255">
-          <caret line="28" column="41" lean-forward="true" selection-start-line="28" selection-start-column="41" selection-end-line="28" selection-end-column="41" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundSpec.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="322">
-          <caret line="23" column="56" selection-start-line="23" selection-start-column="56" selection-end-line="23" selection-end-column="56" />
-          <folding>
-            <element signature="n#!!doc" expanded="true" />
-            <element signature="e#116#164#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/StepProcessor.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="255">
@@ -1492,20 +1337,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="645">
           <caret line="117" column="53" selection-start-line="117" selection-start-column="53" selection-end-line="117" selection-end-column="53" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/Tray.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="75">
-          <caret line="7" column="37" selection-start-line="7" selection-start-column="37" selection-end-line="7" selection-end-column="37" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/Geography.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="285">
-          <caret line="26" column="76" lean-forward="true" selection-start-line="26" selection-start-column="76" selection-end-line="26" selection-end-column="76" />
         </state>
       </provider>
     </entry>
@@ -1551,13 +1382,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="667">
-          <caret line="47" column="68" selection-start-line="47" selection-start-column="68" selection-end-line="47" selection-end-column="68" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/generic/Source.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="285">
@@ -1586,17 +1410,10 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutorSpec.scala">
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/elements/MaterialChannelUnidirectionalSpec.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2190">
-          <caret line="160" column="35" selection-start-line="160" selection-start-column="35" selection-end-line="160" selection-end-column="35" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2730">
-          <caret line="193" column="71" selection-start-line="193" selection-start-column="71" selection-end-line="193" selection-end-column="71" />
+        <state relative-caret-position="1635">
+          <caret line="123" column="47" selection-start-line="123" selection-start-column="47" selection-end-line="123" selection-end-column="47" />
         </state>
       </provider>
     </entry>
@@ -1646,23 +1463,6 @@
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="1425">
           <caret line="104" column="15" selection-start-line="104" selection-start-column="15" selection-end-line="104" selection-end-column="15" />
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutor.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1498">
-          <caret line="160" column="58" selection-start-line="160" selection-start-column="58" selection-end-line="160" selection-end-column="58" />
-          <folding>
-            <element signature="n#!!doc" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/elements/MaterialChannelUnidirectionalSpec.scala">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1635">
-          <caret line="123" column="47" selection-start-line="123" selection-start-column="47" selection-end-line="123" selection-end-column="47" />
         </state>
       </provider>
     </entry>
@@ -1717,7 +1517,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/ddes/GatewaySpec.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="635">
+        <state relative-caret-position="1350">
           <caret line="99" column="54" selection-start-line="99" selection-start-column="54" selection-end-line="99" selection-end-column="54" />
           <folding>
             <element signature="n#!!doc" expanded="true" />
@@ -1732,10 +1532,177 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutorSpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="2190">
+          <caret line="160" column="35" selection-start-line="160" selection-start-column="35" selection-end-line="160" selection-end-column="35" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundCmdDelaySpec.scala">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="225">
-          <caret line="27" column="57" selection-start-line="27" selection-start-column="57" selection-end-line="27" selection-end-column="57" />
+          <caret line="31" column="57" selection-start-line="31" selection-start-column="57" selection-end-line="31" selection-end-column="57" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/shuttle/ShuttleAisleExecutor.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="713">
+          <caret line="160" column="58" selection-start-line="160" selection-start-column="58" selection-end-line="160" selection-end-column="58" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/events/DummyEventType.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="60">
+          <caret line="6" column="7" selection-start-line="6" selection-start-column="7" selection-end-line="6" selection-end-column="7" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/CarriagePhysics.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="90">
+          <caret line="8" column="29" selection-start-line="8" selection-start-column="29" selection-end-line="8" selection-end-column="29" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/test/utils/BaseSpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="30">
+          <caret line="4" column="34" selection-start-line="4" selection-start-column="34" selection-end-line="4" selection-end-column="34" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/DirectedChannel.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="11" column="22" lean-forward="true" selection-start-line="11" selection-start-column="22" selection-end-line="11" selection-end-column="22" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/elements/XSwitchTransfer.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="570">
+          <caret line="38" column="43" lean-forward="true" selection-start-line="38" selection-start-column="43" selection-end-line="38" selection-end-column="43" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#196#222#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/lift/LiftExecutor.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-147">
+          <caret line="80" column="56" selection-start-line="80" selection-start-column="56" selection-end-line="80" selection-end-column="56" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#192#227#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/randomVariables/DistributionsSpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="105">
+          <caret line="10" column="6" selection-start-line="10" selection-start-column="6" selection-end-line="10" selection-end-column="6" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularSorterSingleTaskSpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1055">
+          <caret line="143" column="5" selection-start-line="32" selection-end-line="143" selection-end-column="5" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/lift/LiftExecutorInboundSpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="75">
+          <caret line="5" selection-start-line="2" selection-start-column="3" selection-end-line="5" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/base/AbstractChannel.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="135">
+          <caret line="11" column="46" selection-start-line="11" selection-start-column="46" selection-end-line="11" selection-end-column="46" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/Tray.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="165">
+          <caret line="15" column="36" selection-start-line="15" selection-start-column="36" selection-end-line="15" selection-end-column="36" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/TaggedGeography.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="201">
+          <caret line="18" column="26" selection-start-line="18" selection-start-column="26" selection-end-line="18" selection-end-column="26" />
+          <folding>
+            <element signature="e#109#151#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/physics/Geography.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="448">
+          <caret line="46" column="43" lean-forward="true" selection-start-line="46" selection-start-column="43" selection-end-line="46" selection-end-column="43" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysicsSpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="553">
+          <caret line="40" column="22" selection-start-line="40" selection-start-column="22" selection-end-line="40" selection-end-column="22" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#202#268#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularSorterExecution.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="391">
+          <caret line="66" column="33" selection-start-line="66" selection-start-column="33" selection-end-line="66" selection-end-column="33" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+            <element signature="e#126#152#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/test/scala/com/saldubatech/physics/GeographySpec.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="180">
+          <caret line="12" lean-forward="true" selection-start-line="12" selection-end-line="12" />
+          <folding>
+            <element signature="n#!!doc" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/com/saldubatech/equipment/circularsorter/CircularPathPhysics.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="256">
+          <caret line="29" column="37" selection-start-line="29" selection-start-column="37" selection-end-line="29" selection-end-column="37" />
         </state>
       </provider>
     </entry>

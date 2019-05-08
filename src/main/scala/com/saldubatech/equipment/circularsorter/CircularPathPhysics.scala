@@ -6,52 +6,59 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.circularsorter
 
+import com.saldubatech.physics.Geography.{ClosedPathGeography, ClosedPathPoint, LinearPoint}
+
 object CircularPathPhysics {
-		class CloserIndex(physics: CircularPathPhysics, position: Long) extends Ordering[Tray] {
-			override def compare(x: Tray, y: Tray): Int = {
-				(physics.distance(x.number, position) - physics.distance(y.number, position)).toInt
-			}
-		}
+	def apply(
+		         nTrays: Int,
+		         speed: Int,
+		         trayLength: Int,
+		         tray0Location: Int): CircularPathPhysics =
+		new CircularPathPhysics(nTrays, speed, trayLength, tray0Location)
+
+	class CloserIndex(physics: CircularPathPhysics, position: Long) extends Ordering[ClosedPathPoint] {
+		override def compare(x: ClosedPathPoint, y: ClosedPathPoint): Int = physics.distance(x, y).toInt
+	}
 }
 
 class CircularPathPhysics(val nTrays: Int,
                           speed: Int, // positions/tick
-                          tray0Location: Int,
-                          val timeToLoad : Long,
-                          val timeToDischarge: Long
-                         ) {
-	private var tray0Index: Long = tray0Location
+                          trayLength: Int,
+                          tray0Location: Int)
+	extends ClosedPathGeography(nTrays) {
+	import com.saldubatech.physics.Geography._
+
+	private var tray0Offset: Long = tray0Location
 	private var asOf: Long = 0
+	def currentTime: Long = asOf
 
 	def updateLocation(at: Long): Long = {
-		tray0Index = (tray0Index + distanceTraveled(at - asOf)) % nTrays
+		assert(at > asOf, "Time cannot go backwards")
+		// Calculation done always from origin of time to avoid accumulation of rounding errors
+		tray0Offset = (tray0Location + distanceTraveled(at)/trayLength) % nTrays
 		asOf = at
-		tray0Index
+		tray0Offset
 	}
 
-	def indexForElement(element: Long): Long = {
+	def indexForElement(element: Int): ClosedPathPoint = {
 		assert(element < nTrays, s"Index $element is bigger than the number of trays: $nTrays")
-		(element+tray0Index)%nTrays
+		new ClosedPathPoint(element+tray0Offset)
 	}
 
-	def elementAtIndex(index: Long): Long = {
-		assert(index < tray0Index+nTrays && index > tray0Index, "Tray Index is out of range")
-		val d = index - tray0Index
-		if(d > 0) d else d + nTrays
+	def pointAtIndex(index: ClosedPathPoint): ClosedPathPoint =  {
+		new ClosedPathPoint(index - tray0Offset)
 	}
 
-	def distance(fromIndex: Long, toIndex: Long): Long = {
-		assert(fromIndex < tray0Index+nTrays && fromIndex > tray0Index, "from Tray Index is out of range")
-		assert(toIndex < tray0Index+nTrays && toIndex > tray0Index, "to Tray Index is out of range")
-		val d = toIndex - fromIndex
-		if(d > 0) d else d + nTrays
+	def estimateElapsed(fromIndex: ClosedPathPoint, toIndex: ClosedPathPoint): Long = {
+		Math.round(trayLength*distance(fromIndex, toIndex).toDouble/speed.toDouble)
 	}
-	def estimateElapsed(fromIndex: Long, toIndex: Long): Long = {
-		Math.round(distance(fromIndex, toIndex).toDouble/speed.toDouble)
-	}
-	def estimateElapsedFromNumber(fromNumber: Long, toIndex: Long): Long = {
+	def estimateElapsedFromNumber(fromNumber: Int, toIndex: ClosedPathPoint): Long = {
 		estimateElapsed(indexForElement(fromNumber), toIndex)
 	}
 

@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
@@ -13,6 +17,7 @@ import com.saldubatech.base._
 import com.saldubatech.ddes.SimActorMixIn
 import com.saldubatech.ddes.SimActorMixIn.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
+import com.saldubatech.physics.{Geography, TaggedGeography}
 import com.saldubatech.utils.Boxer._
 
 object XSwitchTransfer {
@@ -22,7 +27,7 @@ object XSwitchTransfer {
 	P <: Geography.Point[P]	]
 	(host: ProcessorHelper.ProcessorHelperI[C, R],
 	 physics: CarriagePhysics,
-	 geography: Geography[DirectedChannel.Endpoint[Material], P],
+	 geography: TaggedGeography[DirectedChannel.Endpoint[Material], P],
 	 initialLevel: DirectedChannel.Endpoint[Material],
 	): XSwitchTransfer[C, R, P] = {
 		new XSwitchTransfer[C,R,P](physics, geography, initialLevel)(host)
@@ -38,7 +43,7 @@ class XSwitchTransfer[
 C <: XSwitchTransfer.RouteExecutionCommand,
 R <: Processor.ExecutionResource,
 P <: Geography.Point[P]](physics: CarriagePhysics,
-                      geography: Geography[DirectedChannel.Endpoint[Material], P],
+                      geography: TaggedGeography[DirectedChannel.Endpoint[Material], P],
                       initialLevel: DirectedChannel.Endpoint[Material])(implicit host: ProcessorHelper.ProcessorSupport[C]) {
 	import XSwitchTransfer._
 
