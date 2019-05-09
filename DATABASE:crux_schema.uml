@@ -3,159 +3,159 @@
   <ID>DATABASE</ID>
   <OriginalElement>f633db6c-aedf-4268-b811-6ea6720a3a77.DATABASE:crux_schema</OriginalElement>
   <nodes>
-    <node x="2997.274746707193" y="0.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.products</node>
-    <node x="1636.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.api_requests</node>
-    <node x="364.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_stagings</node>
-    <node x="1770.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.user_container_notes</node>
+    <node x="3008.041248733536" y="0.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.products</node>
+    <node x="0.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_stagings</node>
     <node x="1324.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_requests</node>
-    <node x="1157.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.plan_groups</node>
-    <node x="661.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results</node>
-    <node x="3186.289551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.messages</node>
-    <node x="1309.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.vessels</node>
-    <node x="395.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results_201809</node>
-    <node x="1480.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_plans</node>
-    <node x="998.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.delayed_jobs</node>
-    <node x="3552.289551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.invalid_containers</node>
-    <node x="2027.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.schema_migrations</node>
-    <node x="2336.6967958459973" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_containers</node>
-    <node x="31.5" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_calls</node>
-    <node x="1443.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results_archives</node>
-    <node x="617.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_services</node>
-    <node x="2711.539551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_events</node>
-    <node x="3014.539551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports</node>
-    <node x="790.3446808510629" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_apis</node>
-    <node x="0.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_containers</node>
-    <node x="808.9999999999999" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_events</node>
-    <node x="218.5" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.phone_numbers</node>
-    <node x="2514.539551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_webhooks</node>
-    <node x="2554.6967958459973" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.message_containers</node>
-    <node x="264.969680851063" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis</node>
-    <node x="3295.289551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.saved_searches</node>
-    <node x="811.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.vessel_positions</node>
-    <node x="2873.539551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.subscriptions</node>
-    <node x="1437.5" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_tags</node>
-    <node x="3338.9616008105363" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_invalid_containers</node>
-    <node x="2997.274746707193" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.plans</node>
-    <node x="3443.289551671732" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.emails</node>
-    <node x="963.9999999999999" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_events</node>
-    <node x="548.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminals</node>
-    <node x="3189.3580800405266" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users</node>
-    <node x="1756.0" y="625.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_call_histories_archives</node>
-    <node x="247.19679584599726" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_histories</node>
-    <node x="247.19679584599726" y="532.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_terminals</node>
-    <node x="2223.083333333333" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.metaobjects</node>
-    <node x="197.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_logs</node>
-    <node x="2493.4030141843964" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations</node>
-    <node x="1156.903267477203" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results</node>
-    <node x="0.0" y="723.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_call_histories</node>
-    <node x="208.0" y="723.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.pending_messages</node>
+    <node x="1157.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.plan_groups</node>
+    <node x="816.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results</node>
+    <node x="3190.047175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.messages</node>
+    <node x="1309.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.vessels</node>
+    <node x="395.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results_201809</node>
+    <node x="350.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_containers</node>
+    <node x="1723.4083333333335" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_plans</node>
+    <node x="998.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.delayed_jobs</node>
+    <node x="2518.297175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_webhooks</node>
+    <node x="2027.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.schema_migrations</node>
+    <node x="2288.3482396149957" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_containers</node>
+    <node x="31.5" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_calls</node>
+    <node x="2224.4083333333338" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.metaobjects</node>
+    <node x="2715.297175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_events</node>
+    <node x="1574.5638424518745" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers</node>
+    <node x="3018.297175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports</node>
+    <node x="876.1138424518742" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_apis</node>
+    <node x="1878.4083333333335" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.user_container_notes</node>
+    <node x="661.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_events</node>
+    <node x="3556.047175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.invalid_containers</node>
+    <node x="1443.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results_archives</node>
+    <node x="218.5" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.phone_numbers</node>
+    <node x="2575.5982396149952" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.message_containers</node>
+    <node x="259.23884245187423" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis</node>
+    <node x="2409.297175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.tags</node>
+    <node x="811.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.vessel_positions</node>
+    <node x="3352.854166666667" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_invalid_containers</node>
+    <node x="1928.0982396149955" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_tags</node>
+    <node x="2877.297175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.subscriptions</node>
+    <node x="3008.041248733536" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.plans</node>
+    <node x="3447.047175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.emails</node>
+    <node x="964.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_events</node>
+    <node x="3200.12458206687" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users</node>
     <node x="1119.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results_retired</node>
-    <node x="1597.5" y="434.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers</node>
-    <node x="1564.969680851063" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers</node>
-    <node x="2350.083333333333" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.tags</node>
-    <node x="2068.083333333333" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.widget_requests</node>
+    <node x="1756.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_call_histories_archives</node>
+    <node x="232.83333333333326" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_histories</node>
+    <node x="232.83333333333326" y="542.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_terminals</node>
+    <node x="3299.047175785208" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.saved_searches</node>
+    <node x="548.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminals</node>
+    <node x="183.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_logs</node>
+    <node x="2469.797175785208" y="98.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations</node>
+    <node x="0.0" y="733.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_call_histories</node>
+    <node x="208.0" y="733.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.pending_messages</node>
+    <node x="1176.9958333333332" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results</node>
+    <node x="1445.7912487335366" y="444.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers</node>
+    <node x="617.0" y="635.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_services</node>
+    <node x="1480.0" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.api_requests</node>
+    <node x="2069.4083333333338" y="286.0">f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.widget_requests</node>
   </nodes>
   <notes />
   <edges>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="33.75" y="-24.0" />
       <point x="1065.25" y="216.0" />
-      <point x="1574.969680851063" y="216.0" />
+      <point x="1584.5638424518745" y="216.0" />
       <point x="-40.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.widget_requests" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="33.75" y="-24.0" />
-      <point x="2169.333333333333" y="236.0" />
-      <point x="2500.9655141843964" y="236.0" />
+      <point x="2170.6583333333338" y="236.0" />
+      <point x="2477.359675785208" y="236.0" />
       <point x="-52.9375" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminals" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_apis">
       <point x="0.0" y="-24.0" />
-      <point x="594.5" y="256.0" />
-      <point x="805.4696808510629" y="256.0" />
+      <point x="594.5" y="186.0" />
+      <point x="891.2388424518742" y="186.0" />
       <point x="-45.375" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results_retired" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="46.0" y="-24.0" />
       <point x="1257.0" y="226.0" />
-      <point x="1581.6363475177297" y="226.0" />
+      <point x="1591.2305091185412" y="226.0" />
       <point x="-33.33333333333326" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.metaobjects" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="26.75" y="-24.0" />
-      <point x="2303.333333333333" y="246.0" />
-      <point x="2516.0905141843964" y="246.0" />
+      <point x="2304.6583333333338" y="246.0" />
+      <point x="2492.484675785208" y="246.0" />
       <point x="-37.8125" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="0.0" y="-24.0" />
-      <point x="1259.403267477203" y="414.0" />
-      <point x="1313.5" y="414.0" />
+      <point x="1279.4958333333332" y="424.0" />
+      <point x="1313.5" y="424.0" />
       <point x="1313.5" y="236.0" />
-      <point x="1588.3030141843963" y="236.0" />
+      <point x="1597.8971757852078" y="236.0" />
       <point x="-26.666666666666742" y="24.0" />
-    </edge>
-    <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
-      <point x="-33.75" y="-24.0" />
-      <point x="842.7499999999999" y="246.0" />
-      <point x="409.8268237082061" y="246.0" />
-      <point x="66.85714285714312" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_requests" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="0.0" y="-24.0" />
       <point x="1391.5" y="246.0" />
-      <point x="1594.969680851063" y="246.0" />
+      <point x="1604.5638424518745" y="246.0" />
       <point x="-20.0" y="24.0" />
+    </edge>
+    <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
+      <point x="-33.75" y="-24.0" />
+      <point x="694.75" y="176.0" />
+      <point x="404.0959853090171" y="176.0" />
+      <point x="66.85714285714289" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_invalid_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.invalid_containers">
       <point x="63.5" y="-24.0" />
-      <point x="3529.4616008105363" y="414.0" />
-      <point x="3630.289551671732" y="414.0" />
+      <point x="3543.354166666667" y="424.0" />
+      <point x="3634.047175785208" y="424.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_invalid_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports">
       <point x="-63.5" y="-24.0" />
-      <point x="3402.4616008105363" y="404.0" />
-      <point x="3115.3728850050657" y="404.0" />
-      <point x="40.33333333333337" y="24.0" />
+      <point x="3416.354166666667" y="414.0" />
+      <point x="3119.1305091185413" y="414.0" />
+      <point x="40.333333333333485" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="-38.200000000000045" y="-24.0" />
-      <point x="1654.7999999999997" y="364.0" />
-      <point x="1625.5" y="364.0" />
-      <point x="1625.5" y="266.0" />
-      <point x="1614.969680851063" y="266.0" />
-      <point x="0.0" y="24.0" />
+      <point x="1503.0912487335365" y="414.0" />
+      <point x="1469.5" y="414.0" />
+      <point x="1469.5" y="256.0" />
+      <point x="1611.2305091185412" y="256.0" />
+      <point x="-13.333333333333258" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_apis">
       <point x="0.0" y="-24.0" />
-      <point x="725.0" y="266.0" />
-      <point x="835.7196808510629" y="266.0" />
+      <point x="880.0" y="196.0" />
+      <point x="921.4888424518742" y="196.0" />
       <point x="-15.125" y="24.0" />
+    </edge>
+    <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
+      <point x="-47.333333333333485" y="-24.0" />
+      <point x="2738.9638424518744" y="196.0" />
+      <point x="1671.2305091185412" y="196.0" />
+      <point x="46.66666666666674" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
       <point x="0.0" y="-24.0" />
-      <point x="88.5" y="256.0" />
-      <point x="276.11253799392034" y="256.0" />
-      <point x="-66.85714285714266" y="24.0" />
-    </edge>
-    <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
-      <point x="-47.33333333333337" y="-24.0" />
-      <point x="2735.2062183383987" y="196.0" />
-      <point x="1661.6363475177295" y="196.0" />
-      <point x="46.666666666666515" y="24.0" />
+      <point x="438.5" y="266.0" />
+      <point x="359.52455673758845" y="266.0" />
+      <point x="22.285714285714334" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.emails" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users">
       <point x="0.0" y="-24.0" />
-      <point x="3487.789551671732" y="246.0" />
-      <point x="3270.94141337386" y="246.0" />
-      <point x="37.08333333333326" y="24.0" />
+      <point x="3491.547175785208" y="256.0" />
+      <point x="3281.707915400203" y="256.0" />
+      <point x="37.083333333333485" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_stagings" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
       <point x="0.0" y="-24.0" />
-      <point x="445.5" y="266.0" />
-      <point x="365.2553951367772" y="266.0" />
-      <point x="22.28571428571422" y="24.0" />
+      <point x="81.5" y="256.0" />
+      <point x="270.38169959473134" y="256.0" />
+      <point x="-66.85714285714289" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_terminals" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_histories">
       <point x="0.0" y="-24.0" />
@@ -163,83 +163,85 @@
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.api_requests">
       <point x="0.0" y="-24.0" />
+      <point x="1541.2912487335366" y="424.0" />
+      <point x="1537.0" y="424.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_tags" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.tags">
       <point x="32.0" y="-24.0" />
-      <point x="1533.5" y="374.0" />
-      <point x="2394.583333333333" y="374.0" />
+      <point x="2024.0982396149955" y="394.0" />
+      <point x="2453.797175785208" y="394.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users">
       <point x="30.25" y="-24.0" />
-      <point x="3105.289551671732" y="256.0" />
-      <point x="3211.6080800405266" y="256.0" />
+      <point x="3109.047175785208" y="256.0" />
+      <point x="3222.37458206687" y="256.0" />
       <point x="-22.25" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="-30.25" y="-24.0" />
-      <point x="3044.789551671732" y="166.0" />
-      <point x="2606.8405141843964" y="166.0" />
+      <point x="3048.547175785208" y="166.0" />
+      <point x="2583.234675785208" y="166.0" />
       <point x="52.9375" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.user_container_notes" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="0.0" y="-24.0" />
-      <point x="1855.0" y="246.0" />
-      <point x="1628.3030141843965" y="246.0" />
-      <point x="13.333333333333485" y="24.0" />
+      <point x="1963.4083333333335" y="236.0" />
+      <point x="1644.5638424518745" y="236.0" />
+      <point x="20.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="-49.5" y="-24.0" />
-      <point x="2386.1967958459973" y="364.0" />
-      <point x="1950.5" y="364.0" />
-      <point x="1950.5" y="236.0" />
-      <point x="1634.969680851063" y="236.0" />
-      <point x="20.0" y="24.0" />
+      <point x="2337.8482396149957" y="364.0" />
+      <point x="1712.9083333333335" y="364.0" />
+      <point x="1712.9083333333335" y="256.0" />
+      <point x="1631.2305091185412" y="256.0" />
+      <point x="6.6666666666667425" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports">
       <point x="49.5" y="-24.0" />
-      <point x="2485.1967958459973" y="404.0" />
-      <point x="3075.039551671732" y="404.0" />
+      <point x="2436.8482396149957" y="414.0" />
+      <point x="3078.797175785208" y="414.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="0.0" y="-24.0" />
-      <point x="2782.539551671732" y="186.0" />
-      <point x="2576.5905141843964" y="186.0" />
+      <point x="2786.297175785208" y="186.0" />
+      <point x="2552.984675785208" y="186.0" />
       <point x="22.6875" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_requests">
-      <point x="-76.39999999999986" y="-24.0" />
-      <point x="1616.6" y="364.0" />
-      <point x="1425.25" y="364.0" />
+      <point x="-76.40000000000009" y="-24.0" />
+      <point x="1464.8912487335365" y="424.0" />
+      <point x="1425.25" y="424.0" />
       <point x="33.75" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_logs" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
       <point x="0.0" y="-24.0" />
-      <point x="264.5" y="266.0" />
-      <point x="298.39825227963456" y="266.0" />
-      <point x="-44.57142857142844" y="24.0" />
+      <point x="250.5" y="266.0" />
+      <point x="292.6674138804458" y="266.0" />
+      <point x="-44.571428571428555" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_histories" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
-      <point x="56.666666666666515" y="-24.0" />
-      <point x="388.8634625126638" y="414.0" />
-      <point x="353.5" y="414.0" />
-      <point x="353.5" y="256.0" />
-      <point x="342.969680851063" y="256.0" />
+      <point x="56.66666666666674" y="-24.0" />
+      <point x="374.5" y="424.0" />
+      <point x="339.5" y="424.0" />
+      <point x="339.5" y="266.0" />
+      <point x="337.23884245187423" y="266.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.metaobjects" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="-26.75" y="-24.0" />
-      <point x="2249.833333333333" y="206.0" />
-      <point x="1654.969680851063" y="206.0" />
+      <point x="2251.1583333333338" y="206.0" />
+      <point x="1664.5638424518745" y="206.0" />
       <point x="40.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_plans" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="0.0" y="-24.0" />
-      <point x="1547.5" y="266.0" />
-      <point x="1608.3030141843965" y="266.0" />
-      <point x="-6.666666666666515" y="24.0" />
+      <point x="1790.9083333333335" y="246.0" />
+      <point x="1637.8971757852078" y="246.0" />
+      <point x="13.333333333333258" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.plans" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.products">
       <point x="0.0" y="-24.0" />
@@ -247,8 +249,8 @@
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.subscriptions" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.plans">
       <point x="30.25" y="-24.0" />
-      <point x="2964.289551671732" y="236.0" />
-      <point x="3041.774746707193" y="236.0" />
+      <point x="2968.047175785208" y="236.0" />
+      <point x="3052.541248733536" y="236.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.pending_messages" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.phone_numbers">
@@ -256,68 +258,70 @@
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_requests">
-      <point x="68.33333333333348" y="-24.0" />
-      <point x="1327.7366008105364" y="414.0" />
-      <point x="1357.75" y="414.0" />
+      <point x="68.33333333333326" y="-24.0" />
+      <point x="1347.8291666666664" y="424.0" />
+      <point x="1357.75" y="424.0" />
       <point x="-33.75" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_api_results" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_line_apis">
-      <point x="-68.33333333333348" y="-24.0" />
-      <point x="1191.0699341438694" y="414.0" />
-      <point x="537.5" y="414.0" />
+      <point x="-68.33333333333326" y="-24.0" />
+      <point x="1211.1625" y="424.0" />
+      <point x="537.5" y="424.0" />
       <point x="537.5" y="256.0" />
-      <point x="387.54110942249145" y="256.0" />
-      <point x="44.57142857142844" y="24.0" />
+      <point x="381.8102710233029" y="256.0" />
+      <point x="44.57142857142867" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.saved_searches" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users">
       <point x="0.0" y="-24.0" />
-      <point x="3359.289551671732" y="256.0" />
-      <point x="3256.1080800405266" y="256.0" />
+      <point x="3363.047175785208" y="266.0" />
+      <point x="3266.87458206687" y="266.0" />
       <point x="22.25" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_webhooks" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="0.0" y="-24.0" />
-      <point x="2603.039551671732" y="266.0" />
-      <point x="2561.4655141843964" y="266.0" />
+      <point x="2606.797175785208" y="266.0" />
+      <point x="2537.859675785208" y="266.0" />
       <point x="7.5625" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_tags" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="-32.0" y="-24.0" />
-      <point x="1469.5" y="256.0" />
-      <point x="1601.6363475177295" y="256.0" />
-      <point x="-13.333333333333485" y="24.0" />
+      <point x="1960.0982396149955" y="374.0" />
+      <point x="1626.8250000000003" y="374.0" />
+      <point x="1626.8250000000003" y="266.0" />
+      <point x="1624.5638424518745" y="266.0" />
+      <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_histories" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.fleet_file_logs">
-      <point x="-56.666666666666515" y="-24.0" />
-      <point x="275.53012917933074" y="414.0" />
-      <point x="264.5" y="414.0" />
+      <point x="-56.66666666666663" y="-24.0" />
+      <point x="261.16666666666674" y="424.0" />
+      <point x="250.5" y="424.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="38.200000000000045" y="-24.0" />
-      <point x="1731.1999999999998" y="384.0" />
-      <point x="2504.039551671732" y="384.0" />
-      <point x="2504.039551671732" y="266.0" />
-      <point x="2546.3405141843964" y="266.0" />
-      <point x="-7.5625" y="24.0" />
+      <point x="1579.4912487335366" y="384.0" />
+      <point x="2341.9083333333338" y="384.0" />
+      <point x="2341.9083333333338" y="256.0" />
+      <point x="2507.609675785208" y="256.0" />
+      <point x="-22.6875" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.api_requests" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="0.0" y="-24.0" />
-      <point x="1693.0" y="256.0" />
-      <point x="1621.6363475177295" y="256.0" />
-      <point x="6.666666666666515" y="24.0" />
+      <point x="1537.0" y="266.0" />
+      <point x="1617.8971757852078" y="266.0" />
+      <point x="-6.6666666666667425" y="24.0" />
+    </edge>
+    <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.messages" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users">
+      <point x="-22.25" y="-24.0" />
+      <point x="3212.297175785208" y="266.0" />
+      <point x="3237.207915400203" y="266.0" />
+      <point x="-7.416666666666515" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.search_results_retired" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_apis">
       <point x="-46.0" y="-24.0" />
       <point x="1165.0" y="186.0" />
-      <point x="896.2196808510629" y="186.0" />
+      <point x="981.9888424518742" y="186.0" />
       <point x="45.375" y="24.0" />
-    </edge>
-    <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.messages" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users">
-      <point x="-22.25" y="-24.0" />
-      <point x="3208.539551671732" y="266.0" />
-      <point x="3226.44141337386" y="266.0" />
-      <point x="-7.4166666666667425" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_call_histories" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.port_calls">
       <point x="0.0" y="-24.0" />
@@ -325,62 +329,62 @@
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.widget_requests" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="-33.75" y="-24.0" />
-      <point x="2101.833333333333" y="216.0" />
-      <point x="1648.3030141843965" y="216.0" />
-      <point x="33.333333333333485" y="24.0" />
+      <point x="2103.1583333333338" y="216.0" />
+      <point x="1657.8971757852078" y="216.0" />
+      <point x="33.33333333333326" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organization_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.batch_imports">
       <point x="76.40000000000009" y="-24.0" />
-      <point x="1769.4" y="394.0" />
-      <point x="3034.7062183383987" y="394.0" />
-      <point x="-40.33333333333337" y="24.0" />
+      <point x="1617.6912487335367" y="404.0" />
+      <point x="3038.4638424518744" y="404.0" />
+      <point x="-40.333333333333485" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.terminal_apis">
       <point x="-33.75" y="-24.0" />
-      <point x="997.7499999999999" y="196.0" />
-      <point x="865.9696808510629" y="196.0" />
+      <point x="997.75" y="196.0" />
+      <point x="951.7388424518742" y="196.0" />
       <point x="15.125" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.shipping_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="33.75" y="-24.0" />
-      <point x="910.2499999999999" y="206.0" />
-      <point x="1568.3030141843963" y="206.0" />
+      <point x="762.25" y="206.0" />
+      <point x="1577.8971757852078" y="206.0" />
       <point x="-46.66666666666674" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.container_events" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.users">
-      <point x="47.33333333333337" y="-24.0" />
-      <point x="2829.8728850050657" y="246.0" />
-      <point x="3196.774746707193" y="246.0" />
-      <point x="-37.08333333333326" y="24.0" />
+      <point x="47.333333333333485" y="-24.0" />
+      <point x="2833.6305091185413" y="246.0" />
+      <point x="3207.541248733536" y="246.0" />
+      <point x="-37.083333333333485" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.message_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.messages">
       <point x="39.0" y="-24.0" />
-      <point x="2671.6967958459973" y="414.0" />
-      <point x="3230.789551671732" y="414.0" />
+      <point x="2692.5982396149952" y="424.0" />
+      <point x="3234.547175785208" y="424.0" />
       <point x="0.0" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.subscriptions" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="-30.25" y="-24.0" />
-      <point x="2903.789551671732" y="176.0" />
-      <point x="2591.7155141843964" y="176.0" />
+      <point x="2907.547175785208" y="176.0" />
+      <point x="2568.109675785208" y="176.0" />
       <point x="37.8125" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.tags" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.organizations">
       <point x="0.0" y="-24.0" />
-      <point x="2394.583333333333" y="256.0" />
-      <point x="2531.2155141843964" y="256.0" />
-      <point x="-22.6875" y="24.0" />
+      <point x="2453.797175785208" y="266.0" />
+      <point x="2522.734675785208" y="266.0" />
+      <point x="-7.5625" y="24.0" />
     </edge>
     <edge source="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.message_containers" target="f633db6c-aedf-4268-b811-6ea6720a3a77.TABLE:crux_schema.public.containers">
       <point x="-39.0" y="-24.0" />
-      <point x="2593.6967958459973" y="354.0" />
-      <point x="2057.583333333333" y="354.0" />
-      <point x="2057.583333333333" y="226.0" />
-      <point x="1641.6363475177295" y="226.0" />
-      <point x="26.666666666666515" y="24.0" />
+      <point x="2614.5982396149952" y="354.0" />
+      <point x="2058.9083333333338" y="354.0" />
+      <point x="2058.9083333333338" y="226.0" />
+      <point x="1651.2305091185412" y="226.0" />
+      <point x="26.666666666666742" y="24.0" />
     </edge>
   </edges>
-  <settings layout="Hierarchic Group" zoom="1.2618689581095597" x="471.5" y="56.0" />
+  <settings layout="Hierarchic Group" zoom="1.2618689581095597" x="509.5" y="416.5" />
   <SelectedNodes />
   <Categories>
     <Category>Key columns</Category>

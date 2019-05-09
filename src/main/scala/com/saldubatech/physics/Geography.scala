@@ -6,13 +6,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
 
 package com.saldubatech.physics
 
@@ -38,6 +31,8 @@ object Geography {
 
 		final def <=(other: P): Boolean = !(this > other)
 		final def >=(other: P): Boolean = !(this < other)
+
+		override def toString: String = coord.toString
 	}
 	class LinearPoint(coord: Long) extends GenericLinearPoint[LinearPoint](coord) {
 		override def -(other: LinearPoint): Long =

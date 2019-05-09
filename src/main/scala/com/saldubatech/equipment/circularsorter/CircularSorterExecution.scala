@@ -6,11 +6,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.circularsorter
 
-import akka.actor.ActorRef
+import akka.actor.{ActorRef, Props}
 import com.saldubatech.physics.{Geography, TaggedGeography}
-import com.saldubatech.physics.Geography.{ClosedPathGeography, ClosedPathPoint}
+import com.saldubatech.physics.Geography.ClosedPathPoint
 import com.saldubatech.base.Processor.{ConfigureOwner, Task}
 import com.saldubatech.base.{DirectedChannel, Material, MultiProcessorHelper}
 import com.saldubatech.ddes.SimActor.Configuring
@@ -29,8 +33,8 @@ object CircularSorterExecution {
 	          discharges: List[DirectedChannel[Material]],
 	          geography: TaggedGeography[DirectedChannel.Endpoint[Material], ClosedPathPoint],
 	          physics: CircularPathPhysics
-	         )(implicit gw: Gateway): CircularSorterExecution =
-		new CircularSorterExecution(name, inducts, discharges, geography, physics)
+	         )(implicit gw: Gateway): ActorRef =
+		gw.simActorOf(Props(new CircularSorterExecution(name, inducts, discharges, geography, physics)), name)
 
 }
 
@@ -52,8 +56,13 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 			discharges.foreach(_.registerStart(this))
 	}
 
+	override protected def updateState(at: Long): Unit = {
+		physics.updateLocation(at)
+	}
+
 	private def commandReceiver(from: ActorRef, at: Long): Processing = {
-		case cmd: Transfer => receiveCommand(cmd, at)
+		case cmd: Transfer =>
+			receiveCommand(cmd, at)
 	}
 
 	override def process(from: ActorRef, at: Long): Processing =
@@ -73,7 +82,7 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 
 	private class CloserTrayCompare extends Ordering[Task[Transfer, Tray]] {
 		override def compare(x: Task[Transfer, Tray], y: Task[Transfer, Tray]): Int = {
-			(distance(x.resource.!, x.cmd.source) - distance(y.resource.!, y.cmd.source)).toInt
+			(distance(y.resource.!, y.cmd.source) - distance(x.resource.!, x.cmd.source)).toInt
 		}
 	}
 
@@ -81,12 +90,14 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 	                         availableMaterials: Map[Material, DirectedChannel.End[Material]],
 	                         at: Long): mutable.SortedSet[Task[Transfer, Tray]] = {
 		val result: mutable.SortedSet[Task[Transfer, Tray]] = mutable.SortedSet()(new CloserTrayCompare())
-		val empties: List[Tray] = trays.filter(_.isEmpty)
+		val empties: mutable.Set[Tray] = mutable.Set(trays.filter(_.isEmpty): _*)
 		for(c <- pendingCommands) {
 			for((m, v) <- availableMaterials) {
 				if(c.source == v) {
 					val t = empties.minBy(t => distance(t, v))
+					log.debug(s"Selecting Tray ${t.number} at ${physics.indexForElement(t.number)} to pick from $v located at ${geography.location(v)}")
 					result += Task(c, Map(m -> v), t.?)(at)
+					empties -= t
 				}
 			}
 		}
@@ -101,6 +112,7 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 
 	private case class Induct(task: Task[Transfer, Tray])
 	private case class Discharge(task: Task[Transfer, Tray])
+
 	override protected def localInitiateTask(task: Task[Transfer, Tray], at: Long): Unit = {
 		assert(task.resource isDefined, "Must have a Tray defined as resource")
 		task.resource.!.reserve
@@ -117,6 +129,7 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 			val timeToDischarge =
 				physics.estimateElapsedFromNumber(task.resource.!.number,
 					geography.location(task.cmd.destination))
+			log.debug(s"Going to discharge ${task.materials.head} using tray ${task.resource.!.number} with a delay of $timeToDischarge")
 			Discharge(task) ~> self in ((at, timeToDischarge))
 	}
 

@@ -5,6 +5,10 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 package com.saldubatech.base
 
 import akka.actor.ActorRef
@@ -24,7 +28,7 @@ object MultiProcessorHelper {
 		protected def localInitiateTask(task: Task[C, R], at: Long): Unit // Same
 		protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit // Same
 		protected def localFinalizeDelivery(cmdId: String, load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit
-
+		protected def updateState(at: Long): Unit
 	}
 
 	trait MultiProcessorSupport[C <: ExecutionCommand]
@@ -65,7 +69,8 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 	protected val currentTasks: mutable.Map[String, Task[C, R]] = mutable.Map.empty
 
 	override def receiveCommand(cmd: C, at: Long): Unit = {
-		log.debug(s"Receiving Command: $cmd")
+		log.debug(s"Multi-Processor Receiving Command: $cmd")
+		updateState(at)
 		pendingCommands += cmd
 		tryExecution(at)
 	}
@@ -73,8 +78,7 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 	private def tryExecution(at: Long): Unit = {
 		if (currentTasks.size < maxConcurrency) {
 			val nextTasks = localSelectNextTasks(pendingCommands.toList, availableMaterials.available, at)
-			while((nextTasks nonEmpty) && (currentTasks.size < maxConcurrency)) {
-				val nextTask = nextTasks.head
+			nextTasks.take(maxConcurrency - currentTasks.size) foreach { nextTask =>
 				currentTasks += nextTask.cmd.uid -> nextTask
 				localInitiateTask(nextTask, at)
 				notify(StartTask(nextTask.cmd.uid, nextTask.materials.keys.toSeq), at)
@@ -85,6 +89,7 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 	}
 
 	final override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
+		updateState(tick)
 		notify(ReceiveLoad(via, load), tick)
 		availableMaterials.add(load, via)
 		localReceiveMaterial(via, load, tick)
@@ -107,8 +112,10 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 	private val pendingDeliveries: mutable.Map[DirectedChannel.Start[Material], mutable.Queue[(Material, String)]] =
 		mutable.Map()
 
-	final override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit =
+	final override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {
+		updateState(tick)
 		tryDelivery(via, tick)
+	}
 
 	override def tryDelivery(cmdId: String, load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit = {
 		if(! pendingDeliveries.contains(via)) pendingDeliveries += via -> mutable.Queue()

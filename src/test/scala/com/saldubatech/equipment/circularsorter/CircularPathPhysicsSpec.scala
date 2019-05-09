@@ -9,6 +9,9 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 
 package com.saldubatech.equipment.circularsorter
 
@@ -67,9 +70,16 @@ class CircularPathPhysicsSpec extends BaseSpec {
 				underTest.distance(new ClosedPathPoint(10), new ClosedPathPoint(1)) shouldBe 3
 				underTest.estimateElapsed(1, 10) shouldBe 9*trayLength/speed
 			}
-			"Estimate the number of ticks requried for a tray with a number to go to a fixed index" in {
+			"Estimate the number of ticks required for a tray with a number to go to a fixed index" in {
 				val current0Index = underTest.indexForElement(0)
 				underTest.estimateElapsedFromNumber(4, 10) shouldBe ((10 - current0Index-4)%nTrays)*trayLength/speed
+			}
+			"Special Case" in {
+				val ut2 = CircularPathPhysics(12, 10, 40, 11)
+				ut2.updateLocation(360) shouldBe 5
+				ut2.indexForElement(1).coord shouldBe 6
+				ut2.distance(new ClosedPathPoint(6), new ClosedPathPoint(6)) shouldBe 0
+				ut2.indexForElement(9).coord shouldBe 2
 			}
 		}
 	}

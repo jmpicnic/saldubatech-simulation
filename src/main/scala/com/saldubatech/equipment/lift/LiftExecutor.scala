@@ -10,6 +10,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.lift
 
 import akka.actor.{ActorRef, Props}
@@ -103,6 +107,10 @@ class LiftExecutor(name: String,
 					initialLevel
 				)
 			)
+	}
+
+	override protected def updateState(at: Long): Unit = {
+		// Nothing to update for now.
 	}
 
 	def commandReceiver(from: ActorRef, at: Long): Processing = {

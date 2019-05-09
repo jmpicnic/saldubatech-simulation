@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.shuttle
 
 import akka.actor.{ActorRef, Props}
@@ -73,6 +77,10 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, ExecutionReso
 			Side.LEFT -> mutable.ArrayBuffer.tabulate[Option[Material]](aisleLength)(elem => initialInventory.get(LevelLocator(Side.LEFT, elem))),
 			Side.RIGHT -> mutable.ArrayBuffer.tabulate[Option[Material]](aisleLength)(elem => initialInventory.get(LevelLocator(Side.LEFT, elem)))
 		)
+
+	override protected def updateState(at: Long): Unit = {
+		// Nothing to update for now.
+	}
 
 	override def configure: Configuring = {
 		case ConfigureOwner(p_owner) =>
