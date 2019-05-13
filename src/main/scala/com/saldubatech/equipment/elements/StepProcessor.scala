@@ -6,11 +6,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
 import com.saldubatech.base.{AbstractChannel, Material}
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimMessage
 import com.saldubatech.events.OperationalEvent
 import com.saldubatech.utils.Boxer._

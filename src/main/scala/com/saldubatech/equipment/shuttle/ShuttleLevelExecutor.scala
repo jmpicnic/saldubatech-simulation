@@ -6,9 +6,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
 
 package com.saldubatech.equipment.shuttle
 
@@ -16,10 +13,10 @@ import akka.actor.{ActorRef, Props}
 import com.saldubatech.base.Aisle.{LevelLocator, Side}
 import com.saldubatech.base.Processor.{ConfigureOwner, ExecutionCommandImpl, ExecutionResource, Task}
 import com.saldubatech.base.{CarriagePhysics, DirectedChannel, Material, ProcessorHelper}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.{Processing, nullProcessing}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable
@@ -66,7 +63,7 @@ class ShuttleLevelExecutor(name: String,
                            initialPosition: LevelLocator = LevelLocator(Side.LEFT, 0),
                            initialInventory: Map[LevelLocator, Material] = Map.empty
                           )(implicit gw: Gateway)
-extends SimActor(name, gw)
+extends SimActorImpl(name, gw)
 with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, ExecutionResource] {
 	import ShuttleLevelExecutor._
 
@@ -78,9 +75,8 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, ExecutionReso
 			Side.RIGHT -> mutable.ArrayBuffer.tabulate[Option[Material]](aisleLength)(elem => initialInventory.get(LevelLocator(Side.LEFT, elem)))
 		)
 
-	override protected def updateState(at: Long): Unit = {
+	override protected def updateState(at: Long): Unit = {}
 		// Nothing to update for now.
-	}
 
 	override def configure: Configuring = {
 		case ConfigureOwner(p_owner) =>
@@ -114,9 +110,8 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, ExecutionReso
 		}
 	}
 
-	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
+	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit =
 		assert(via == inboundEndpoint, "Can only receive loads through the inbound endpoint")
-	}
 
 	override protected def localSelectNextExecution(pendingCommands: List[ShuttleLevelExecutor.StorageExecutionCommand],
 	                                                availableMaterials: Map[Material, DirectedChannel.End[Material]],

@@ -9,6 +9,10 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 package com.saldubatech.base
 
 import akka.actor.ActorRef
@@ -88,7 +92,7 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 		}
 	}
 
-	final override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
+	final override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 		updateState(tick)
 		notify(ReceiveLoad(via, load), tick)
 		availableMaterials.add(load, via)
@@ -112,7 +116,7 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 	private val pendingDeliveries: mutable.Map[DirectedChannel.Start[Material], mutable.Queue[(Material, String)]] =
 		mutable.Map()
 
-	final override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {
+	final override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {
 		updateState(tick)
 		tryDelivery(via, tick)
 	}
@@ -158,6 +162,5 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C,R]
 
 		private[MultiProcessorHelper] def add(load: Material, via: DirectedChannel.End[Material]): Unit =
 			availableMaterials += load -> via
-
 	}
 }

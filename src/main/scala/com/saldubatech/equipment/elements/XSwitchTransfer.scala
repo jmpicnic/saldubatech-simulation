@@ -6,16 +6,12 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
 import com.saldubatech.base._
-import com.saldubatech.ddes.SimActorMixIn
-import com.saldubatech.ddes.SimActorMixIn.{Processing, nullProcessing}
+import com.saldubatech.ddes.SimActor
+import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.physics.{Geography, TaggedGeography}
 import com.saldubatech.utils.Boxer._
@@ -34,8 +30,12 @@ object XSwitchTransfer {
 	}
 	class RouteExecutionCommand(name: Option[String] = java.util.UUID.randomUUID().toString.?) extends Processor.ExecutionCommandImpl
 
-	case class Transfer(source: DirectedChannel.End[Material], destination: DirectedChannel.Start[Material])
-		extends RouteExecutionCommand
+	case class Transfer(source: DirectedChannel.End[Material], destination: DirectedChannel.Start[Material], loadId: Option[String])
+		extends RouteExecutionCommand {
+		def isSource(other: DirectedChannel.End[Material]): Boolean = source == other
+		def isDestination(other: DirectedChannel.Start[Material]): Boolean = destination == other
+		def isLoad(other: Material): Boolean = loadId.isEmpty || loadId.head == other.uid
+	}
 
 }
 
@@ -71,10 +71,11 @@ P <: Geography.Point[P]](physics: CarriagePhysics,
 	private var stage: Stage.Value = Stage.WAIT
 	private var currentLevel = initialLevel
 
-	def initiateCmd(cmd: RouteExecutionCommand, load: Material, at: Long)(implicit host: SimActorMixIn): Unit = {
+	def initiateCmd(cmd: RouteExecutionCommand, load: Material, at: Long)(implicit host: SimActor): Unit = {
 		stage = Stage.PICKUP
 		cmd match {
-			case c: Transfer => PickUp(c.source, c.destination, load) ~> host.self in ((at, physics.timeToStage(geography.distance(currentLevel, c.destination))))
+			case c: Transfer if c.loadId.isEmpty || c.loadId.head == load.uid =>
+				PickUp(c.source, c.destination, load) ~> host.self in ((at, physics.timeToStage(geography.distance(currentLevel, c.destination))))
 		}
 	}
 

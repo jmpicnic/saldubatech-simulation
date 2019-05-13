@@ -10,12 +10,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.{Discharge, Induct, StepProcessor}
 
 object SimpleServer {
@@ -35,7 +39,7 @@ class SimpleServer(name: String, gw: Gateway,
                    val p_deliveryPolicy: StepProcessor.DeliveryPolicy,
                    val p_outboundSelector: Discharge.SelectionPolicy
                    )
-	extends SimActor(name,gw)
+	extends SimActorImpl(name,gw)
 		with StepProcessor
 		with Induct
 		with Discharge {

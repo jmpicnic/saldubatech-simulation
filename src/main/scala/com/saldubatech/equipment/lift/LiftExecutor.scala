@@ -14,15 +14,19 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.lift
 
 import akka.actor.{ActorRef, Props}
 import com.saldubatech.physics.Geography.{LinearGeography, LinearPoint}
 import com.saldubatech.base.Processor.{ConfigureOwner, ExecutionResource, Task}
 import com.saldubatech.base.{CarriagePhysics, DirectedChannel, Material, ProcessorHelper}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.{Processing, nullProcessing}
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.XSwitchTransfer
 import com.saldubatech.equipment.elements.XSwitchTransfer.{RouteExecutionCommand, Transfer}
 import com.saldubatech.physics.TaggedGeography
@@ -44,12 +48,9 @@ object LiftExecutor {
 	}
 
 	class Commander(inChannel: DirectedChannel.End[Material], outChannel: DirectedChannel.Start[Material]) {
-			def inbound(to: DirectedChannel.Start[Material]): Transfer = Transfer(inChannel, to)
-
-		def outbound(from: DirectedChannel.End[Material]): Transfer = Transfer(from, outChannel)
-
-		def transfer(from: DirectedChannel.End[Material], to: DirectedChannel.Start[Material]): Transfer =
-			Transfer(from, to)
+		def inbound(to: DirectedChannel.Start[Material], loadId: Option[String]): Transfer = Transfer(inChannel, to, loadId)
+		def outbound(from: DirectedChannel.End[Material], loadId: Option[String]): Transfer = Transfer(from, outChannel, loadId)
+		def transfer(from: DirectedChannel.End[Material], to: DirectedChannel.Start[Material], loadId: Option[String]): Transfer = Transfer(from, to, loadId)
 	}
 
 }
@@ -61,7 +62,7 @@ class LiftExecutor(name: String,
                    levelConnectors: Array[(DirectedChannel[Material], DirectedChannel[Material])],
                    initialLevel: DirectedChannel.Endpoint[Material],
                    ioLevel: Long = 0)(implicit gw: Gateway)
-	extends SimActor(name, gw)
+	extends SimActorImpl(name, gw)
 		with ProcessorHelper[RouteExecutionCommand, ExecutionResource] {
 	import com.saldubatech.equipment.lift.LiftExecutor._
 
@@ -132,7 +133,9 @@ class LiftExecutor(name: String,
 	Option[Task[RouteExecutionCommand, ExecutionResource]] = {
 		if(pendingCommands nonEmpty) {
 			val cmd = pendingCommands.head // FIFO
-			val candidate = cmd match {case c: Transfer => availableMaterials.find(e => e._2 == c.source)}
+			val candidate = cmd match {case c: Transfer => availableMaterials.find(
+				e =>
+					e._2 == c.source && (c.loadId.isEmpty || c.loadId.head == e._1.uid))}
 			if(candidate isDefined) Some(Task[RouteExecutionCommand, ExecutionResource](cmd,Map(candidate.!))(at))
 			else None
 		} else None

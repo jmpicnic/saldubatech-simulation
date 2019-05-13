@@ -10,15 +10,19 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.ActorRef
 import com.saldubatech.physics.TaggedGeography.Tag
-import com.saldubatech.ddes.SimActor.Configuring
+import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.ddes.SimActorMixIn
-import com.saldubatech.ddes.SimActorMixIn.nullProcessing
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActor
+import com.saldubatech.ddes.SimActor.nullProcessing
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.resource.DiscreteResourceBox
 import com.typesafe.scalalogging.Logger
 
@@ -34,15 +38,9 @@ object DirectedChannel {
 	def apply[L <: Identification](capacity: Int, name: String = java.util.UUID.randomUUID().toString) =
 		new DirectedChannel[L](capacity, name)
 
-	trait Destination[L <: Identification]
-		extends SimActorMixIn {
+	trait Source[L <: Identification] extends SimActor {
+		def restoreChannelCapacity(via: Start[L], tick: Long): Unit
 		val name: String
-		def onAccept(via: End[L], load: L, tick: Long): Unit
-		def onRestore(via: Start[L], tick: Long): Unit
-
-		protected def processingBuilder: (ActorRef, Long) => Processing = (from, tick) =>
-			outputs.values.map(endPoint => endPoint.restoringResource(from, tick)).fold(nullProcessing)((acc, p) => acc orElse p)
-				.orElse(inputs.values.map(endPoint => endPoint.loadReceiving(from, tick)).fold(nullProcessing)((acc, p) => acc orElse p))
 
 		def channelStartConfiguring: Configuring = {
 			case cmd: ConfigureStarts[DirectedChannel[L]] =>
@@ -53,6 +51,15 @@ object DirectedChannel {
 		private def configureStart(c: DirectedChannel[L]): Unit = {
 			outputs.put(c.uid, c.registerStart(this))
 		}
+		protected val outputs: mutable.Map[String, Start[L]] = mutable.Map.empty
+		def output(endpointName: String): Start[L] = outputs(endpointName)
+		def allOutputs(): Map[String, Start[L]] = outputs.toMap
+	}
+
+	trait Sink[L <: Identification] extends SimActor {
+		def receiveMaterial(via: End[L], load: L, tick: Long): Unit
+		val name: String
+
 		def channelEndConfiguring: Configuring = {
 			case cmd: ConfigureEnds[DirectedChannel[L]] =>
 				cmd.channels.foreach(c => configureEnd(c))
@@ -61,17 +68,17 @@ object DirectedChannel {
 		private def configureEnd(c: DirectedChannel[L]): Unit = {
 			inputs.put(c.uid, c.registerEnd(this))
 		}
-
-		protected val inputs: mutable.Map[String, End[L]]= mutable.Map.empty
-		protected val outputs: mutable.Map[String, Start[L]] = mutable.Map.empty
-
 		def input(endpointName: String): End[L] = inputs(endpointName)
-
-		def output(endpointName: String): Start[L] = outputs(endpointName)
-
 		def allInputs(): Map[String, End[L]] = inputs.toMap
 
-		def allOutputs(): Map[String, Start[L]] = outputs.toMap
+		protected val inputs: mutable.Map[String, End[L]]= mutable.Map.empty
+	}
+
+	trait Destination[L <: Identification]
+		extends Sink[L] with Source[L] {
+		protected def processingBuilder: (ActorRef, Long) => Processing = (from, tick) =>
+			outputs.values.map(endPoint => endPoint.restoringResource(from, tick)).fold(nullProcessing)((acc, p) => acc orElse p)
+				.orElse(inputs.values.map(endPoint => endPoint.loadReceiving(from, tick)).fold(nullProcessing)((acc, p) => acc orElse p))
 	}
 
 	class Endpoint[L <: Identification](name: String, channelResources: DiscreteResourceBox)
@@ -79,7 +86,6 @@ object DirectedChannel {
 			with Tag {
 		protected lazy val logger = Logger(s"${getClass.toString}.$name")
 
-		implicit var owner: DirectedChannel.Destination[L] = _
 		var peerOwner: Option[ActorRef] = None
 		protected val resources = DiscreteResourceBox(channelResources)
 
@@ -88,8 +94,11 @@ object DirectedChannel {
 	class Start[L <: Identification](name: String, sendingResourceBox: DiscreteResourceBox)
 		extends Endpoint[L](name, sendingResourceBox) {
 		private val inWip: mutable.Map[String, L] = mutable.Map()
+		implicit var owner: DirectedChannel.Source[L] = _
 
-		def sendLoad(load: L, at: Long): Boolean = {
+		//def sendLoad(load: L, at: Long): Boolean = sendLoad(load, at, 0)
+
+		def sendLoad(load: L, at: Long, delay: Long = 0): Boolean = {
 			//Get resource
 			val resource: Option[String] = resources.checkoutOne()
 			if (resource.isDefined) {
@@ -98,7 +107,8 @@ object DirectedChannel {
 				owner.log.debug(s"$name In Endpoint Acquiring(${inWip.size}): ${resource.get}")
 				owner.log.debug(s"$name sending Transfer Load ($load) from ${owner.name} to ${peerOwner.!.path.name}")
 				//owner.! send TransferLoad[L](name, load, resource get) _to peerOwner.! now at
-				TransferLoad[L](name, load, resource get) ~> peerOwner.! now at
+				if(delay == 0) TransferLoad[L](name, load, resource get) ~> peerOwner.! now at
+				else TransferLoad[L](name, load, resource get) ~> peerOwner.! in ((at, delay))
 				true
 			} else false
 		}
@@ -117,7 +127,7 @@ object DirectedChannel {
 				val load = inWip(resource)
 				resources.checkin(resource)
 				inWip -= resource//inWip remove resource
-				owner.onRestore(this, tick)
+				owner.restoreChannelCapacity(this, tick)
 				owner.log.debug(s"$name Completed processing Restore")
 			}	else throw new IllegalArgumentException(s"Resource $resource not in current IN-WIP in $name, Received Restore from ${from.path.name}")
 		}
@@ -126,6 +136,8 @@ object DirectedChannel {
 	class End[L <: Identification](name: String, receivingResourceBox: DiscreteResourceBox)
 		extends Endpoint[L](name, receivingResourceBox) {
 		private val outWip: mutable.Map[L, String] = mutable.Map()
+		implicit var owner: DirectedChannel.Sink[L] = _
+
 
 		private val available: mutable.ListBuffer[L] = mutable.ListBuffer()
 
@@ -144,7 +156,6 @@ object DirectedChannel {
 			outWip remove load
 			if(available contains load) available -= load
 			owner.log.debug(s"$name Sending Restore $resource for ${load.uid} to ${peerOwner.!.path.name} at: $at")
-			//owner.! send AcknowledgeLoad(name, load, resource) _to peerOwner.! now at
 			AcknowledgeLoad(name, load, resource) ~> peerOwner.! now at
 		}
 
@@ -162,12 +173,10 @@ object DirectedChannel {
 			assert(reserveSuccess, s"Received resource $resource should be part of the receiving box ${resources.sourceAssets}")
 			outWip.put(load, resource)
 			available.append(load)
-			owner.onAccept(this, load, tick)
+			owner.receiveMaterial(this, load, tick)
 			owner.log.debug(s"$name completed accept msg with job: $load")
 		}
 	}
-
-
 }
 
 class DirectedChannel[L <: Identification](capacity: Int,
@@ -185,7 +194,7 @@ class DirectedChannel[L <: Identification](capacity: Int,
 
 
 	// Configuration by owners.
-	def registerStart(owner: DirectedChannel.Destination[L]): Start[L] = {
+	def registerStart(owner: DirectedChannel.Source[L]): Start[L] = {
 		assert(!startRegistered)
 		owner.log.debug(s"Configuring Start endpoint for $name with ${owner.name}")
 		startRegistered = true
@@ -197,7 +206,7 @@ class DirectedChannel[L <: Identification](capacity: Int,
 		start
 	}
 
-	def registerEnd(owner: DirectedChannel.Destination[L]): End[L] = {
+	def registerEnd(owner: DirectedChannel.Sink[L]): End[L] = {
 		assert(!endRegistered)
 		owner.log.debug(s"Configuring End endpoint for $name with ${owner.name}")
 		endRegistered = true

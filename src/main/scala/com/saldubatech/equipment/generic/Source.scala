@@ -10,13 +10,17 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, Props}
 import com.saldubatech.base.{Material, OneWayChannel}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor, SimMessage}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl, SimMessage}
 import com.saldubatech.equipment.elements.{Discharge, StepProcessor}
 import com.saldubatech.events.{Event, OperationalEvent}
 import com.saldubatech.utils.Boxer._
@@ -57,7 +61,7 @@ class Source(name: String, gw: Gateway,
              val p_outboundSelector: Discharge.SelectionPolicy,
              val p_jobSelectionPolicy: StepProcessor.JobSelectionPolicy = StepProcessor.fifoSelector
             )
-	extends SimActor(name, gw)
+	extends SimActorImpl(name, gw)
 		with  Discharge
 		with StepProcessor
 		with OneWayChannel.Destination[Material] {

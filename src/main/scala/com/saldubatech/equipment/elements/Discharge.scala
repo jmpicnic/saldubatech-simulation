@@ -6,12 +6,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
 import com.saldubatech.base.{AbstractChannel, Material, OneWayChannel}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.events.OperationalEvent
 
 object Discharge {

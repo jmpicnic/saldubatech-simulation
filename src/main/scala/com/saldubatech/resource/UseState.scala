@@ -2,11 +2,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.resource
 
 import com.saldubatech.FSM.StateToken.StateChange
 import com.saldubatech.FSM.{State, StateToken, TransitionToken}
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActor.Processing
 
 object UseState {
   final case class Idle() extends StateToken("Idle")

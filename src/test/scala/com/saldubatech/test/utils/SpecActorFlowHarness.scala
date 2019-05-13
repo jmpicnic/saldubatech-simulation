@@ -6,14 +6,18 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.nullProcessing
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor, SimActorMixIn}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.nullProcessing
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl, SimActor}
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.{AbstractIterable, AbstractIterator, mutable}
@@ -31,24 +35,24 @@ object SpecActorFlowHarness {
 
 	case class KickOff()
 
-	type HarnessTrigger = (SimActorMixIn, ActorRef, Long) => Unit
-	type HarnessStep = (SimActorMixIn, ActorRef, Long) => Processing
+	type HarnessTrigger = (SimActor, ActorRef, Long) => Unit
+	type HarnessStep = (SimActor, ActorRef, Long) => Processing
 	type HarnessConfigurer = SpecActorFlowHarness => Configuring
 
 
 	abstract class Flow(val name: String) {
-		def isDefinedAt(host: SimActorMixIn, from: ActorRef, at: Long, msg: Any): Boolean = {
+		def isDefinedAt(host: SimActor, from: ActorRef, at: Long, msg: Any): Boolean = {
 			val candidate = action(host, from, at)
 			candidate.isDefined && candidate.!.isDefinedAt(msg)
 		}
 
-		def action(host: SimActorMixIn, from: ActorRef, at: Long): Option[Processing]
+		def action(host: SimActor, from: ActorRef, at: Long): Option[Processing]
 	}
 
 	class SimpleFlow(name: String, body: HarnessStep) extends Flow(name) {
 		private var done = false
 
-		def action(host: SimActorMixIn, from: ActorRef, at: Long): Option[Processing] =
+		def action(host: SimActor, from: ActorRef, at: Long): Option[Processing] =
 			if (done) None else {Some[Processing]({
 				case a: Any if body(host, from, at).isDefinedAt(a) =>
 					done = true
@@ -60,7 +64,7 @@ object SpecActorFlowHarness {
 	class SeqFlow(_name: String, steps: Flow*) extends Flow(_name) {
 		var idx: Int = 0
 
-		override def action(host: SimActorMixIn, from: ActorRef, at: Long): Option[Processing] = {
+		override def action(host: SimActor, from: ActorRef, at: Long): Option[Processing] = {
 			if (idx < steps.length) {
 				val candidate = steps(idx).action(host, from, at)
 				if (candidate isDefined) candidate else {
@@ -75,7 +79,7 @@ object SpecActorFlowHarness {
 				s"Cannot expect more matched ($expected) than the number of alternatives supported (${alternatives.length}")
 			val remaining: mutable.ArrayBuffer[Flow] = mutable.ArrayBuffer(alternatives: _*)
 
-			override def action(host: SimActorMixIn, from: ActorRef, at: Long): Option[Processing] =
+			override def action(host: SimActor, from: ActorRef, at: Long): Option[Processing] =
 				if (remaining.length > alternatives.length - expected)
 					Some({
 						case msg: Any if remaining.exists(f => f.isDefinedAt(host, from, at, msg)) =>
@@ -108,11 +112,11 @@ object SpecActorFlowHarness {
 
 }
 
-class SpecActorFlowHarness(trigger: (SimActorMixIn, ActorRef, Long) => Unit, flow: SpecActorFlowHarness.Flow, name: String,
+class SpecActorFlowHarness(trigger: (SimActor, ActorRef, Long) => Unit, flow: SpecActorFlowHarness.Flow, name: String,
                            gw: Gateway,
                            testProbe: Option[ActorRef] = None,
                            configurer: SpecActorFlowHarness.HarnessConfigurer = h => {case _ => })
-	extends SimActor(name, gw) {
+	extends SimActorImpl(name, gw) {
 	import SpecActorFlowHarness._
 
 	override def configure: Configuring = configurer(this)

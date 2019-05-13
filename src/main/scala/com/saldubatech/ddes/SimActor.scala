@@ -2,55 +2,37 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.ddes
 
-import akka.actor.{Actor, ActorLogging}
-import com.saldubatech.ddes.Gateway.Configure
+import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.event.LoggingAdapter
+import com.saldubatech.ddes.Epoch.{Action, ActionRequest}
+
 
 object SimActor {
-  type Configuring = PartialFunction[Any,Unit]
+  type Processing = PartialFunction[Any,Unit]
+  val nullProcessing:Processing = Map.empty
 }
 
+trait SimActor {
+  val name: String
 
-abstract class SimActor(val name: String, implicit val gw: Gateway)
-  extends Actor
-    with SimActorMixIn
-    with ActorLogging {
-  import Epoch._
-  import SimActor._
+  protected implicit val gw: Gateway
+  protected implicit val implicitSelf: SimActor = this
+  val self: ActorRef
+  def log: LoggingAdapter
 
-  def configure: Configuring
 
-  private var configured = false
-
-  def configuring: Receive = {
-    case c: Configure =>
-      log.debug(s"Configuring $name with ${c.config}")
-      configured = true
-      for(m <- c.config)
-        configure.apply(m)
-      gw.completedConfiguration(self)
-      /*configure.andThen[Unit]{
-        _ => gw.completedConfiguration(self)
-      }.apply(c.config)*/
-  }
-  def running: Receive = {
-    case act: Action =>
-      log.debug(s"Processing Action: ${act.msg}")
-      gw.receiveAction(act)
-      process(act.from, act.targetTick).applyOrElse(act.msg,
-          (msg: Any) ⇒ {
-            log.error(s"Unknown Action Received $msg from ${act.from.path.name}")
-            new Object
-          })
-      gw.completeAction(act)
-    case msg: Any =>
-      throw new IllegalArgumentException(s"Unknown Message Received $msg")
-  }
-
-  override def receive: Receive = {
-    case a: Any =>
-      if (configured) running(a)
-      else configuring(a)
+  def tellTo(to: ActorRef, msg:Any, now: Long, delay: Long = 0): Unit = {
+    if(delay > 0) gw.enqueue(ActionRequest(self, to, msg, delay))
+    else {
+      val act: Action =  Action(self, to, msg, now+delay)
+      gw.actNow(act)
+      to ! act
+    }
   }
 }

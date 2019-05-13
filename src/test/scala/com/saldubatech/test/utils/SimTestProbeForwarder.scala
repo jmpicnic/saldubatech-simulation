@@ -2,12 +2,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 
 object SimTestProbeForwarder {
 	def props(name: String, gw: Gateway, testProbe: ActorRef,
@@ -20,7 +24,7 @@ object SimTestProbeForwarder {
 }
 
 abstract class SimTestProbeForwarder(name: String, gw: Gateway, testProbe: ActorRef,
-                            assertion: Any => Boolean = (x: Any) => true) extends SimActor(name,gw) {
+                            assertion: Any => Boolean = (x: Any) => true) extends SimActorImpl(name,gw) {
 
 	protected def delegateConfiguring: Configuring = {case a: Any => log.warning(s"Using default delegate configuring for $a")}
 

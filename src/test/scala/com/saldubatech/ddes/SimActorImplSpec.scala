@@ -2,12 +2,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.ddes
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.{EventFilter, TestKit}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpecLike}
 
 import scala.concurrent.duration._
@@ -15,7 +19,7 @@ import scala.concurrent.duration._
 
 
 
-class SimActorSpec(_system: ActorSystem)
+class SimActorImplSpec(_system: ActorSystem)
   extends TestKit(_system)
     with Matchers
     with WordSpecLike
@@ -33,7 +37,7 @@ class SimActorSpec(_system: ActorSystem)
 		def getWatcher: ActorRef = watcher
 	}
 
-  class MockSimActor(name: String, _gw: gw.type, target: ActorRef) extends SimActor(name, _gw) {
+  class MockSimActorImpl(name: String, _gw: gw.type, target: ActorRef) extends SimActorImpl(name, _gw) {
     override def process(from: ActorRef, at: Long): Processing = {
       case action: Any =>
         target ! action
@@ -59,7 +63,7 @@ class SimActorSpec(_system: ActorSystem)
   "A SimActor" should {
 
     object MockSimActor {
-      def props(name: String, _gw: gw.type, target: ActorRef): Props = Props(new MockSimActor(name, _gw, target))
+      def props(name: String, _gw: gw.type, target: ActorRef): Props = Props(new MockSimActorImpl(name, _gw, target))
     }
     "Be registered for configuration" when {
       "created by the gateway" should {

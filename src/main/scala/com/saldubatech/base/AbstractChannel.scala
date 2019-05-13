@@ -10,13 +10,17 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.ActorRef
 import com.saldubatech.physics.TaggedGeography.Tag
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.utils.Boxer._
 import com.typesafe.scalalogging.Logger
@@ -52,7 +56,7 @@ object AbstractChannel {
 	}
 
 	trait Destination[L <: Identification, EP <: AbstractChannel.Endpoint[L, EP]]
-		extends SimActorMixIn {
+		extends SimActor {
 		val name: String
 		def onAccept(via: EP, load: L, tick: Long): Unit
 		def onRestore(via: EP, tick: Long): Unit

@@ -6,14 +6,18 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import com.saldubatech.base
 import com.saldubatech.base.DirectedChannel.{AcknowledgeLoad, ConfigureEnds, ConfigureStarts, TransferLoad}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.{Discharge, Induct, StepProcessor}
 import com.saldubatech.test.utils.BaseActorSpec
 
@@ -29,18 +33,18 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 
 	val underTest: DirectedChannel[Material] = new DirectedChannel[Material](3, "underTest Channel") {
 
-		override def registerStart(owner: DirectedChannel.Destination[Material]): DirectedChannel.Start[Material] = {
+		override def registerStart(owner: DirectedChannel.Source[Material]): DirectedChannel.Start[Material] = {
 			testActor ! "Registering Left"
 			super.registerStart(owner)
 		}
 
-		override def registerEnd(owner: DirectedChannel.Destination[Material]): DirectedChannel.End[Material] = {
+		override def registerEnd(owner: DirectedChannel.Sink[Material]): DirectedChannel.End[Material] = {
 			testActor ! "Registering Right"
 			super.registerEnd(owner)
 		}
 	}
 
-	abstract class DummyIntake(name: String) extends SimActor(name, gw)
+	abstract class DummyIntake(name: String) extends SimActorImpl(name, gw)
 		with StepProcessor
 		with DirectedChannel.Destination[Material] {
 		override val p_capacity: Int = 3
@@ -66,7 +70,7 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 
 	} // class DummyIntake
 
-	class MockSource extends SimActor("origin", gw)
+	class MockSource extends SimActorImpl("origin", gw)
 		with DirectedChannel.Destination[Material] {
 		override def configure: Configuring = channelStartConfiguring
 
@@ -76,9 +80,9 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 				testActor ! s"Restored Outbound Capacity at $at"
 				underTest.start.doRestoreResource(from, at, resource)
 		}
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
 
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 
 	}
 
@@ -87,7 +91,7 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 
 	var lastJob: Material = _
 
-	class MockDestination extends SimActor("sink", gw) with DirectedChannel.Destination[Material] {
+	class MockDestination extends SimActorImpl("sink", gw) with DirectedChannel.Destination[Material] {
 		override def configure: Configuring = channelEndConfiguring
 
 		override def process(from: ActorRef, at: Long): Processing = {
@@ -97,9 +101,9 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 				testActor ! s"New Job Arrival ${cmd.load}"
 		}
 
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
 
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
 
 	val destination: ActorRef = gw.simActorOf(Props(new MockDestination()),"destination")

@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 
 package com.saldubatech.equipment.circularsorter
 
@@ -51,7 +55,7 @@ class CircularPathPhysics(val nTrays: Int,
 	def indexForElement(element: Int): ClosedPathPoint = {
 		assert(element < nTrays, s"Index $element is bigger than the number of trays: $nTrays")
 		val result = new ClosedPathPoint(element+tray0Offset)
-		logger.error(s"Computing Index for $element with offset $tray0Offset = $result as of $asOf")
+		logger.debug(s"Computing Index for $element with offset $tray0Offset = $result as of $asOf")
 		result
 	}
 

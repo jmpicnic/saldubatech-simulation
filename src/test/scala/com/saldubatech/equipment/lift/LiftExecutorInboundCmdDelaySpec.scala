@@ -10,6 +10,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.lift
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -17,8 +21,8 @@ import akka.testkit.TestProbe
 import com.saldubatech.base.DirectedChannel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.Processor.{CompleteTask, ConfigureOwner, DeliverResult, ReceiveLoad, StageLoad, StartTask}
 import com.saldubatech.base.{CarriagePhysics, DirectedChannel, Material}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.equipment.elements.XSwitchTransfer.Transfer
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
@@ -46,7 +50,7 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 
 
 	val material2 = Material("M2")
-	def receiveAndAcknowledgeLoad(channel: DirectedChannel[Material], material: Material): HarnessStep = (host: SimActorMixIn, from: ActorRef, at: Long) => {
+	def receiveAndAcknowledgeLoad(channel: DirectedChannel[Material], material: Material): HarnessStep = (host: SimActor, from: ActorRef, at: Long) => {
 		case t: TransferLoad[Material] if t.channel == channel.uid && t.load.uid == material.uid =>
 			host.log.info(s"${host.self.path.name} Received Transfer through ${t.channel} from $from")
 			channel.end.loadReceiving(from,at).apply(t)
@@ -81,11 +85,11 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 	class UpstreamHarness(configurer: HarnessConfigurer)
 		extends SpecActorHarness(upstreamTrigger, upstreamActions, "upstreamHarness", gw, upstreamObserver.testActor.?, configurer)
 	with DirectedChannel.Destination[Material] {
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 
 		}
 
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {
 
 		}
 	}
@@ -97,7 +101,7 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 	val upstreamEquipment: ActorRef = gw.simActorOf(Props(new UpstreamHarness(upstreamConfigurer)), "upstreamHarness")
 
 
-	val sendInboundLoad: HarnessStep = (host: SimActorMixIn, from: ActorRef, at: Long) => {
+	val sendInboundLoad: HarnessStep = (host: SimActor, from: ActorRef, at: Long) => {
 		case "SendFirstLoad" =>
 			inboundChannel.start.sendLoad(material1, at)
 	}
@@ -116,9 +120,9 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 			configurer)
 			with DirectedChannel.Destination[Material] {
 
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
 
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
 
 	val downstreamConfigurer: SpecActorHarness => Configuring = host => {
@@ -128,10 +132,10 @@ class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpe
 	}
 	val downstreamEquipment: ActorRef = gw.simActorOf(Props(new DownstreamHarness(downstreamConfigurer)), "downstreamHarness")
 
-	val inboundCmd = Transfer(inboundChannel.end, levelChannels(3)._1.start)//(0, 3)
-	val kickOff: HarnessTrigger = (host: SimActorMixIn, from: ActorRef, at: Long) => {
+	val inboundCmd = Transfer(inboundChannel.end, levelChannels(3)._1.start, material1.uid.?)//(0, 3)
+	val kickOff: HarnessTrigger = (host: SimActor, from: ActorRef, at: Long) => {
 		host.log.info("Kickoff Controller, sending Outbound to underTest and triggering upstream equipment")
-		implicit val iHost: SimActorMixIn = host
+		implicit val iHost: SimActor = host
 		inboundCmd ~> underTest in ((at, 10))
 		"SendFirstLoad" ~> downstreamEquipment now at
 	}

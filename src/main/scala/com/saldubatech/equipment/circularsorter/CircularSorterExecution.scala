@@ -5,11 +5,6 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.circularsorter
 
 import akka.actor.{ActorRef, Props}
@@ -17,12 +12,13 @@ import com.saldubatech.physics.{Geography, TaggedGeography}
 import com.saldubatech.physics.Geography.ClosedPathPoint
 import com.saldubatech.base.Processor.{ConfigureOwner, Task}
 import com.saldubatech.base.{DirectedChannel, Material, MultiProcessorHelper}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.SimActorMixIn.nullProcessing
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.SimActor.nullProcessing
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.XSwitchTransfer.Transfer
 import com.saldubatech.utils.Boxer._
+import com.saldubatech.utils.Lang._
 import com.saldubatech.ddes.SimDSL._
 
 import scala.collection.mutable
@@ -44,7 +40,7 @@ class CircularSorterExecution(name: String,
                               geography: TaggedGeography[DirectedChannel.Endpoint[Material], ClosedPathPoint],
                               physics: CircularPathPhysics
                              )(implicit gw: Gateway)
-extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
+extends SimActorImpl(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 	import Geography._
 
 	override val maxConcurrency: Int = physics.nTrays
@@ -93,7 +89,7 @@ extends SimActor(name, gw) with MultiProcessorHelper[Transfer, Tray]{
 		val empties: mutable.Set[Tray] = mutable.Set(trays.filter(_.isEmpty): _*)
 		for(c <- pendingCommands) {
 			for((m, v) <- availableMaterials) {
-				if(c.source == v) {
+				if(c.isSource(v) && c.isLoad(m) && empties.nonEmpty) {
 					val t = empties.minBy(t => distance(t, v))
 					log.debug(s"Selecting Tray ${t.number} at ${physics.indexForElement(t.number)} to pick from $v located at ${geography.location(v)}")
 					result += Task(c, Map(m -> v), t.?)(at)

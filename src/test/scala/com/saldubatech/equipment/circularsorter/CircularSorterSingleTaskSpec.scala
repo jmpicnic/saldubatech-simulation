@@ -6,10 +6,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.circularsorter
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -17,8 +13,8 @@ import akka.testkit.TestProbe
 import com.saldubatech.base.DirectedChannel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.Processor._
 import com.saldubatech.base.{DirectedChannel, Material}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.equipment.elements.XSwitchTransfer.Transfer
 import com.saldubatech.physics.Geography.{ClosedPathPoint, Length}
@@ -65,7 +61,7 @@ class CircularSorterSingleTaskSpec(_system: ActorSystem) extends BaseActorSpec(_
 	val material1 = Material("M1")
 	val material2 = Material("M2")
 	val material3 = Material("M3")
-	def receiveAndAcknowledgeLoad(channel: DirectedChannel[Material], material: Material): HarnessStep = (host: SimActorMixIn, from: ActorRef, at: Long) => {
+	def receiveAndAcknowledgeLoad(channel: DirectedChannel[Material], material: Material): HarnessStep = (host: SimActor, from: ActorRef, at: Long) => {
 		case t: TransferLoad[Material] if t.channel == channel.uid && t.load.uid == material.uid =>
 			host.log.info(s"${host.self.path.name} Received Transfer through ${t.channel} from $from")
 			channel.end.loadReceiving(from,at).apply(t)
@@ -103,7 +99,8 @@ class CircularSorterSingleTaskSpec(_system: ActorSystem) extends BaseActorSpec(_
 	}
 	val discardAcknowledgeFirstLoad: HarnessStep = nopStep("Acknowledge Material1")
 
-	val firstTransferCmd = Transfer(inducts.head.end, discharges(1).start)
+	val firstTransferCmd = Transfer(inducts.head.end, discharges(1).start, material1.uid.?)
+
 	val expectStartFirstTask: HarnessStep = (host, from, at) => {
 		case StartTask(cmdId, materials) if cmdId == firstTransferCmd.uid  && materials.head == material1 && at == 0 =>
 	}
@@ -123,7 +120,7 @@ class CircularSorterSingleTaskSpec(_system: ActorSystem) extends BaseActorSpec(_
 	}
 	val envReceiveFirstLoad = receiveAndAcknowledgeLoad(discharges(1), material1)
 	val sendSecondLoadMsg = "sendSecondLoad"
-	val secondTransferCmd = Transfer(inducts(1).end, discharges.head.start)
+	val secondTransferCmd = Transfer(inducts(1).end, discharges.head.start, material2.uid.?)
 	val expectCompleteFirstCommand: HarnessStep = (host, from, at) => {
 		case CompleteTask(cmdId, mats, results)
 			if at == 40 && cmdId == firstTransferCmd.uid && mats.head == material1 && results.head == material1 =>
@@ -178,8 +175,8 @@ class CircularSorterSingleTaskSpec(_system: ActorSystem) extends BaseActorSpec(_
 		extends SpecActorHarness(envTrigger, envActions, "environmentHarness", gw,
 			envObserver.testActor.?, envConfigurer)
 			with DirectedChannel.Destination[Material] {
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
 	val environmentHarness: ActorRef = gw.simActorOf(Props(new EnvHarness()), "environmentHarness")
 

@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.shuttle
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -13,9 +17,9 @@ import akka.event.Logging.StandardOutLogger
 import akka.testkit.TestProbe
 import com.saldubatech.base.Processor.{CompleteTask, ConfigureOwner, DeliverResult, ReceiveLoad, StageLoad, StartTask}
 import com.saldubatech.base.{Aisle, CarriagePhysics, DirectedChannel, Material}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.equipment.shuttle.ShuttleLevelExecutor.{Groom, Inbound, Outbound}
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
@@ -63,8 +67,8 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	// 1. Retrieve Command --> Load arrives downstream on the right channel
 	val retrieveCommand1 = Outbound(Aisle.LevelLocator(Aisle.Side.LEFT, 3))
 	val controllerTrigger: HarnessTrigger =
-		(host: SimActorMixIn, from: ActorRef, at: Long) => {implicit val h: SimActorMixIn = host; retrieveCommand1 ~> underTest now at}
-	val equipmentTrigger: HarnessTrigger = (host: SimActorMixIn, from: ActorRef, at: Long) => {}
+		(host: SimActor, from: ActorRef, at: Long) => {implicit val h: SimActor = host; retrieveCommand1 ~> underTest now at}
+	val equipmentTrigger: HarnessTrigger = (host: SimActor, from: ActorRef, at: Long) => {}
 
 	// 2. Complete Command is received
 	val controllerStartProcessing000: HarnessStep = (host, from, at) => {
@@ -85,7 +89,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	var firstResource: String = outboundChannel.peekResource()
 	val equipmentStep0: HarnessStep = (host, from, at) => {
 		case TransferLoad(channel, load, resource) =>
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			firstResource = resource
 			host.log.info(s"Acknowledging Load $load")
 			AcknowledgeLoad(channel, load, resource) ~> underTest now at
@@ -96,7 +100,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val sendFirstLoad = "SendFirstLoad"
 	val controllerReceivedLoadConfirm1: HarnessStep = (host, from, at) => {
 		case msg if msg == retrievedLoadConfirm && from == equipmentHarness =>
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			host.log.info(s"Received completion of first retrieval load, sending Store Command and Its load")
 			storeCommand1 ~> underTest now at
 			sendFirstLoad ~> equipmentHarness in (at, 10)
@@ -123,7 +127,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 		case CompleteTask(cmdUid, input, output)
 			if cmdUid == storeCommand1.uid && input.head == materialR5 && output.isEmpty =>
 			host.log.info(s">>> Received Completion of StoreCmd1")
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			sendSecondLoad ~> equipmentHarness in (at, 10)
 			storeCommand2 ~> underTest in (at, 30)
 	}
@@ -132,7 +136,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val materialL2 = Material("Left-2")
 	val equipmentStep2: HarnessStep = (host, from, at) => {
 		case msg if msg == sendSecondLoad =>
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			host.log.info(s"Sending Second Load $materialL2")
 			host.log.info(s"Send load $materialL2")
 			assert(inboundChannel.start.sendLoad(materialL2, at),
@@ -148,7 +152,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val completeStore2: HarnessStep = (host, from, at) => {
 		case CompleteTask(cmdUid, input, output)
 			if cmdUid == storeCommand2.uid && input.head == materialL2 && output.isEmpty =>
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			groomCommand ~> underTest now at
 	}
 	// 10. Complete Command is received
@@ -158,7 +162,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val completeGroom: HarnessStep = (host, from, at) => {
 		case CompleteTask(cmdUid, input, output)
 			if cmdUid == groomCommand.uid && input.isEmpty && output.isEmpty =>
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			finalRetrieveCmd ~> underTest now at
 	}
 	val finalRetrieveCmd = Outbound(Aisle.LevelLocator(Aisle.Side.LEFT, 5))
@@ -166,7 +170,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val equipmentTransferLoad: HarnessStep = (host, from, at) => {
 		//TransferLoad[L <: Identification](channel: String, load: L, resource: String)
 		case tl: TransferLoad[Material] =>
-			implicit val h: SimActorMixIn = host
+			implicit val h: SimActor = host
 			AcknowledgeLoad[Material](tl.channel, tl.load, tl.resource) ~> underTest now at
 			//equipmentObserver.testActor ! s"Received ${tl.load.uid} on ${tl.channel}"
 	}
@@ -187,7 +191,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val equipmentObserver = TestProbe()
 
 	val discardAcknowledge: HarnessStep = (host,from,at) => { case c: Any => host.log.info(s"Step 1_1 is: $c")}
-	val equipmentActions: Seq[(SimActorMixIn, ActorRef, Long) => Processing] = Seq(
+	val equipmentActions: Seq[(SimActor, ActorRef, Long) => Processing] = Seq(
 		equipmentStep0,//0
 		equipmentStep1,//1
 		discardAcknowledge,//2
@@ -199,12 +203,12 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	class EquipmentHarness(configurer: SpecActorHarness => Configuring)
 		extends SpecActorHarness(equipmentTrigger, equipmentActions, "equipmentHarness", gw, equipmentObserver.testActor.?, configurer)
 			with DirectedChannel.Destination[Material] {
-		override def onAccept(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 			log.debug(s"Processing OnAccept with $load")
 //			equipmentObserver.testActor ! s"Received Load ${load.uid}"
 		}
 
-		override def onRestore(via: DirectedChannel.Start[Material], tick: Long): Unit = {
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {
 			//left1.rightEndpoint.sendLoad(materialR5, tick)
 //			equipmentObserver.testActor ! s"Restored channel: ${via.toString}"
 		}

@@ -14,11 +14,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.ActorRef
 import com.saldubatech.base.AbstractChannel.FlowDirection
-import com.saldubatech.ddes.SimActorMixIn.{Processing, nullProcessing}
+import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.utils.Boxer._

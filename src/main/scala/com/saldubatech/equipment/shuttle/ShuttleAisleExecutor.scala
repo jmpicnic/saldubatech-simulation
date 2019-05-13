@@ -5,16 +5,20 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 package com.saldubatech.equipment.shuttle
 
 import akka.actor.{ActorRef, Props}
 import com.saldubatech.base.Aisle.LevelLocator
 import com.saldubatech.base.Processor.{CompleteTask, ConfigureOwner, DeliverResult, ExecutionCommandImpl, ReceiveLoad, StageLoad, StartTask}
 import com.saldubatech.base.{Aisle, CarriagePhysics, DirectedChannel, Material}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.lift.LiftExecutor
 import com.saldubatech.utils.Boxer._
 
@@ -44,10 +48,10 @@ object ShuttleAisleExecutor {
 			initialInventory,
 			ioLevel)), name)
 
-	class StorageAisleCommand(val starterLevel: Int, val finishLevel: Int, name: String = java.util.UUID.randomUUID().toString)
+	class StorageAisleCommand(val starterLevel: Int, val finishLevel: Int, name: String = java.util.UUID.randomUUID.toString)
 		extends ExecutionCommandImpl(name)
 
-	case class Inbound(to: Aisle.Locator) extends StorageAisleCommand(to.level, to.level)
+	case class Inbound(to: Aisle.Locator, loadId: Option[String]) extends StorageAisleCommand(to.level, to.level)
 	case class Outbound(from: Aisle.Locator) extends StorageAisleCommand(from.level, from.level)
 	case class Groom(from: Aisle.Locator, to: Aisle.Locator) extends StorageAisleCommand(from.level, to.level)
 
@@ -62,7 +66,7 @@ class ShuttleAisleExecutor(name: String,
                            aisleLength: Int,
                            initialContents: Map[Int, Map[LevelLocator, Material]] = Map.empty,
                            ioLevel: Int = 0)(implicit gw: Gateway)
-extends SimActor(name, gw)
+extends SimActorImpl(name, gw)
 {
 
 	import ShuttleAisleExecutor._
@@ -140,7 +144,7 @@ extends SimActor(name, gw)
 	private def dequeueCommand: Unit = {pendingCommands.dequeue; pendingContinuations.dequeue}
 	private def startInbound(cmd: Inbound, at: Long): Unit = {
 		enqueueCommand(cmd, inboundContinuation(levels(cmd.to.level)))
-		liftCommander.inbound(levelInboundChannels(cmd.to.level).start) ~> lift now at
+		liftCommander.inbound(levelInboundChannels(cmd.to.level).start, cmd.loadId) ~> lift now at
 		ShuttleLevelExecutor.Inbound(cmd.to.inLevel) ~> levels(cmd.to.level) now at
 	}
 
@@ -167,8 +171,8 @@ extends SimActor(name, gw)
 
 	private def startOutbound(cmd: Outbound, at: Long): Unit = {
 		enqueueCommand(cmd, outboundContinuation(levels(cmd.from.level)))
-		liftCommander.outbound(levelOutboundChannels(cmd.from.level).end) ~> lift now at
 		ShuttleLevelExecutor.Outbound(cmd.from.inLevel) ~> levels(cmd.from.level) now at
+		liftCommander.outbound(levelOutboundChannels(cmd.from.level).end, None) ~> lift now at
 	}
 
 	private def outboundContinuation(shuttle: ActorRef): Continuation = (host, from, at) => {
@@ -196,7 +200,8 @@ extends SimActor(name, gw)
 		ShuttleLevelExecutor.Outbound(cmd.from.inLevel) ~> levels(cmd.from.level) now at
 		liftCommander.transfer(
 			levelOutboundChannels(cmd.from.level).end,
-			levelInboundChannels(cmd.to.level).start
+			levelInboundChannels(cmd.to.level).start,
+			None
 		) ~> lift now at
 		ShuttleLevelExecutor.Inbound(cmd.to.inLevel) ~> levels(cmd.to.level) now at
 	}

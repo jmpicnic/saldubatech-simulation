@@ -6,12 +6,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor, SimActorMixIn}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl, SimActor}
 
 object SpecActorHarness {
 	def simActor(trigger: HarnessTrigger,
@@ -24,8 +28,8 @@ object SpecActorHarness {
 
 	case class KickOff()
 
-	type HarnessTrigger = (SimActorMixIn, ActorRef, Long) => Unit
-	type HarnessStep = (SimActorMixIn, ActorRef, Long) => Processing
+	type HarnessTrigger = (SimActor, ActorRef, Long) => Unit
+	type HarnessStep = (SimActor, ActorRef, Long) => Processing
 	type HarnessConfigurer = SpecActorHarness => Configuring
 
 	def nopStep(msg: String="Step: "): HarnessStep = (host, _, at) => { case a: Any => {host.log.info(s"###### $msg $a at $at")}}
@@ -38,7 +42,7 @@ class SpecActorHarness(trigger: SpecActorHarness.HarnessTrigger,
                        name: String,
                        gw: Gateway,
                        testProbe: Option[ActorRef] = None,
-                       configurer: SpecActorHarness.HarnessConfigurer = h => {case _ => }) extends SimActor(name, gw) {
+                       configurer: SpecActorHarness.HarnessConfigurer = h => {case _ => }) extends SimActorImpl(name, gw) {
 	import SpecActorHarness._
 
 	override def configure: Configuring = configurer(this)
