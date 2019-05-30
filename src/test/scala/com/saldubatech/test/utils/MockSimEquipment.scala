@@ -6,10 +6,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.test.utils
 
 import akka.actor.ActorRef
-import com.saldubatech.base.{DirectedChannel, Material}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.{Gateway, SimActor, SimActorImpl}
@@ -33,7 +38,7 @@ object MockSimEquipment {
 	type RestoreExpectation = (DirectedChannel.Start[Material], Long, MockEquipmentContext) => ExpectationResult
 	type ProtocolExpectation = (ActorRef, Long, Any, MockEquipmentContext) => ExpectationResult
 
-	class Impl(name: String,
+	class Impl(val name: String,
 	           val inbound: List[DirectedChannel[Material]],
 	           val outbound: List[DirectedChannel[Material]],
 	           val kickOff: (SimActor, ActorRef, Long) => Processing,
@@ -54,11 +59,10 @@ object MockSimEquipment {
 
 trait MockSimEquipment
 	extends SimActor
-		with DirectedChannel.Destination[Material] {
+		with DirectedChannel.Destination[Material]
+				with DirectedChannel.Source[Material] {
 
 	import MockSimEquipment._
-
-	protected implicit val THE: SimActor = this
 
 	final def configure: Configuring = {
 		case _ =>

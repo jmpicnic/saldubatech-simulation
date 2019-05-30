@@ -14,11 +14,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.base.{AbstractChannel, OneWayChannel, Material}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.channels.v1.{AbstractChannel, OneWayChannel}
+import com.saldubatech.base.Material
 import com.saldubatech.ddes.SimActorImpl
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor.Processing
@@ -34,7 +39,7 @@ import scala.languageFeature.postfixOps
 class SinkSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
 	Some(LogEventSpooler(Logger("com.salduba.events.eventCollector")))) {
 
-	abstract class OriginIntake(name: String) extends SimActorImpl(name, gw) with Discharge.Processor {
+	abstract class OriginIntake(val name: String) extends SimActorImpl(name, gw) with Discharge.Processor {
 		override def outboundAvailable(via: AbstractChannel.Endpoint[Material, _], at: Long): Unit = {
 			testActor ! s"Notified of outbound available"
 		}

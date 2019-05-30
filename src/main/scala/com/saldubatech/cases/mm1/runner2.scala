@@ -10,11 +10,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.cases.mm1
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill, Props}
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.base.{Material, OneWayChannel}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.OneWayChannel
 import com.saldubatech.ddes.Gateway
 import com.saldubatech.equipment.elements.SimpleRandomExecution.ConfigureOwner
 import com.saldubatech.equipment.elements.{Discharge, SimpleRandomExecution, StepProcessor}

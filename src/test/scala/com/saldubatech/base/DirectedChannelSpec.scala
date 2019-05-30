@@ -5,27 +5,25 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.base
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.base
-import com.saldubatech.base.DirectedChannel.{AcknowledgeLoad, ConfigureEnds, ConfigureStarts, TransferLoad}
+import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, ConfigureEnds, ConfigureStarts, TransferLoad}
+import com.saldubatech.base.channels.v1.AbstractChannel
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.{Discharge, Induct, StepProcessor}
 import com.saldubatech.test.utils.BaseActorSpec
+import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.languageFeature.postfixOps
+
 
 
 class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnidirectionalSpec")) {
@@ -71,14 +69,16 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 	} // class DummyIntake
 
 	class MockSource extends SimActorImpl("origin", gw)
-		with DirectedChannel.Destination[Material] {
+		with DirectedChannel.Destination[Material]
+				with DirectedChannel.Source[Material] {
+		val name = "origin"
 		override def configure: Configuring = channelStartConfiguring
 
 		override def process(from: ActorRef, at: Long): Processing = {
 			case AcknowledgeLoad(channel, load, resource) =>
 				testActor ! s"Notified of outbound available at $at"
 				testActor ! s"Restored Outbound Capacity at $at"
-				underTest.start.doRestoreResource(from, at, resource)
+				underTest.start.doRestoreResource(from, at, resource.!)
 		}
 		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
 
@@ -91,7 +91,10 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 
 	var lastJob: Material = _
 
-	class MockDestination extends SimActorImpl("sink", gw) with DirectedChannel.Destination[Material] {
+	class MockDestination extends SimActorImpl("sink", gw)
+		with DirectedChannel.Destination[Material]
+				with DirectedChannel.Source[Material] {
+		val name = uid
 		override def configure: Configuring = channelEndConfiguring
 
 		override def process(from: ActorRef, at: Long): Processing = {

@@ -14,10 +14,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.base.{Material, OneWayChannel}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.OneWayChannel
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.{Gateway, SimActorImpl, SimMessage}
@@ -52,7 +57,7 @@ object Source {
 }
 
 
-class Source(name: String, gw: Gateway,
+class Source(val name: String, gw: Gateway,
              val p_capacity: Int,
              val p_executor: ActorRef,
              val loadGenerator: Long => Option[Material],

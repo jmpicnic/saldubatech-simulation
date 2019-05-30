@@ -10,15 +10,20 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
-import com.saldubatech.base.DirectedChannel.{ConfigureStarts, ConfigureEnds}
+import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.channels.Channel.{ConfigureEnds, ConfigureStarts}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.ddes.{Gateway, SimActorImpl, SimActor}
+import com.saldubatech.ddes.{Gateway, SimActor, SimActorImpl}
 import com.saldubatech.test.utils.SpecActorHarness.KickOff
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._
@@ -42,23 +47,23 @@ class DirectedChannelSingleMessageSpec extends BaseActorSpec(ActorSystem("Materi
 			}
 		}
 
-		class MockDestination(name: String, isLeft: Boolean, driver: ActorRef, gw: Gateway)
+		class MockDestination(val name: String, isLeft: Boolean, driver: ActorRef, gw: Gateway)
 			extends SimActorImpl(name, gw)
-				with  DirectedChannel.Destination[Material] {
-
+				with  DirectedChannel.Destination[Material]
+				with DirectedChannel.Source[Material] {
 			override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 				log.info(s"New Load Arrival ${load.uid} at $name")
 				s"New Load Arrival ${load.uid}" ~> driver now tick
 				via.doneWithLoad(load, tick)
 			}
-
 			override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {
 				s"Received Acknowledgement at $name" ~> driver now tick
 			}
 
 
 			override def process(from: ActorRef, at: Long): Processing =
-				processingBuilder(from, at) orElse {
+				sinkProcessingBuilder(from, at) orElse
+					sourceProcessingBuilder(from, at) orElse {
 					case a: Any => log.info(s"Processing builder does not catch $a, See ${processingBuilder(from, at)}")
 				}
 
@@ -80,7 +85,7 @@ class DirectedChannelSingleMessageSpec extends BaseActorSpec(ActorSystem("Materi
 			specLog.debug("Sending Load through Left Endpoint")
 		}
 		def actions(observer: ActorRef) = Seq[(SimActor, ActorRef, Long) => Processing](
-			(host, from, tick) => {case firstLoadMsg => observer ! firstLoadMsg},
+			(host, from, tick) => {case s: String if s == firstLoadMsg => observer ! firstLoadMsg},
 			(host, from, tick) => {case "Received Acknowledgement at left" => observer ! "Completed First Transfer"},
 		)
 		val harnessProbe = TestProbe()

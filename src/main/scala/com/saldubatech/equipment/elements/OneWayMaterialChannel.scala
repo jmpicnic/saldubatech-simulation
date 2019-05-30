@@ -6,10 +6,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
-import com.saldubatech.base.AbstractChannel.FlowDirection
-import com.saldubatech.base.{Material, OneWayChannel}
+import com.saldubatech.base.channels.v1.AbstractChannel.FlowDirection
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.OneWayChannel
 import com.saldubatech.resource.DiscreteResourceBox
 
 object OneWayMaterialChannel {

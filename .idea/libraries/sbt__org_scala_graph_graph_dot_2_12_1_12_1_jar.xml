@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="sbt: org.scala-graph:graph-dot_2.12:1.12.1:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-graph/graph-dot_2.12/jars/graph-dot_2.12-1.12.1.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.ivy2/cache/org.scala-graph/graph-dot_2.12/srcs/graph-dot_2.12-1.12.1-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>

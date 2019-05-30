@@ -10,11 +10,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.base.{AbstractChannel, OneWayChannel, Material}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.channels.v1.{AbstractChannel, OneWayChannel}
+import com.saldubatech.base.Material
 import com.saldubatech.ddes.Epoch.Action
 import com.saldubatech.ddes.GlobalClock.ActNow
 import com.saldubatech.ddes.SimActorImpl.Configuring
@@ -61,6 +66,7 @@ class InductSpec extends BaseActorSpec(ActorSystem("InductTest"),
 
 	val underTest: ActorRef = gw.simActorOf(Props(
 		new DummyIntake("underTest",null) with Induct {
+			val name = uid
 			override protected val induct: StepProcessor.Induct = null
 			override protected def discharge: Discharge = null
 			override def process(from: ActorRef, at: Long): Processing =
@@ -82,6 +88,7 @@ class InductSpec extends BaseActorSpec(ActorSystem("InductTest"),
 		new DummyIntake("origin", oSelector)
 			with Discharge
 			with OneWayChannel.Destination[Material] {
+			val name = uid
 			override protected def induct: Induct = null
 
 			override def process(from: ActorRef, at: Long): Processing =

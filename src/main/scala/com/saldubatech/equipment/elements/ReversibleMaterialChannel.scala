@@ -10,9 +10,14 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
-import com.saldubatech.base.{Material, ReversibleChannel}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.ReversibleChannel
 
 
 class ReversibleMaterialChannel(capacity: Int,

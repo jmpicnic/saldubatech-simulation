@@ -14,6 +14,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, Props}
@@ -32,7 +36,7 @@ object SimpleServer {
 		new SimpleServer(
 			name, gw, capacity, executor, jobSelectionPolicy, deliveryPolicy, outboundSelector))
 }
-class SimpleServer(name: String, gw: Gateway,
+class SimpleServer(val name: String, gw: Gateway,
                    val p_capacity: Int,
                    val p_executor: ActorRef,
                    val p_jobSelectionPolicy: StepProcessor.JobSelectionPolicy,

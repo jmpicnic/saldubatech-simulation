@@ -6,17 +6,21 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import akka.actor.ActorRef
+import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.ddes.{SimMessage, Subject}
 
 object Processor {
-case class Task[C <: ExecutionCommand, R <: ExecutionResource]
-	(cmd: C, materials: Map[Material, DirectedChannel.Endpoint[Material]], resource: Option[R] = None)(implicit createdAt: Long)
+	class Task[C <: ExecutionCommand, M<: Material, R <: ExecutionResource]
+	(val cmd: C, val materials: Map[M, DirectedChannel.End[M]], val resource: Option[R] = None)(implicit createdAt: Long)
 		extends Identification.Impl
-	case class __Task[C <: ExecutionCommand, V <: DirectedChannel.Endpoint[Material]](cmd: C, materials: Map[Material, V], createdAt: Long)
-		extends Identification.Impl
+
 
 	trait ExecutionResource extends Identification
 
@@ -35,7 +39,7 @@ case class Task[C <: ExecutionCommand, R <: ExecutionResource]
 	class ExecutionNotificationImpl(_id: String = java.util.UUID.randomUUID().toString)
 		extends Subject.NotificationImpl(_id) with ExecutionNotification
 
-	case class ReceiveLoad(via: DirectedChannel.End[Material], load: Material) extends ExecutionNotificationImpl
+	case class ReceiveLoad[M <: Material](via: DirectedChannel.End[M], load: M) extends ExecutionNotificationImpl
 
 	case class StageLoad(sourceCommandId: String, material: Option[Material]) extends ExecutionNotificationImpl
 
@@ -43,21 +47,21 @@ case class Task[C <: ExecutionCommand, R <: ExecutionResource]
 
 	case class CompleteTask(sourceCommandId: String, materials: Seq[Material] = Seq.empty, results: Seq[Material] = Seq.empty) extends ExecutionNotificationImpl
 
-	case class DeliverResult(sourceCommandId: String, via: DirectedChannel.Start[Material], result: Material) extends ExecutionNotificationImpl
+	case class DeliverResult[M <: Material](sourceCommandId: String, via: DirectedChannel.Start[M], result: M) extends ExecutionNotificationImpl
 
 
 	trait ExecutionObserver extends Subject.Observer[ExecutionNotification] {
 		override def acceptNotification(msg: ExecutionNotification, from: ActorRef)(implicit at: Long): Unit = {
 			msg match {
-				case cmd: ReceiveLoad => receiveLoad(from, cmd.via, cmd.load)
+				case cmd: ReceiveLoad[_] => receiveLoad(from, cmd.via, cmd.load)
 				case cmd: StartTask => startProcessing(from, cmd.sourceCmdId, cmd.materials)
 				case cmd: StageLoad => stageLoad(from, cmd.sourceCommandId, cmd.material)
 				case cmd: CompleteTask => completeTask(from, cmd.sourceCommandId, cmd.materials, cmd.results)
-				case cmd: DeliverResult => deliverResult(from, cmd.sourceCommandId, cmd.via, cmd.result)
+				case cmd: DeliverResult[_] => deliverResult(from, cmd.sourceCommandId, cmd.via, cmd.result)
 			}
 		}
 
-		def receiveLoad(from: ActorRef, via: DirectedChannel.End[Material], load: Material)(implicit at: Long): Unit
+		def receiveLoad[M <: Material](from: ActorRef, via: DirectedChannel.End[M], load: Material)(implicit at: Long): Unit
 
 		def startProcessing(from: ActorRef, sourceCmdId: String, materials: Seq[Material])(implicit at: Long)
 
@@ -65,7 +69,7 @@ case class Task[C <: ExecutionCommand, R <: ExecutionResource]
 
 		def completeTask(from: ActorRef, sourceCommandId: String, materials: Seq[Material], results: Seq[Material])
 
-		def deliverResult(from: ActorRef, sourceCommandId: String, via: DirectedChannel.Start[Material], result: Material)
+		def deliverResult[M <: Material](from: ActorRef, sourceCommandId: String, via: DirectedChannel.Start[M], result: M)
 	}
 
 }

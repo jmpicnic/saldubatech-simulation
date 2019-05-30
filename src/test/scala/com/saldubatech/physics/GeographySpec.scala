@@ -6,15 +6,20 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 
 
 package com.saldubatech.physics
 
+import com.saldubatech.base.layout.Geography
 import com.saldubatech.test.utils.BaseSpec
 
 
 class GeographySpec extends BaseSpec {
-	import Geography._
+	import com.saldubatech.base.layout.Geography._
 
 	implicit val nTrays: Length = Length(12)
 	var underTest = new Geography.ClosedPathGeography(nTrays)

@@ -2,6 +2,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.randomvariables
 
 import org.apache.commons.math3.distribution.{ExponentialDistribution, GeometricDistribution}
@@ -12,6 +16,8 @@ object Distributions {
 
   type DoubleRVar = () => Double
   type LongRVar = () => Long
+  final val zeroLong: LongRVar = () => 0
+  final val zeroDouble: DoubleRVar = () => 0.0
 
   implicit def toLong(dVar: DoubleRVar): LongRVar = {() => math.round(dVar())}
 

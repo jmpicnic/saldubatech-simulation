@@ -6,23 +6,31 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.ddes
 
-import akka.actor.{Actor, ActorLogging, ActorRef}
+import akka.actor.ActorRef
 import akka.event.LoggingAdapter
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Epoch.{Action, ActionRequest}
 
 
 object SimActor {
   type Processing = PartialFunction[Any,Unit]
   val nullProcessing:Processing = Map.empty
+  type ProcessingBuilder = (ActorRef, Long) => Processing
 }
 
-trait SimActor {
-  val name: String
+trait SimActor
+extends Identification {
 
   protected implicit val gw: Gateway
   protected implicit val implicitSelf: SimActor = this
+
+  // Shadowed from akka.Actor to avoid extension.
   val self: ActorRef
   def log: LoggingAdapter
 

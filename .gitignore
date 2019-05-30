@@ -5,5 +5,8 @@ target/**
 venv/**
 **/scratch/**
 project/target/**
+.idea/GrepConsole.xml
+.idea/workspace.xml
+
 
 

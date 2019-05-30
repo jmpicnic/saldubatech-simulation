@@ -10,11 +10,16 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.base.{AbstractChannel, OneWayChannel, Material}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.channels.v1.{AbstractChannel, OneWayChannel}
+import com.saldubatech.base.Material
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
@@ -29,7 +34,7 @@ import scala.languageFeature.postfixOps
 
 class MaterialChannelUnidirectionalSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnidirectionalSpec")) {
 
-	abstract class DummyIntake(name: String) extends SimActorImpl(name, gw)
+	abstract class DummyIntake(val name: String) extends SimActorImpl(name, gw)
 		with StepProcessor
 		with OneWayChannel.Destination[Material] {
 		override val p_capacity: Int = 3
