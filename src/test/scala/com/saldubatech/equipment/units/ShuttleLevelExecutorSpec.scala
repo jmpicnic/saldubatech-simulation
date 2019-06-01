@@ -6,24 +6,12 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.units
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.event.Logging.StandardOutLogger
 import akka.testkit.TestProbe
-import com.saldubatech.base.Processor._
+import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.{Aisle, CarriagePhysics, Material}
@@ -262,6 +250,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 		//discardStageLoadStore2,//11
 		completeStore2,//12
 		nopStep("Start Groom"),//13
+		nopStep("Stage Groom"),//14
 		completeGroom,//15
 		nopStep("Start Final Retrieval"),//16
 		stageLoadFinalRetrieval,//17
@@ -320,6 +309,7 @@ class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 				equipmentObserver.expectMsgClass(classOf[AcknowledgeLoad[Material]])
 				expectMsg(CompleteTask(storeCommand2.uid, Seq(materialL2), Seq()))
 				expectMsg(StartTask(groomCommand.uid, Seq()))
+				expectMsg(StageLoad(groomCommand.uid, materialL2.?))
 				expectMsg(CompleteTask(groomCommand.uid, Seq(), Seq()))
 				expectMsg(StartTask(finalRetrieveCmd.uid,Seq()))
 				expectMsg(StageLoad(finalRetrieveCmd.uid, materialL2.?))

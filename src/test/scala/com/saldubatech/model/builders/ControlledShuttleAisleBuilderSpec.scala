@@ -5,13 +5,17 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 package com.saldubatech.model.builders
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.event.Logging.StandardOutLogger
 import akka.testkit.TestProbe
 import com.saldubatech.base.Aisle.{LevelLocator, Locator}
-import com.saldubatech.base.Processor._
+import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.{Aisle, CarriagePhysics, Material}

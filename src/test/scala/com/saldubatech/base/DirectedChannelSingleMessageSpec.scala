@@ -6,14 +6,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.base
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
@@ -64,7 +56,7 @@ class DirectedChannelSingleMessageSpec extends BaseActorSpec(ActorSystem("Materi
 			override def process(from: ActorRef, at: Long): Processing =
 				sinkProcessingBuilder(from, at) orElse
 					sourceProcessingBuilder(from, at) orElse {
-					case a: Any => log.info(s"Processing builder does not catch $a, See ${processingBuilder(from, at)}")
+					case a: Any => log.error(s"Processing builder does not catch $a, See ${processingBuilder(from, at)}")
 				}
 
 			override def configure: Configuring =

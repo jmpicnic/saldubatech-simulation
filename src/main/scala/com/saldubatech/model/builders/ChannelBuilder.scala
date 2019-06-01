@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.model.builders
 
 import akka.actor.ActorRef
@@ -26,12 +30,15 @@ object ChannelBuilder {
 		val reverse = IO(discharges, inducts)
 	}
 
-	def apply(link: TransportLink)(implicit channelRegistry:Registry[DirectedChannel[Material]]) = new ChannelBuilder(link.capacity, link.delay)
+	def apply(link: TransportLink)(implicit channelRegistry:Registry[DirectedChannel[Material]])
+	= new ChannelBuilder(link.capacity, link.nEndpoints, link.delay)
 
-	def apply(capacity: Int, delay: LongRVar = zeroLong)(implicit channelRegistry:Registry[DirectedChannel[Material]]) = new ChannelBuilder(capacity, delay)
+	def apply(capacity: Int, nEndpoints: Int = 1, delay: LongRVar = zeroLong)
+	         (implicit channelRegistry:Registry[DirectedChannel[Material]])
+	= new ChannelBuilder(capacity, nEndpoints, delay)
 }
 
-case class ChannelBuilder(capacity: Int, delay: LongRVar = zeroLong)
+case class ChannelBuilder(capacity: Int, nEndpoints: Int = 1, delay: LongRVar = zeroLong)
                          (implicit override protected val channelRegistry:Registry[DirectedChannel[Material]])
 	extends Builder {
 	override protected val elementRegistry: Registry[ActorRef] = null
@@ -39,7 +46,7 @@ case class ChannelBuilder(capacity: Int, delay: LongRVar = zeroLong)
 	def build(name: String): Option[DirectedChannel[Material]] = {
 		val tk = channelRegistry.reserve(name)
 		if (tk isDefined) {
-			val c = DirectedChannel[Material](capacity, name, delay)
+			val c = DirectedChannel[Material](capacity, name, nEndpoints, delay)
 			channelRegistry.register(tk.!, c)
 			lastBuilt = List(tk.!)
 			c.?

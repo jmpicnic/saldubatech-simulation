@@ -5,48 +5,25 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-package com.saldubatech.base
+package com.saldubatech.base.processor
 
 import akka.actor.ActorRef
 import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.{Identification, Material}
 import com.saldubatech.ddes.{SimMessage, Subject}
 
 object Processor {
-	class Task[C <: ExecutionCommand, M<: Material, R <: ExecutionResource]
-	(val cmd: C, val materials: Map[M, DirectedChannel.End[M]], val resource: Option[R] = None)(implicit createdAt: Long)
-		extends Identification.Impl
-
-
-	trait ExecutionResource extends Identification
-
-	class ExecutionResourceImpl(_id: String = java.util.UUID.randomUUID().toString) extends
-		Identification.Impl(_id) with ExecutionResource
 
 	case class ConfigureOwner(newOwner: ActorRef)
 
-	trait ExecutionCommand extends Identification
-
 	trait ExecutionNotification extends Subject.Notification
-
-	class ExecutionCommandImpl(_id: String = java.util.UUID.randomUUID().toString)
-		extends SimMessage.Impl(_id) with ExecutionCommand
-
 	class ExecutionNotificationImpl(_id: String = java.util.UUID.randomUUID().toString)
 		extends Subject.NotificationImpl(_id) with ExecutionNotification
 
 	case class ReceiveLoad[M <: Material](via: DirectedChannel.End[M], load: M) extends ExecutionNotificationImpl
-
 	case class StageLoad(sourceCommandId: String, material: Option[Material]) extends ExecutionNotificationImpl
-
 	case class StartTask(sourceCmdId: String, materials: Seq[Material]) extends ExecutionNotificationImpl
-
 	case class CompleteTask(sourceCommandId: String, materials: Seq[Material] = Seq.empty, results: Seq[Material] = Seq.empty) extends ExecutionNotificationImpl
-
 	case class DeliverResult[M <: Material](sourceCommandId: String, via: DirectedChannel.Start[M], result: M) extends ExecutionNotificationImpl
 
 

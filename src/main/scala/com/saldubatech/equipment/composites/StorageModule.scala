@@ -10,7 +10,7 @@ package com.saldubatech.equipment.composites
 
 import com.saldubatech.base.Aisle.Locator
 import com.saldubatech.base.{Aisle, Material}
-import com.saldubatech.base.Processor.ExecutionCommandImpl
+import com.saldubatech.base.processor.Task.ExecutionCommandImpl
 
 object StorageModule {
 	class StorageAisleCommand(val starterLevel: Int, val finishLevel: Int, name: String = java.util.UUID.randomUUID.toString)

@@ -6,38 +6,32 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-package com.saldubatech.equipment.elements
+package com.saldubatech.base.processor
 
 import akka.actor.ActorRef
-import com.saldubatech.base.Processor.Task
-import com.saldubatech.base.layout.{Geography, TaggedGeography}
 import com.saldubatech.base._
 import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.layout.{Geography, TaggedGeography}
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.base.layout.TaggedGeography
 import com.saldubatech.utils.Boxer._
 
-object XSwitchTransfer {
+object XSwitchTransfer2 {
 	def apply[
-	C <: XSwitchTransfer.RouteExecutionCommand,
-	R <: Processor.ExecutionResource,
+	C <: XSwitchTransfer2.RouteExecutionCommand,
+	R <: Task.ExecutionResource,
 	M <: Material,
-	TK <: Task[C,M,R],
+	TK <: Task[C,M,M,R],
 	P <: Geography.Point[P]]
-	(host: ProcessorHelper.ProcessorHelperI[C, R, M, M, TK],
+	(host: ProcessorHelper[C, R, M, M, TK],
 	 physics: CarriagePhysics,
 	 geography: TaggedGeography[DirectedChannel.Endpoint[M], P],
 	 initialLevel: DirectedChannel.Endpoint[M],
-	): XSwitchTransfer[C, R, M,  TK, P] = {
-		new XSwitchTransfer[C,R,M, TK, P](physics, geography, initialLevel)(host)
-	}
-	class RouteExecutionCommand(name: Option[String] = java.util.UUID.randomUUID().toString.?) extends Processor.ExecutionCommandImpl
+	): XSwitchTransfer2[C, R, M,  TK, P] =
+		new XSwitchTransfer2[C,R,M, TK, P](physics, geography, initialLevel)(host)
+
+	class RouteExecutionCommand(name: Option[String] = java.util.UUID.randomUUID().toString.?) extends Task.ExecutionCommandImpl
 
 	case class Transfer[M <: Material](source: DirectedChannel.End[M], destination: DirectedChannel.Start[M], loadId: Option[String])
 		extends RouteExecutionCommand {
@@ -45,20 +39,19 @@ object XSwitchTransfer {
 		def isDestination(other: DirectedChannel.Start[Material]): Boolean = destination == other
 		def isLoad(other: Material): Boolean = loadId.isEmpty || loadId.head == other.uid
 	}
-
 }
 
-class XSwitchTransfer[
-	C <: XSwitchTransfer.RouteExecutionCommand,
-	R <: Processor.ExecutionResource,
+class XSwitchTransfer2[
+	C <: XSwitchTransfer2.RouteExecutionCommand,
+	R <: Task.ExecutionResource,
 	M <: Material,
-	TK <: Task[C,M,R],
+	TK <: Task[C,M,M,R],
 	P <: Geography.Point[P]	]
 	(physics: CarriagePhysics,
 	 geography: TaggedGeography[DirectedChannel.Endpoint[M], P],
 	 initialLevel: DirectedChannel.Endpoint[M],
-	)(implicit host: ProcessorHelper.ProcessorHelperI[C, R, M, M, TK]) {
-	import XSwitchTransfer._
+	)(implicit host: ProcessorHelper[C, R, M, M, TK]) {
+	import XSwitchTransfer2._
 
 	def protocol(from: ActorRef, at: Long): Processing = {
 		stage match {
@@ -97,7 +90,7 @@ class XSwitchTransfer[
 			currentLevel = source
 			stage = Stage.TRANSFER
 			host.log.debug(s"Staged Load: $load from $source at $at")
-			host.stageMaterial(load,source,at)
+			host.stageMaterial(load,source.?,at)
 			Deliver(destination, load) ~> host.self in ((at, physics.timeToDeliver(geography.distance(currentLevel, destination))))
 	}
 

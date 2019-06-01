@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.model.configuration
 
 import java.io
@@ -14,10 +18,10 @@ import com.saldubatech.randomvariables.Distributions._
 object Layout {
 
 	object TransportLink {
-		def apply(from: String, to: String, capacity: Int, delay: LongRVar = zeroLong) =
-			new TransportLink(from, to, capacity, delay)
+		def apply(from: String, to: String, capacity: Int, nEndpoints: Int = 1, delay: LongRVar = zeroLong) =
+			new TransportLink(from, to, capacity, nEndpoints, delay)
 	}
-	case class TransportLink(from: String, to: String, capacity: Int, delay: LongRVar = zeroLong)
+	case class TransportLink(from: String, to: String, capacity: Int, nEndpoints: Int = 1, delay: LongRVar = zeroLong)
 
 
 }

@@ -5,6 +5,7 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
 package com.saldubatech.base.channels
 
 import akka.actor.ActorRef
@@ -21,8 +22,9 @@ object DirectedChannel {
 	import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
 
 	def apply[L <: Identification](capacity: Int, name: String = java.util.UUID.randomUUID().toString,
-	                              delay: LongRVar = zeroLong) =
-		new DirectedChannel[L](capacity, name, delay)
+	                               endPoints: Int = 1,
+	                               delay: LongRVar = zeroLong) =
+		new DirectedChannel[L](capacity, name, endPoints, delay)
 
 	trait Source[L <: Identification] extends Channel.Source[L, Start[L], End[L], Source[L], Sink[L]] {
 		def restoreChannelCapacity(via: Start[L], tick: Long): Unit
@@ -86,44 +88,43 @@ object DirectedChannel {
 		}
 	}
 
-	class End[L <: Identification](name: String, val channelResources: DiscreteResourceBox)
+	class End[L <: Identification](name: String, val channelResources: DiscreteResourceBox, nEndpoints: Int)
 		extends Channel.End[L, End[L], Start[L], Source[L], Sink[L]](name) with Endpoint[L] {
 		private val outWip: mutable.Map[L, String] = mutable.Map()
 
-		private val available: mutable.ListBuffer[L] = mutable.ListBuffer()
-
-		def headOption: Option[L] = available.headOption
-		def reserve: Option[L] = {
-			val result = headOption
-			if(result isDefined) available -= result.!
-			result
-		}
+		private val pending: mutable.Queue[(ActorRef, L)] = mutable.Queue.empty
 
 		def doneWithLoad(load: L, at: Long): Unit = {
 			assert (outWip contains load, s"Load $load not accepted through this channel ($name)")
-			logger.debug(s"Acknowledging load $load through $name")
 			val resource = outWip(load)
 			resources.checkin(resource)
 			outWip remove load
-			if(available contains load) available -= load
-			owner.log.debug(s"$name Sending Restore $resource for ${load.uid} to ${peerOwner.!.path.name} at: $at")
+			owner.log.debug(s"$name Sending Restore $resource for ${load.uid} to ${peerOwner.!.path.name} at: $at, pending $pending")
+			if(pending nonEmpty) {
+				val (from, load) = pending.dequeue
+				super.doLoadReceiving(from, at, load)
+			}
 			AcknowledgeLoad(name, load, resource.?) ~> peerOwner.! now at
 		}
 
 		override def loadReceiving(from: ActorRef, tick: Long): Processing = {
 			case c: TransferLoad[L] if from == peerOwner.!  && c.channel == name =>
-				owner.log.debug(s"Received TransferLoad by $name with peer (${peerOwner.!.path.name} " +
+				owner.log.debug(s"Received TransferLoad with ${c.load} by $name with peer (${peerOwner.!.path.name} " +
 					s"from ${from.path.name} via ${c.channel}")
 				doLoadReceiving(from, tick, c.load, c.resource)
 		}
 
 		def doLoadReceiving(from: ActorRef, tick: Long, load: L, resource: Option[String]): Unit = {
-			// Reserve the resource, register inWip and send for processing.
+			// Reserve the resource, register outWip and send for processing.
 			val reserveSuccess = resources.reserve(resource.!)
 			assert(reserveSuccess, s"Received resource $resource should be part of the receiving box ${resources.sourceAssets}")
 			outWip.put(load, resource.!)
-			available.append(load)
-			super.doLoadReceiving(from, tick, load)
+			//available.append(load)
+			if(outWip.size <= nEndpoints)	{
+				super.doLoadReceiving(from, tick, load)
+			} else {
+				pending.enqueue((from, load))
+			}
 //			owner.receiveMaterial(this, load, tick) now done in super
 		}
 	}
@@ -131,11 +132,12 @@ object DirectedChannel {
 
 class DirectedChannel[L <: Identification](capacity: Int,
                                            name:String = java.util.UUID.randomUUID.toString,
+                                           nEndpoints: Int = 1,
 	                                           delay: LongRVar = zeroLong)
 	extends Channel[L, DirectedChannel.End[L], DirectedChannel.Start[L], DirectedChannel.Source[L], DirectedChannel.Sink[L]](name) {
 
 	protected val resources:DiscreteResourceBox = DiscreteResourceBox(name, capacity)
 
 	override def startBuilder(name: String): DirectedChannel.Start[L] = {assert(resources != null, "resources must be initialized"); new DirectedChannel.Start[L](name, resources)}
-	override def endBuilder(name: String): DirectedChannel.End[L] = {assert(resources != null, "resources must be initialized");new DirectedChannel.End[L](name, resources)}
+	override def endBuilder(name: String): DirectedChannel.End[L] = {assert(resources != null, "resources must be initialized");new DirectedChannel.End[L](name, resources, nEndpoints)}
 }

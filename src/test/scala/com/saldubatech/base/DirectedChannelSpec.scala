@@ -5,6 +5,7 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
 package com.saldubatech.base
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -115,21 +116,21 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 
 	"A Material Channel" when {
 		"created" must {
-			"allow registering Origin and Destination" in {
+			"1. allow registering Origin and Destination" in {
 				gw.configure(origin, ConfigureStarts[DirectedChannel[Material]](Seq(underTest)))
 				gw.configure(destination, ConfigureEnds[DirectedChannel[Material]](Seq(underTest)))
 				expectMsgAllOf("Registering Left", "Registering Right")
 				assert(underTest.end != null)
 				assert(underTest.start != null)
 			}
-			"call the destination consumeInput when sent a load" in {
+			"2. Accept an activation once configuration is complete" in {
 				Await.result(gw.isConfigurationComplete, 1 second) shouldBe Gateway.SimulationState.READY
 				gw.activate()
+			}
+			"3. reject the 4th call to sendLoad" in {
 				val material = Material("Material"+1)
 				underTest.start.sendLoad(material, 0) shouldBe true
 				expectMsg(s"New Job Arrival $material")
-			}
-			"reject the 4th call to sendLoad" in {
 				val material2 = Material("Material"+2)
 				val material3 = Material("Material"+3)
 				val material4 = Material("Material"+4)
@@ -139,17 +140,17 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 				expectMsg(s"New Job Arrival $material2")
 				expectMsg(s"New Job Arrival $material3")
 				expectNoMessage(500 millis)
-			}
-			"Free up a resource when doneWithLoad" in {
+			//}
+			//"4. Free up a resource when doneWithLoad" in {
 				underTest.end.doneWithLoad(lastJob, 0)
 				expectMsgAllOf(
 					"Restored Outbound Capacity at 0",
 					"Notified of outbound available at 0")
-			}
-			"Then accept one more load" in {
-				val material = Material("Material"+4)
-				underTest.start.sendLoad(material, 0) shouldBe true
-				expectMsg(s"New Job Arrival $material")
+			//}
+			//"5. Then accept one more load" in {
+				val material5 = Material("Material"+5)
+				underTest.start.sendLoad(material5, 0) shouldBe true
+				expectMsg(s"New Job Arrival $material5")
 			}
 		}
 	}

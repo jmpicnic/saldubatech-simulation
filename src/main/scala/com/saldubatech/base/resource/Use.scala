@@ -6,11 +6,15 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base.resource
 
+import com.saldubatech.base.Identification
+
 import scala.collection.mutable
-
-
 import com.saldubatech.utils.Boxer._
 
 object Use {
@@ -18,13 +22,13 @@ object Use {
 		val IDLE, inUSE, BUSY, UNKNOWN = Value
 	}
 
-	trait Usable {
-		def isEmpty: Boolean
-		def isFull: Boolean
+	trait Usable extends Identification {
+		def isIdle: Boolean
+		def isBusy: Boolean
 		def isInUse: Boolean
 		def useState: Use.Value =
-			if(isEmpty) Use.IDLE
-			else if (isFull) Use.BUSY
+			if(isIdle) Use.IDLE
+			else if (isBusy) Use.BUSY
 			else if(isInUse) Use.inUSE
 			else Use.UNKNOWN
 	}
@@ -38,15 +42,17 @@ object Use {
 		private val inUse: mutable.Map[String, I] = mutable.Map.empty
 		private lazy val idle: mutable.Map[String, I] = mutable.Map[String, I](items.toSeq: _*)
 
-		def isEmpty: Boolean = reserved.isEmpty && inUse.isEmpty
-		def isFull: Boolean = idle.isEmpty //items.size == reserved.size + inUse.size
-		def isInUse: Boolean = !(isEmpty || isFull)
+		def availableResources: Map[String, I] = idle.toMap
+
+		def isIdle: Boolean = reserved.isEmpty && inUse.isEmpty
+		def isBusy: Boolean = idle.isEmpty //items.size == reserved.size + inUse.size
+		def isInUse: Boolean = !(isIdle || isBusy)
 
 		def isReserved(tk: String): Boolean =
 			reserved contains tk
 
 		def reserve(tk: String): Option[String] =
-			if(isFull || !idle.contains(tk)) None
+			if(isBusy || !idle.contains(tk)) None
 			else {
 				val item = tk -> idle(tk)
 				reserved += item
@@ -55,7 +61,7 @@ object Use {
 			}
 
 		def reserve: Option[String] =
-			if (isFull) None
+			if (isBusy) None
 			else reserve(idle.head._1)
 
 		def abandon(tk: String): Boolean =
@@ -89,7 +95,7 @@ object Use {
 
 		def acquire: Option[Usage[I]] = acquire(None)
 		def acquire(tk: Option[String]): Option[Usage[I]] = {
-			if (isFull) None
+			if (isBusy) None
 			else if(tk isEmpty) {
 				val (key, itm) = idle.head
 				idle -= key

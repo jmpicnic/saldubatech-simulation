@@ -27,21 +27,21 @@ object Material {
 
 
 	abstract class CompositeBuilder[M <: Material, C <: Composite[M]](val capacity: Option[Int] = None)
-	extends Use.Usable {
+	extends Identification.Impl with Use.Usable {
 		private val storage: mutable.ListBuffer[M] = mutable.ListBuffer.empty
 
 		def currentContents: List[M] = storage.toList
 
 		protected def newComposite(contents: List[M], id: String): C
 
-		def isEmpty: Boolean = storage.isEmpty
-		def isFull: Boolean = capacity.nonEmpty && storage.length == capacity.!
-		def isInUse: Boolean = !(isEmpty || isFull)
+		def isIdle: Boolean = storage.isEmpty
+		def isBusy: Boolean = capacity.nonEmpty && storage.length == capacity.!
+		def isInUse: Boolean = !(isIdle || isBusy)
 		def quantity: Int = storage.length
 
 
 		def maybeAddContent(m: M): Boolean = {
-			if(capacity.isEmpty || !isFull) {
+			if(capacity.isEmpty || !isBusy) {
 				storage += m
 				true
 			} else false

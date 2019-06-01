@@ -5,18 +5,22 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 package com.saldubatech.equipment.units.lift
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
 import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
-import com.saldubatech.base.Processor._
+import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.equipment.elements.XSwitchTransfer.Transfer
+import com.saldubatech.base.processor.XSwitchTransfer2.Transfer
 import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._

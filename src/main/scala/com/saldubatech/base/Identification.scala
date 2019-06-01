@@ -6,6 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.base
 
 import com.saldubatech.utils.Boxer._
@@ -14,7 +18,7 @@ object Identification {
 	class Impl(id: String = java.util.UUID.randomUUID().toString) extends Identification {
 		override def givenId: Option[String] = id.?
 
-		override def toString: String = uid
+		//override def toString: String = uid
 	}
 }
 

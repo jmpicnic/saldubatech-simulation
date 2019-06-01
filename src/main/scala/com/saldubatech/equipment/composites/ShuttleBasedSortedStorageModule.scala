@@ -9,12 +9,11 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
-
 package com.saldubatech.equipment.composites
 
 import akka.actor.{ActorRef, Props}
 import com.saldubatech.base.Aisle.LevelLocator
-import com.saldubatech.base.Processor._
+import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActor.Processing
@@ -155,7 +154,7 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 			case StageLoad(cmd, load) if from == shuttle => 	// Shuttle picked up from lift
 			case DeliverResult(cmd, via, result) if from == shuttle =>
 				DeliverResult(pendingCommands.head.uid, via, result)
-			case CompleteTask(cmd, inputs, outputs) if outputs.isEmpty && from == shuttle =>
+			case CompleteTask(cmd, inputs, outputs) if outputs.isIdle && from == shuttle =>
 				// Shuttle is done, Inbound Complete.
 				CompleteTask(pendingCommands.head.uid, inputs, Seq()) ~> owner now at
 				dequeueCommand
@@ -174,7 +173,7 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 				// Shuttle picked up from slot, done Aisle Staging
 				StageLoad(pendingCommands.head.uid, load) ~> owner now at
 			case DeliverResult(cmd, via, result) if from == shuttle =>
-			case CompleteTask(cmd, inputs, outputs) if inputs.isEmpty && from == shuttle =>  // Shuttle is done.
+			case CompleteTask(cmd, inputs, outputs) if inputs.isIdle && from == shuttle =>  // Shuttle is done.
 			case ReceiveLoad(via, load) if from == lift =>
 			case StartTask(cmd, materials) if from == lift =>
 			case StageLoad(cmd, load) if from == lift => // Lift picked up from shuttle
@@ -206,7 +205,7 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 				log.debug("Grooming -- Retrieve Staging")
 				StageLoad(pendingCommands.head.uid, load) ~> owner now at
 			case DeliverResult(cmd, via, result) if from == fromShuttle =>
-			case CompleteTask(cmd, inputs, outputs) if inputs.isEmpty && from == fromShuttle => log.debug("Grooming -- Retrieve Complete") // from-shuttle is done.
+			case CompleteTask(cmd, inputs, outputs) if inputs.isIdle && from == fromShuttle => log.debug("Grooming -- Retrieve Complete") // from-shuttle is done.
 			case ReceiveLoad(via, load) if from == lift =>
 			case StartTask(cmd, materials) if from == lift =>
 			case StageLoad(cmd, load) if from == lift => log.debug("Grooming -- Transfer Staging") // Lift picked up from shuttle
@@ -216,7 +215,7 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 			case StartTask(cmd, materials) if from == toShuttle =>
 			case StageLoad(cmd, load) if from == toShuttle => log.debug("Grooming -- Deliver Staging") // toShuttle picked up from lift
 			case DeliverResult(cmd, via, result) if from == toShuttle => DeliverResult(pendingCommands.head.uid, via, result) ~> owner now at
-			case CompleteTask(cmd, inputs, outputs) if outputs.isEmpty && from == toShuttle =>
+			case CompleteTask(cmd, inputs, outputs) if outputs.isIdle && from == toShuttle =>
 				// to-shuttle is done, Groom Complete.
 				log.debug("Grooming -- Deliver Complete")
 				CompleteTask(pendingCommands.head.uid, inputs, outputs) ~> owner now at

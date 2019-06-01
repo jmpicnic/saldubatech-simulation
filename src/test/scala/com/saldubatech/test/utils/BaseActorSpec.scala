@@ -2,6 +2,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -22,14 +26,20 @@ class BaseActorSpec(_system: ActorSystem, val spooler: Option[EventSpooler] = No
 	}
 	type TestGateway = gw.type
 
-  val simActorRef: ActorRef = gw.simActorOf(SimTestProbeForwarder.props("HostForwarder", gw, testActor), "hostForwarder")
-
+	var beforeCount = 0
+	var afterCount = 0
 
 	override def afterAll: Unit = {
+		afterCount += 1
+		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute After ALL: $afterCount")
     gw.shutdown()
+		_system.terminate()
   }
 
 	override def beforeAll: Unit = {
+		beforeCount += 1
+		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute Before ALL: $beforeCount")
+		val simActorRef: ActorRef = gw.simActorOf(SimTestProbeForwarder.props("HostForwarder", gw, testActor), "hostForwarder")
 		gw.configure(simActorRef)
   }
 }

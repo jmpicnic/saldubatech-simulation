@@ -5,11 +5,15 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 package com.saldubatech.equipment.composites.controllers
 
 import akka.actor.{ActorRef, Props}
 import com.saldubatech.base.Aisle.LevelLocator
-import com.saldubatech.base.Processor._
+import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActor.Processing

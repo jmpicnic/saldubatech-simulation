@@ -5,12 +5,11 @@
 /*
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
-
 package com.saldubatech.equipment.units.grouping
 
 import com.saldubatech.base.Material
 import com.saldubatech.base.Material.Composite
-import com.saldubatech.base.Processor.ExecutionResourceImpl
+import com.saldubatech.base.processor.Task.ExecutionResourceImpl
 import com.saldubatech.base.resource.Use
 import com.saldubatech.utils.Boxer._
 
@@ -40,8 +39,8 @@ class Slot[M <: Material, PR <: Composite[M]](val id: String, capacity: Option[I
 	}
 
 
-	def isEmpty:Boolean = usage == 0
-	def isFull: Boolean = capacity.isDefined && usage == capacity
+	def isIdle:Boolean = usage == 0
+	def isBusy: Boolean = capacity.isDefined && usage == capacity
 	def isInUse: Boolean = usage > 0
 	def usage: Int = slot.quantity + reserved.size
 
@@ -49,7 +48,7 @@ class Slot[M <: Material, PR <: Composite[M]](val id: String, capacity: Option[I
 	private var reserved: mutable.Set[String] = mutable.Set.empty
 
 	def reserve: Option[String] =
-		if(isFull) None
+		if(isBusy) None
 		else {
 			val tk = java.util.UUID.randomUUID.toString
 			reserved += tk
@@ -66,7 +65,7 @@ class Slot[M <: Material, PR <: Composite[M]](val id: String, capacity: Option[I
 		reserved contains tk
 
 	def <<(deposit: Deposit[M]): Boolean =
-		if(deposit.tk.isEmpty && !isFull)
+		if(deposit.tk.isEmpty && !isBusy)
 			slot.maybeAddContent(deposit.material)
 		else if(deposit.tk.nonEmpty && isReserved(deposit.tk.!)) {
 			assert(slot.maybeAddContent(deposit.material), "if reserved, it should have space")
