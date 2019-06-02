@@ -2,10 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.units.shuttle
 
 import akka.actor.{ActorRef, Props}
@@ -13,20 +9,20 @@ import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.layout.Geography.{LinearGeography, LinearPoint}
 import com.saldubatech.base.layout.TaggedGeography
 import com.saldubatech.base.processor.Processor.ConfigureOwner
-import com.saldubatech.base.processor.XSwitchTransfer2.Transfer
-import com.saldubatech.base.processor.{ProcessorHelper, Task, XSwitchTransfer2}
+import com.saldubatech.base.processor.XSwitchTransfer.Transfer
+import com.saldubatech.base.processor.{ProcessorHelper, Task, XSwitchTransfer}
+import com.saldubatech.base.resource.Slot
 import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
-import com.saldubatech.resource.Slot
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable
 import scala.languageFeature.postfixOps
 
 object LiftExecutor {
-	type Engine = XSwitchTransfer2[Transfer[Material], Slot[Material], Material, LiftTask, LinearPoint]
+	type Engine = XSwitchTransfer[Transfer[Material], Slot[Material], Material, LiftTask, LinearPoint]
 
 	def apply(name: String,
 	          physics: CarriagePhysics,
@@ -73,12 +69,8 @@ class LiftExecutor(name: String,
 
 	assert(inbound.end == initialLevel ||
 		outbound.start == initialLevel ||
-		levelConnectors.map {
-			case (in, out) => in.start
-		}.contains(initialLevel) ||
-		levelConnectors.map {
-			case (in, out) => out.end
-		}.contains(initialLevel),
+		levelConnectors.map {case (in, out) => in.start}.contains(initialLevel) ||
+		levelConnectors.map {case (in, out) => out.end}.contains(initialLevel),
 		s"Initial Level ($initialLevel) should be part of the provided endpoints")
 
 	lazy val carriage: Slot[Material] = Slot[Material]()
@@ -100,15 +92,14 @@ class LiftExecutor(name: String,
 		case ConfigureOwner(p_owner) =>
 			configureOwner(p_owner)
 			levelConnectors.foreach {
-				case (intoLevel, outOfLevel) => {
+				case (intoLevel, outOfLevel) =>
 					intoLevel.registerStart(this)
 					outOfLevel.registerEnd(this)
-				}
 			}
 			inbound.registerEnd(this)
 			outbound.registerStart(this)
 			engine = Some(
-				XSwitchTransfer2[Transfer[Material], Slot[Material], Material, LiftTask, LinearPoint](
+				XSwitchTransfer[Transfer[Material], Slot[Material], Material, LiftTask, LinearPoint](
 					this,
 					physics,
 					new TaggedGeography.Impl[DirectedChannel.Endpoint[Material], LinearPoint](tags, new LinearGeography()),
@@ -122,8 +113,7 @@ class LiftExecutor(name: String,
 	}
 
 	def commandReceiver(from: ActorRef, at: Long): Processing = {
-		case cmd @ Transfer(_,_,_) =>
-			receiveCommand(cmd, at)
+		case cmd @ Transfer(_,_,_) => receiveCommand(cmd, at)
 	}
 
 	override def process(from: ActorRef, at: Long): Processing =
@@ -134,48 +124,21 @@ class LiftExecutor(name: String,
 			levelConnectors.map(ep => ep._1.start.restoringResource(from, at) orElse ep._2.end.loadReceiving(from, at))
 				.fold(nullProcessing)((acc, el) => acc orElse el)
 
-	/*override protected def localSelectNextExecution(pendingCommands: List[RouteExecutionCommand],
-	                                                availableMaterials: Map[Material, DirectedChannel.End[Material]],
-	                                                at: Long): Option[LiftTask] = {
-		if(pendingCommands nonEmpty) {
-			val cmd = pendingCommands.head // FIFO
-			val candidate = cmd match {case c: Transfer[Material] => availableMaterials.find(
-				e =>
-					e._2 == c.source && (c.loadId.isEmpty || c.loadId.head == e._1.uid))}
-			if(candidate isDefined) Some(LiftTask(cmd,Map(candidate.!))(at))
-			else None
-		} else None
-	}*/
-
-	/*override protected def localInitiateTask(task: LiftTask, at: Long): Unit = {
-		engine.!.initiateCmd(task.cmd, task.initialMaterials.head._1, at)
-	}*/
-
-	/*override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
-*/
-/*	override protected def localFinalizeDelivery(load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit =
-		engine.!.finalizeDelivery(load, tick)*/
-
-	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
+	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = true
 
 	override protected def collectMaterials(cmd: Transfer[Material], resource: Slot[Material],
 	                                        available: mutable.Map[Material, DirectedChannel.End[Material]])
-	:Map[Material, DirectedChannel.End[Material]] = {
+	:Map[Material, DirectedChannel.End[Material]] =
 		available.map{case (m, v) if v == cmd.source => m -> v}.toMap
-	}
 
 	override protected def newTask(cmd: Transfer[Material],
 	                               materials: Map[Material, DirectedChannel.End[Material]],
-	                               resource: Slot[Material], at: Long): Option[LiftTask] = {
-		val candidate = cmd match {
+	                               resource: Slot[Material], at: Long): Option[LiftTask] =
+		(cmd match {
 			case Transfer(source, destination, loadId) => materials.find{
 				case (mat, via) =>
 					(via == source) && (loadId.isEmpty || loadId.head == mat.uid)
-			}
-		}
-		if(candidate isDefined) Some(LiftTask(cmd,Map(candidate.!),carriage.?)(at))
-		else None
-	}
+			}}).map(mat => LiftTask(cmd, Map(mat), carriage.?)(at))
 
 	override protected def triggerTask(task: LiftTask, at: Long): Unit =
 		engine.!.initiateCmd(task.cmd, task.initialMaterials.head._1, at)
@@ -191,8 +154,7 @@ class LiftExecutor(name: String,
 	}
 
 	override protected def localFinalizeDelivery(load: Material,
-	                                             via: DirectedChannel.Start[Material], tick: Long)
-	: Unit =
+	                                             via: DirectedChannel.Start[Material], tick: Long): Unit =
 		engine.!.finalizeDelivery(load, tick)
 
 }

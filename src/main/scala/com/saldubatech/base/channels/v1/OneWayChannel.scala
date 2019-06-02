@@ -23,8 +23,8 @@ package com.saldubatech.base.channels.v1
 import akka.actor.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.base.channels.v1.AbstractChannel.FlowDirection
+import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
-import com.saldubatech.resource.DiscreteResourceBox
 
 object OneWayChannel {
 	def apply[L <: Identification](capacity: Int, name: String = java.util.UUID.randomUUID().toString) =

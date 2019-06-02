@@ -11,7 +11,7 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
 import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.processor.Processor.{CompleteTask, ConfigureOwner, DeliverResult, ReceiveLoad, StageLoad, StartTask}
-import com.saldubatech.base.processor.XSwitchTransfer2.Transfer
+import com.saldubatech.base.processor.XSwitchTransfer.Transfer
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActorImpl.Configuring

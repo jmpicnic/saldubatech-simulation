@@ -20,7 +20,7 @@ import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.base.processor.XSwitchTransfer2.Transfer
+import com.saldubatech.base.processor.XSwitchTransfer.Transfer
 import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._

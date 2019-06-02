@@ -2,10 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.base.processor
 
 import akka.actor.ActorRef
@@ -13,27 +9,27 @@ import com.saldubatech.base.{Material, Owned}
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.processor.Task._
 import com.saldubatech.base.processor.Processor.ExecutionNotification
-import com.saldubatech.base.resource.{ResourcePool, Use}
+import com.saldubatech.base.resource.{Resource, ResourcePool, Use}
 import com.saldubatech.ddes.{Gateway, Subject}
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable
 
 object MultiProcessorHelper {
-	trait MultiProcessorImplementor[C <: ExecutionCommand, R <: ExecutionResource,
+	trait MultiProcessorImplementor[C <: ExecutionCommand, R <: Resource,
 	M <: Material, PR <: Material, TK <: Task[C, M, PR, R]]
 		extends DirectedChannel.Source[PR]{
 		// To be implemented by subclass
 		protected def resources: Map[String, R]
-		protected def triggerTask(task: TK, at: Long): Unit // Same
-		protected def localReceiveMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Unit // Same
-		protected def localFinalizeDelivery(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit
 		protected def updateState(at: Long): Unit
-		protected def newTask(cmd: C, materials: Map[M, DirectedChannel.End[M]], resource: R, at: Long): Option[TK]
 		protected def findResource(cmd: C, resources: mutable.Map[String, R]): Option[(C, String, R)]
+		protected def localReceiveMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Boolean // Same
 		protected def collectMaterials(cmd: C, resource: R, available: mutable.Map[M, DirectedChannel.End[M]]): Map[M, DirectedChannel.End[M]]
+		protected def newTask(cmd: C, materials: Map[M, DirectedChannel.End[M]], resource: R, at: Long): Option[TK]
+		protected def triggerTask(task: TK, at: Long): Unit // Same
 		protected def loadOnResource(resource: Option[R], material: Option[M])
 		protected def offloadFromResource(resource: Option[R], product: Set[PR])
+		protected def localFinalizeDelivery(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit
 	}
 
 	trait MultiProcessorSupport[C <: ExecutionCommand, M <: Material, PR <: Material]
@@ -48,14 +44,14 @@ object MultiProcessorHelper {
 		def tryDelivery(via: DirectedChannel.Start[PR], tick: Long): Unit // Same
 	}
 
-	trait FcfsResourceSelection[C <: ExecutionCommand, R <: ExecutionResource] {
+	trait FcfsResourceSelection[C <: ExecutionCommand, R <: Resource] {
 		protected def findResource(cmd: C, resources: mutable.Map[String, R]): Option[(C, String,  R)] =
-			resources.collectFirst{case (id, r) if isAcceptable(cmd, r) => (cmd, id, r)}
+			resources.collectFirst{case (id, res) if isAcceptable(cmd, res) => (cmd, id, res)}
 
 		protected def isAcceptable(cmd: C, r: R): Boolean
 	}
 
-	trait FcfsMaterialSelection[C <: ExecutionCommand, R <: ExecutionResource, M <: Material] {
+	trait FcfsMaterialSelection[C <: ExecutionCommand, R <: Resource, M <: Material] {
 		protected def collectMaterials(cmd: C, resource: R,
 	                               available: mutable.Map[M, DirectedChannel.End[M]]): Map[M, DirectedChannel.End[M]] =
 			available.map{case (m, v) if isAcceptable(cmd, resource, m) => m -> v}.toMap
@@ -69,7 +65,7 @@ object MultiProcessorHelper {
 	* A super class to handle all the material and command pairing in a processor
 	*/
 trait MultiProcessorHelper
-[C <: ExecutionCommand, R <: ExecutionResource, M <: Material, PR <: Material, TK <: Task[C, M, PR, R]]
+[C <: ExecutionCommand, R <: Resource, M <: Material, PR <: Material, TK <: Task[C, M, PR, R]]
 extends MultiProcessorHelper.MultiProcessorImplementor[C, R, M, PR, TK]
 	with MultiProcessorHelper.MultiProcessorSupport[C, M, PR]
 	with Owned[Processor.ExecutionNotification] {
@@ -86,8 +82,8 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C, R, M, PR, TK]
 		log.debug(s"Receiving Load: $load")
 		updateState(tick)
 		notify(ReceiveLoad(via, load), tick)
-		availableMaterials.add(load, via)
-		localReceiveMaterial(via, load, tick)
+		if(localReceiveMaterial(via, load, tick))
+			availableMaterials.add(load, via)
 		tryExecution(tick)
 	}
 
@@ -115,14 +111,14 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C, R, M, PR, TK]
 					tsk.foreach(tk =>	localAvailableMaterials --= tk.initialMaterials.keys)
 					tsk
 			}
-			candidateTasks.foreach{
-				case tsk =>
+			candidateTasks.foreach {
+				tsk =>
 					currentTasks += tsk.cmd.uid -> tsk
 					triggerTask(tsk, at)
 					notify(StartTask(tsk.cmd.uid, tsk.initialMaterials.keys.toSeq), at)
 					pendingCommands -= tsk.cmd
 					tsk.resource.foreach(r => resourcePool.acquire(r.uid.?))
-					tsk.initialMaterials.foreach{case (m, v) => availableMaterials retire m}
+					tsk.initialMaterials.foreach { case (m, v) => availableMaterials retire m }
 			}
 		}
 	}

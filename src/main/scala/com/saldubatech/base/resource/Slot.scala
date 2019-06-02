@@ -2,15 +2,9 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-package com.saldubatech.resource
+package com.saldubatech.base.resource
 
 import com.saldubatech.base.Material
-import com.saldubatech.base.processor.Task.ExecutionResourceImpl
-
 import com.saldubatech.utils.Boxer._
 
 object Slot {
@@ -18,7 +12,7 @@ object Slot {
 }
 
 // This can be made a bit more sophisticated in terms of reservations
-class Slot[M <: Material](val id: String= java.util.UUID.randomUUID.toString) extends ExecutionResourceImpl(id) {
+class Slot[M <: Material](val id: String= java.util.UUID.randomUUID.toString) extends Resource.Impl(id) {
 	var slot: Option[M] = None
 	var isAssigned = false
 	def reserve: Boolean = if(isAssigned) false else {isAssigned = true; true}

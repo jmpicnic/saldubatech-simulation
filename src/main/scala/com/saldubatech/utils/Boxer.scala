@@ -29,16 +29,16 @@ package com.saldubatech.utils {
 		def safeApply[T, R](fu: (T, T) => R)(x: Option[T], y: Option[T]): Option[R] =
 			if(x.isDefined && y.isDefined) Some(fu(x.head,y.head)) else None
 
-		def safely[T, R](f: T => R): Function1[Option[T], Option[R]] =
+		def safely[T, R](f: T => R): (Option[T]) => Option[R] =
 			(x: Option[T]) => if(x isDefined) Some(f(x.head)) else None
 
-		def safely[T, R](f: (T, T) => R): Function2[Option[T], Option[T], Option[R]] =
+		def safely[T, R](f: (T, T) => R): (Option[T], Option[T]) => Option[R] =
 			(x: Option[T], y: Option[T]) => safeApply(f)(x, y)
 
 		implicit class Safeable1[T, R](fu: T => R) {
 			def ?< : Option[T] => Option[R] = safely(fu)
 		}
-		implicit class Safeable2[T, R](fu: Function2[T, T, R]) {
+		implicit class Safeable2[T, R](fu: (T, T) => R) {
 			def ? : (Option[T], Option[T]) => Option[R] = 	safely(fu)
 		}
 
@@ -57,7 +57,7 @@ package com.saldubatech.utils {
 
 		val mayBeF: Option[Boolean] = safeApply(f1)(Some(3), Some(5))
 
-		val safeFunct: (Option[Int], Option[Int]) => Option[Boolean] = safely(f1 _)
+		val safeFunct: (Option[Int], Option[Int]) => Option[Boolean] = safely(f1)
 
 		val ob: Option[Boolean] = f3 ? (Some(3), Some(5))
 		val opt1: Option[Boolean] = safeFunct(Some(33), Some(22))

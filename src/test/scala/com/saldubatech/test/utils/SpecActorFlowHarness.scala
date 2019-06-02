@@ -126,6 +126,7 @@ class SpecActorFlowHarness(trigger: (SimActor, ActorRef, Long) => Unit, flow: Sp
 		case KickOff() if !started =>
 			log.debug("KickOff harness")
 			trigger(this, from, at)
+			started = true
 		case a: Any if started =>
 			assert(flow.isDefinedAt(this,from, at, a), s"Harness $name Cannot Handle: $a")
 			log.debug(s"Harness processing Action: $a")

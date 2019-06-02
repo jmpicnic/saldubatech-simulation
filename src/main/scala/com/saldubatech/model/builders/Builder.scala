@@ -37,7 +37,7 @@ object Builder {
 			assert(!registry.contains(provisionalToken), s"Should not contain $provisionalToken in $registry")
 			if (registry contains provisionalToken) None
 			else {
-				registry(provisionalToken) = None;
+				registry(provisionalToken) = None
 				Some(provisionalToken)
 			}
 		}

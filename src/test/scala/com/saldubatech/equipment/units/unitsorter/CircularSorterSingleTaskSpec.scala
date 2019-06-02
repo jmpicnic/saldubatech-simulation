@@ -21,7 +21,7 @@ import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.base.processor.XSwitchTransfer2.Transfer
+import com.saldubatech.base.processor.XSwitchTransfer.Transfer
 import com.saldubatech.base.layout.Geography.{ClosedPathPoint, Length}
 import com.saldubatech.base.layout.TaggedGeography
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
@@ -41,10 +41,10 @@ class CircularSorterSingleTaskSpec(_system: ActorSystem) extends BaseActorSpec(_
 	val inducts: List[DirectedChannel[Material]] = List(DirectedChannel(4, "North"), DirectedChannel(4, "South"))
 	val discharges: List[DirectedChannel[Material]] = List(DirectedChannel(4, "TWO"), DirectedChannel(4, "TEN"))
 	val geoTags: Map[DirectedChannel.Endpoint[Material], ClosedPathPoint] = Map(
-		inducts.head.end -> new ClosedPathPoint(0),
-		inducts(1).end -> new ClosedPathPoint(6),
-		discharges.head.start -> new ClosedPathPoint(2),
-		discharges(1).start -> new ClosedPathPoint(10)
+		inducts.head.end -> ClosedPathPoint(0),
+		inducts(1).end -> ClosedPathPoint(6),
+		discharges.head.start -> ClosedPathPoint(2),
+		discharges(1).start -> ClosedPathPoint(10)
 	)
 
 	val physics: CircularPathPhysics = CircularPathPhysics(

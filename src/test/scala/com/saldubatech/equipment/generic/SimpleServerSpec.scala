@@ -64,7 +64,7 @@ class SimpleServerSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
 
 	def runUntil(tick: Long): (Option[Material], Long) => Boolean = (_,at) => at > tick
 
-	var source: ActorRef = gw.simActorOf(
+	val source: ActorRef = gw.simActorOf(
 		Props(
 			new Source("underTest",
 				gw,
@@ -123,12 +123,12 @@ class SimpleServerSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
 				while(
 					expectMsgPF[Boolean](500 millis)({
 						case msg:String if msg.matches(s"Generate Load.*") => specLog.info(msg); true
-						case msg:Tuple2[String, Long] if msg._1.matches("Material.*") => specLog.info(msg.toString());tick = msg._2;false
+						case msg:(String, Long) if msg._1.matches("Material.*") => specLog.info(msg.toString());tick = msg._2;false
 						case msg: Any => specLog.info(s"Unknown msg: $msg");false
 					})) loadN += 1
 				for (i <- 2 until loadN)
 					expectMsgPF[Boolean](500 millis)({
-					case msg:Tuple2[String, Long] if msg._1.matches(s"Material$i") => tick = msg._2;true})
+					case msg:(String, Long) if msg._1.matches(s"Material$i") => tick = msg._2;true})
 				//expectMsg((s"Material$i", )
 //				gw.epoch.now shouldBe tick // This is consistent with 7 jobs --> @TODO Is this the right number?
 			}

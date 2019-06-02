@@ -10,6 +10,7 @@ package com.saldubatech.base.processor
 
 import com.saldubatech.base.{Identification, Material}
 import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.resource.Resource
 import com.saldubatech.base.resource.Use.Usable
 import com.saldubatech.ddes.SimMessage
 import com.saldubatech.equipment.elements.SimpleRandomExecution.CompleteProcessing
@@ -21,16 +22,13 @@ object Task {
 	object Status extends Enumeration {
 		val Initializing, ReadyToStart, InProcess, ReadyToComplete, Complete = Value
 	}
-	trait ExecutionResource extends Usable with Identification
 
-	abstract class ExecutionResourceImpl(_id: String = java.util.UUID.randomUUID().toString) extends
-		Identification.Impl(_id) with ExecutionResource
 	trait ExecutionCommand extends SimMessage
 	class ExecutionCommandImpl(_id: String = java.util.UUID.randomUUID().toString)
 		extends SimMessage.Impl(_id) with ExecutionCommand
 }
 
-abstract class Task[C <: Task.ExecutionCommand, M<: Material, PR <: Material, R <: Task.ExecutionResource]
+abstract class Task[C <: Task.ExecutionCommand, M<: Material, PR <: Material, R <: Resource]
 	(val cmd: C, val initialMaterials: Map[M, DirectedChannel.End[M]], val resource: Option[R] = None)(implicit createdAt: Long)
 		extends Identification.Impl {
 	protected val _materials: mutable.Map[M, DirectedChannel.End[M]] = mutable.Map.empty ++ initialMaterials

@@ -24,12 +24,12 @@ import akka.actor.{ActorRef, ActorSystem, Props}
 import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
 import com.saldubatech.base.channels.v1.{AbstractChannel, OneWayChannel}
 import com.saldubatech.base.Material
+import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActorImpl
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.equipment.elements.Discharge
 import com.saldubatech.events.LogEventSpooler
-import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.test.utils.BaseActorSpec
 import com.typesafe.scalalogging.Logger
 

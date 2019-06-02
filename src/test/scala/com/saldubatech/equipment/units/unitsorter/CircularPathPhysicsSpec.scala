@@ -32,7 +32,7 @@ class CircularPathPhysicsSpec extends BaseSpec {
 	val tray0Location: Int = 3
 	val timeToLoad: Int = 22
 	val timeToDischarge: Int = 33
-	var underTest = CircularPathPhysics(
+	val underTest = CircularPathPhysics(
 		nTrays,
 		speed,
 		trayLength,
@@ -70,8 +70,8 @@ class CircularPathPhysicsSpec extends BaseSpec {
 			}
 			"Estimate the number of ticks requried for a tray to go to from a fixed index to another" in {
 				val current0Index = underTest.indexForElement(0)
-				underTest.distance(new ClosedPathPoint(1), new ClosedPathPoint(10)) shouldBe 9
-				underTest.distance(new ClosedPathPoint(10), new ClosedPathPoint(1)) shouldBe 3
+				underTest.distance(ClosedPathPoint(1), ClosedPathPoint(10)) shouldBe 9
+				underTest.distance(ClosedPathPoint(10), ClosedPathPoint(1)) shouldBe 3
 				underTest.estimateElapsed(1, 10) shouldBe 9*trayLength/speed
 			}
 			"Estimate the number of ticks required for a tray with a number to go to a fixed index" in {
@@ -82,7 +82,7 @@ class CircularPathPhysicsSpec extends BaseSpec {
 				val ut2 = CircularPathPhysics(12, 10, 40, 11)
 				ut2.updateLocation(360) shouldBe 5
 				ut2.indexForElement(1).coord shouldBe 6
-				ut2.distance(new ClosedPathPoint(6), new ClosedPathPoint(6)) shouldBe 0
+				ut2.distance(ClosedPathPoint(6), ClosedPathPoint(6)) shouldBe 0
 				ut2.indexForElement(9).coord shouldBe 2
 			}
 		}

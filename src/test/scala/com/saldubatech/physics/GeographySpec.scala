@@ -22,7 +22,7 @@ class GeographySpec extends BaseSpec {
 	import com.saldubatech.base.layout.Geography._
 
 	implicit val nTrays: Length = Length(12)
-	var underTest = new Geography.ClosedPathGeography(nTrays)
+	val underTest = new Geography.ClosedPathGeography(nTrays)
 	"A Circular Geography" when {
 		"just initialized" should {
 			"keep the pathLength" in {

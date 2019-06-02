@@ -15,7 +15,7 @@ package com.saldubatech.equipment.elements
 import com.saldubatech.base.channels.v1.AbstractChannel.FlowDirection
 import com.saldubatech.base.Material
 import com.saldubatech.base.channels.v1.OneWayChannel
-import com.saldubatech.resource.DiscreteResourceBox
+import com.saldubatech.base.resource.DiscreteResourceBox
 
 object OneWayMaterialChannel {
 	def apply(capacity: Int, name:String = java.util.UUID.randomUUID().toString) =

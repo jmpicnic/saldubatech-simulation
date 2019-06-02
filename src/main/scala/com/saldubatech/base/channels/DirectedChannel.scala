@@ -10,10 +10,10 @@ package com.saldubatech.base.channels
 
 import akka.actor.ActorRef
 import com.saldubatech.base.Identification
+import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.randomvariables.Distributions._
-import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable

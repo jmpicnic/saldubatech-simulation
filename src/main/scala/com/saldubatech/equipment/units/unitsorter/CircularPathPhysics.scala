@@ -58,13 +58,13 @@ class CircularPathPhysics(val nTrays: Int,
 
 	def indexForElement(element: Int): ClosedPathPoint = {
 		assert(element < nTrays, s"Index $element is bigger than the number of trays: $nTrays")
-		val result = new ClosedPathPoint(element+tray0Offset)
+		val result = ClosedPathPoint(element + tray0Offset)
 		logger.debug(s"Computing Index for $element with offset $tray0Offset = $result as of $asOf")
 		result
 	}
 
 	def pointAtIndex(index: ClosedPathPoint): ClosedPathPoint =  {
-		new ClosedPathPoint(index - tray0Offset)
+		ClosedPathPoint(index - tray0Offset)
 	}
 
 	def distanceFromNumber(fromNumber: Int, toIndex: ClosedPathPoint): Long =

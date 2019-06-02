@@ -15,10 +15,10 @@ package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
 import com.saldubatech.base.Material
+import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable

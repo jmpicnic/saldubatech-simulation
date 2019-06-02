@@ -65,7 +65,7 @@ class SourceServerSinkTimingSpec extends BaseActorSpec(ActorSystem("StepProcesso
 	def runUntil(limit: Long): (Option[Material], Long) => Boolean =
 		(_,at) => {if(at > limit) {testActor ! "Finished Generating";true} else false}
 
-	var source: ActorRef = gw.simActorOf(
+	val source: ActorRef = gw.simActorOf(
 		Props(
 			new Source("underTest",
 				gw,

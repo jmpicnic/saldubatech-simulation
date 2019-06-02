@@ -2,10 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.units.shuttle
 
 import akka.actor.{ActorRef, Props}
@@ -13,12 +9,12 @@ import com.saldubatech.base.Aisle.{LevelLocator, Side}
 import com.saldubatech.base.processor.Processor.ConfigureOwner
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.processor.{ProcessorHelper, Task}
+import com.saldubatech.base.resource.Slot
 import com.saldubatech.base.{CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
-import com.saldubatech.resource.Slot
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable
@@ -117,9 +113,8 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 			}
 	}
 
-	override protected def updateState(at: Long): Unit = {
+	override protected def updateState(at: Long): Unit = {}
 		// Nothing to update for now.
-	}
 
 	private def commandReceiver(from:ActorRef, at: Long)
 	: Processing = {case cmd: StorageExecutionCommand => receiveCommand(cmd, at)}
@@ -149,22 +144,10 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 		}
 	}
 
-	/*override protected def localSelectNextExecution(pendingCommands: List[ShuttleLevelExecutor.StorageExecutionCommand],
-	                                                availableMaterials: Map[Material, DirectedChannel.End[Material]],
-	                                                at: Long): Option[ShuttleTask] = {
-		if(pendingCommands nonEmpty) {
-			val cmd = pendingCommands.head// FIFO
-			cmd match {
-				case Inbound(toSlot) =>
-					val entry = availableMaterials.find(e => e._2 == inboundEndpoint)
-					if(entry isDefined) Some(ShuttleTask(cmd, Map(entry.!))(at)) else None
-				case _ => Some(ShuttleTask(cmd, Map.empty)(at))
-			}
-		} else None
-	}*/
-
-	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit =
+	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = {
 		assert(via == inboundEndpoint, "Can only receive loads through the inbound endpoint")
+		true
+	}
 
 	override protected def collectMaterials(cmd: StorageExecutionCommand, resource: Slot[Material],
 	                                        available: mutable.Map[Material, DirectedChannel.End[Material]])
@@ -177,14 +160,13 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 
 	override protected def newTask(cmd: StorageExecutionCommand,
 	                               materials: Map[Material, DirectedChannel.End[Material]],
-	                               rs: Slot[Material], at: Long): Option[ShuttleTask] = {
+	                               rs: Slot[Material], at: Long): Option[ShuttleTask] =
 		cmd match {
 				case Inbound(toSlot) =>
 					val entry = materials.find(e => e._2 == inboundEndpoint)
 					if(entry isDefined) Some(ShuttleTask(cmd, Map(entry.!), rs)(at)) else None
 				case _ => Some(ShuttleTask(cmd, Map.empty, rs)(at))
 			}
-	}
 
 	override protected def triggerTask(task: ShuttleTask, at: Long): Unit = {
 		stage = Stage.PICKUP
@@ -235,7 +217,6 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 			val maybeLoad = slots(fromSlot.side)(fromSlot.idx)
 			if(maybeLoad isEmpty)
 				assert(false, s"No inventory at location $fromSlot")
-				//FailedCommand(???, s"No inventory at location $fromSlot") ~> owner now at
 			else {
 				stageMaterial(maybeLoad.!, None, at)
 				slots(fromSlot.side)(fromSlot.idx) = None
@@ -247,7 +228,6 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 			slots(fromSlot.side)(fromSlot.idx) = None
 			if(maybeLoad isEmpty)
 				assert(false, s"No inventory at location $fromSlot")
-				//FailedCommand(???, s"No inventory at location $fromSlot") ~> owner now at
 			else {
 				stageMaterial(maybeLoad.!, None, at)
 				Deliver(maybeLoad.!) ~> self in ((at, physics.timeToDeliver(currentPosition.idx-(-1))))
@@ -264,5 +244,4 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 			currentPosition = LevelLocator(currentPosition.side, -1)
 			tryDelivery(load, outboundEndpoint, at)
 	}
-
 }

@@ -32,7 +32,7 @@ object SpecActorHarness {
 	type HarnessStep = (SimActor, ActorRef, Long) => Processing
 	type HarnessConfigurer = SpecActorHarness => Configuring
 
-	def nopStep(msg: String="Step: "): HarnessStep = (host, _, at) => { case a: Any => {host.log.info(s"###### $msg $a at $at")}}
+	def nopStep(msg: String="Step: "): HarnessStep = (host, _, at) => { case a: Any => host.log.info(s"###### $msg $a at $at")}
 	val nopTrigger: HarnessTrigger = (_, _, _) => {}
 	val nopConfigure: HarnessConfigurer = _ => {case _ => }
 }

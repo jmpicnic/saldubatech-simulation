@@ -58,9 +58,7 @@ object Material {
 
 	case class TotePallet(override val contents: List[Tote], id: String = java.util.UUID.randomUUID.toString) extends Composite[Material](contents, id)
 
-	class TotePalletBuilder(capacity: Option[Int] = None) extends CompositeBuilder[Tote, TotePallet](capacity) {
-		protected def newComposite(contents: List[Tote], id: String) = TotePallet(contents, id)
-	}
+	val DefaultPalletBuilder: (String, List[Tote]) => Option[TotePallet] = (id, contents) => TotePallet(contents, id).?
 }
 
 class Material(id: String)

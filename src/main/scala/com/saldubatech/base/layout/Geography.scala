@@ -47,9 +47,9 @@ object Geography {
 
 	}
 	implicit def closedPathPointBoxer(v: Long)(implicit c: Length): ClosedPathPoint =
-		new ClosedPathPoint(v)
+		ClosedPathPoint(v)
 	implicit def closedPathPointBoxer(v: Int)(implicit c: Length): ClosedPathPoint =
-		new ClosedPathPoint(v)
+		ClosedPathPoint(v)
 
 
 	class EuclideanPlanePoint(val x: Long, val y:Long) extends Point[EuclideanPlanePoint] {

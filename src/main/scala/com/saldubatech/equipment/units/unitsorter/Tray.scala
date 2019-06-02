@@ -9,7 +9,7 @@
 package com.saldubatech.equipment.units.unitsorter
 
 import com.saldubatech.base.Material
-import com.saldubatech.base.processor.Task.ExecutionResourceImpl
+import com.saldubatech.base.resource.Resource
 import com.saldubatech.utils.Boxer._
 
 object Tray {
@@ -17,7 +17,7 @@ object Tray {
 }
 
 // This can be made a bit more sophisticated in terms of reservations
-class Tray(val number: Int) extends ExecutionResourceImpl(number.toString) {
+class Tray(val number: Int) extends Resource.Impl(number.toString) {
 	var slot: Option[Material] = None
 	var isAssigned = false
 	def reserve: Boolean = if(isAssigned) false else {isAssigned = true; true}

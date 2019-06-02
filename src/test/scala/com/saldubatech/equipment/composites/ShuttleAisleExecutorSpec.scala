@@ -27,13 +27,13 @@ import akka.testkit.TestProbe
 import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.base.{Aisle, CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.equipment.composites.StorageModule.{Groom, Inbound, Outbound}
-import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._
 

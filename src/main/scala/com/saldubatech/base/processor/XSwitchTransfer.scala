@@ -2,9 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
 
 package com.saldubatech.base.processor
 
@@ -12,15 +9,16 @@ import akka.actor.ActorRef
 import com.saldubatech.base._
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.layout.{Geography, TaggedGeography}
+import com.saldubatech.base.resource.Resource
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.utils.Boxer._
 
-object XSwitchTransfer2 {
+object XSwitchTransfer {
 	def apply[
-	C <: XSwitchTransfer2.RouteExecutionCommand,
-	R <: Task.ExecutionResource,
+	C <: XSwitchTransfer.RouteExecutionCommand,
+	R <: Resource,
 	M <: Material,
 	TK <: Task[C,M,M,R],
 	P <: Geography.Point[P]]
@@ -28,8 +26,8 @@ object XSwitchTransfer2 {
 	 physics: CarriagePhysics,
 	 geography: TaggedGeography[DirectedChannel.Endpoint[M], P],
 	 initialLevel: DirectedChannel.Endpoint[M],
-	): XSwitchTransfer2[C, R, M,  TK, P] =
-		new XSwitchTransfer2[C,R,M, TK, P](physics, geography, initialLevel)(host)
+	): XSwitchTransfer[C, R, M,  TK, P] =
+		new XSwitchTransfer[C,R,M, TK, P](physics, geography, initialLevel)(host)
 
 	class RouteExecutionCommand(name: Option[String] = java.util.UUID.randomUUID().toString.?) extends Task.ExecutionCommandImpl
 
@@ -41,9 +39,9 @@ object XSwitchTransfer2 {
 	}
 }
 
-class XSwitchTransfer2[
-	C <: XSwitchTransfer2.RouteExecutionCommand,
-	R <: Task.ExecutionResource,
+class XSwitchTransfer[
+	C <: XSwitchTransfer.RouteExecutionCommand,
+	R <: Resource,
 	M <: Material,
 	TK <: Task[C,M,M,R],
 	P <: Geography.Point[P]	]
@@ -51,7 +49,7 @@ class XSwitchTransfer2[
 	 geography: TaggedGeography[DirectedChannel.Endpoint[M], P],
 	 initialLevel: DirectedChannel.Endpoint[M],
 	)(implicit host: ProcessorHelper[C, R, M, M, TK]) {
-	import XSwitchTransfer2._
+	import XSwitchTransfer._
 
 	def protocol(from: ActorRef, at: Long): Processing = {
 		stage match {

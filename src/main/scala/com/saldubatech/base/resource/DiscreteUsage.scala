@@ -2,8 +2,11 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.resource
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
 
+package com.saldubatech.base.resource
 
 class DiscreteUsage(capacity: Int) {
   assert(capacity > 0)
