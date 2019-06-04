@@ -184,19 +184,16 @@ class CircularSorterVolumeSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 		restoreExpectations//List((via, at, ctx) => Continuation(true))
 	)
 
-	val controller = gw.simActorOf(Props(new LoadGenerator()), "LoadGenerator")
-	gw.configure(controller, "ConfigureController")
-	gw.configure(underTest, ConfigureOwner(controller))
-
-	gw.injectInitialAction(controller, "GO")
-
-	gw.activate()
-
-
-
 	"The CircularSorter Executor" should {
 		"transfer a load from an Induct to a Discharge" when {
 			"receiving a transfer command" in {
+				val controller = gw.simActorOf(Props(new LoadGenerator()), "LoadGenerator")
+				gw.configure(controller, "ConfigureController")
+				gw.configure(underTest, ConfigureOwner(controller))
+
+				gw.injectInitialAction(controller, "GO")
+
+				gw.activate()
 				expectMsg(max=mustWait seconds, doneMessage)
 				completedDischarges(discharges(0).end) shouldBe expectedCounts(discharges(0).start)
 				completedDischarges(discharges(1).end) shouldBe expectedCounts(discharges(1).start)

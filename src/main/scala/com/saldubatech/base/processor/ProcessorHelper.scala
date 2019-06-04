@@ -2,9 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
 
 package com.saldubatech.base.processor
 
@@ -27,13 +24,13 @@ object ProcessorHelper {
 		protected def resource: R
 
 		protected def triggerTask(task: TK, at: Long): Unit
-		protected def localReceiveMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Boolean
-		protected def localFinalizeDelivery(load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit
+		protected def consumeMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Boolean
+		protected def finalizeTask(load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit
 		protected def updateState(at: Long): Unit
 		protected def newTask(cmd: C, materials: Map[M, DirectedChannel.End[M]], resource: R, at: Long): Option[TK]
-		protected def collectMaterials(cmd: C, resource: R, available: mutable.Map[M, DirectedChannel.End[M]]): Map[M, DirectedChannel.End[M]]
-		protected def loadOnResource(resource: Option[R], material: Option[M])
-		protected def offloadFromResource(resource: Option[R], product: Set[PR])
+		protected def collectMaterialsForCommand(cmd: C, resource: R, available: mutable.Map[M, DirectedChannel.End[M]]): Map[M, DirectedChannel.End[M]]
+		protected def loadOnResource(task: TK, material: Option[M], via: Option[DirectedChannel.End[M]], at: Long)
+		protected def offloadFromResource(resource: Option[R])
 
 	}
 
@@ -80,7 +77,7 @@ trait ProcessorHelper[C <: ExecutionCommand, R <: Resource,
 	override def tryDelivery(load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit =
 		super.tryDelivery(cmdId, load, via, tick)
 
-	override def localFinalizeDelivery(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit =
-		localFinalizeDelivery(load,via,tick)
+	override def finalizeTask(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit =
+		finalizeTask(load,via,tick)
 
 }

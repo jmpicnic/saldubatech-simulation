@@ -62,18 +62,11 @@ object ShuttleLevelExecutor {
 		extends Task[StorageExecutionCommand, Material, Material, Slot[Material]](command, materials, slot.?) {
 		override def isAcceptable(mat: Material): Boolean = true
 
-		override def addMaterialPostStart(mat: Material, via: DirectedChannel.End[Material], at: Long): Boolean = false
+		override protected def canStart(at: Long): Boolean = true
 
-		override protected def isReadyToStart: Boolean = true
+		override protected def canCompletePreparations(at: Long): Boolean = true
 
-		override protected def doStart(at: Long): Boolean = true
-
-		override protected def prepareToComplete(at: Long): Boolean = true
-
-		override protected def doProduce(at: Long): Boolean = {
-			_products ++ _materials.keySet
-			true
-		}
+		override protected def canComplete(at: Long): Boolean = slot.slot.nonEmpty
 	}
 
 }
@@ -144,13 +137,13 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 		}
 	}
 
-	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = {
+	override protected def consumeMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = {
 		assert(via == inboundEndpoint, "Can only receive loads through the inbound endpoint")
-		true
+		false
 	}
 
-	override protected def collectMaterials(cmd: StorageExecutionCommand, resource: Slot[Material],
-	                                        available: mutable.Map[Material, DirectedChannel.End[Material]])
+	override protected def collectMaterialsForCommand(cmd: StorageExecutionCommand, resource: Slot[Material],
+	                                                  available: mutable.Map[Material, DirectedChannel.End[Material]])
 	:Map[Material, DirectedChannel.End[Material]] = {
 		cmd match {
 			case Inbound(toSlot) => available.flatMap(e => if(e._2 == inboundEndpoint) e.? else None).toMap
@@ -180,20 +173,21 @@ with ProcessorHelper[ShuttleLevelExecutor.StorageExecutionCommand, Slot[Material
 		}
 	}
 
-	override protected def loadOnResource(rs: Option[Slot[Material]], material: Option[Material]): Unit = {
-		log.debug(s"Loading on Resource $rs")
-		assert(rs.! == carriage, s"Only resource available is $carriage")
+	override protected def loadOnResource(tsk: ShuttleTask, material: Option[Material],
+	                                      via: Option[DirectedChannel.End[Material]], at: Long): Unit = {
+		log.debug(s"Loading on Resource ${tsk.resource}")
+		assert(tsk.resource.! == carriage, s"Only resource available is $carriage")
 		assert(carriage << material.!, s"Carriage $carriage should be able to accept material")
 	}
 
-	override protected def offloadFromResource(resource: Option[Slot[Material]], product: Set[Material]): Unit = {
+	override protected def offloadFromResource(resource: Option[Slot[Material]]): Unit = {
 		assert(resource.! == carriage, s"Only resource available is $carriage")
 		val ct = carriage.>>
 		log.debug(s"Emptying Carriage: $ct")
 		assert(ct isDefined, s"Carriage $carriage was already empty: $ct")
 	}
 
-	override protected def localFinalizeDelivery(load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit = {
+	override protected def finalizeTask(load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit = {
 		assert(via == outboundEndpoint, "Can only send through the outbound endpoint")
 		completeCommand(Seq(load), tick)
 		stage = Stage.WAIT

@@ -9,7 +9,7 @@ import akka.actor.ActorSystem
 import scala.languageFeature.postfixOps
 
 
-class SampleWordSpecLike extends BaseActorSpec(ActorSystem("StepProcessorTest")) {
+class SampleWordSpecLike extends BaseActorSpec(ActorSystem("SampleWordSpecLike")) {
 
 		"An Induct" when {
 			// Initialize the environment

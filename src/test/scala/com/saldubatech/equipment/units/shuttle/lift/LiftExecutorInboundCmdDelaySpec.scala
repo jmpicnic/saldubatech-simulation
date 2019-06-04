@@ -6,7 +6,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.equipment.units.lift
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+package com.saldubatech.equipment.units.shuttle.lift
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
@@ -22,7 +25,7 @@ import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._
 
-class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
+class LiftExecutorInboundCmdDelaySpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import SpecActorHarness._
 
 	val nopStep: HarnessStep = (host, _, at) => { case _ => host.log.info(s"Step in ${host.self.path.name} at $at")}
@@ -60,10 +63,6 @@ class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActor
 			DirectedChannel[Material](1, s"upstream_out_$idx")))
 
 	val material1 = Material("M1")
-	val sendOutboundLoad: HarnessStep = (host: SimActor, from: ActorRef, at: Long) => {
-		case "SendFirstLoad" =>
-			levelChannels(3)._2.start.sendLoad(material1, at)
-	}
 
 	val physics: CarriagePhysics = CarriagePhysics(2,2,1,1,1)
 	val underTest = LiftExecutor(
@@ -72,12 +71,12 @@ class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActor
 		inboundChannel,
 		outboundChannel,
 		levelChannels,
-		inboundChannel.end)
+		inboundChannel.end
+	)
 
 	val upstreamTrigger: HarnessTrigger = nopTrigger
 	val upstreamActions: Seq[HarnessStep] = Seq(
-		sendOutboundLoad,
-		nopStep,
+		receiveAndAcknowledgeLoad(levelChannels(3)._1, material1)
 	)
 	val upstreamObserver = TestProbe()
 	class UpstreamHarness(configurer: HarnessConfigurer)
@@ -85,6 +84,7 @@ class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActor
 	with DirectedChannel.Destination[Material]
 				with DirectedChannel.Source[Material] {
 		val name = uid
+
 		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 
 		}
@@ -100,24 +100,33 @@ class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActor
 	}
 	val upstreamEquipment: ActorRef = gw.simActorOf(Props(new UpstreamHarness(upstreamConfigurer)), "upstreamHarness")
 
+
+	val sendInboundLoad: HarnessStep = (host: SimActor, from: ActorRef, at: Long) => {
+		case "SendFirstLoad" =>
+			inboundChannel.start.sendLoad(material1, at)
+	}
 	val downstreamTrigger: HarnessTrigger = nopTrigger
 	val downstreamActions: Seq[HarnessStep] = Seq(
-		receiveAndAcknowledgeLoad(outboundChannel, material1)
+		sendInboundLoad, nopStep
 	)
 	val downstreamObserver = TestProbe()
 	class DownstreamHarness(configurer: HarnessConfigurer)
-		extends SpecActorHarness(downstreamTrigger, downstreamActions, "downstreamHarness", gw, downstreamObserver.testActor.?, configurer)
+		extends SpecActorHarness(
+			downstreamTrigger,
+			downstreamActions,
+			"downstreamHarness",
+			gw,
+			downstreamObserver.testActor.?,
+			configurer)
 			with DirectedChannel.Destination[Material]
 				with DirectedChannel.Source[Material] {
 		val name = uid
-		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {
 
-		}
+		override def receiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Unit = {}
 
-		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {
-
-		}
+		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
+
 	val downstreamConfigurer: SpecActorHarness => Configuring = host => {
 		case _ =>
 			inboundChannel.registerStart(host.asInstanceOf[DirectedChannel.Source[Material]])
@@ -125,12 +134,12 @@ class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActor
 	}
 	val downstreamEquipment: ActorRef = gw.simActorOf(Props(new DownstreamHarness(downstreamConfigurer)), "downstreamHarness")
 
-	val outboundCmd = Transfer(levelChannels(3)._2.end, outboundChannel.start, None)//(3, 0)
+	val inboundCmd = Transfer(inboundChannel.end, levelChannels(3)._1.start, material1.uid.?)//(0, 3)
 	val kickOff: HarnessTrigger = (host: SimActor, from: ActorRef, at: Long) => {
-		implicit val iHost: SimActor = host
 		host.log.info("Kickoff Controller, sending Outbound to underTest and triggering upstream equipment")
-		"SendFirstLoad" ~> upstreamEquipment now at
-		outboundCmd ~> underTest in ((at, 10))
+		implicit val iHost: SimActor = host
+		inboundCmd ~> underTest in ((at, 10))
+		"SendFirstLoad" ~> downstreamEquipment now at
 	}
 	val controllerTrigger: HarnessTrigger = kickOff
 	val controllerActions: Seq[HarnessStep] = Seq(
@@ -157,15 +166,14 @@ class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActor
 	"The Lift Executor" should {
 		"transfer a load outbound" when {
 			"receiving an outbound command and an upstream load" in {
-				upstreamObserver.expectMsg("SendFirstLoad")
-				controllerObserver.expectMsg(ReceiveLoad(levelChannels(3)._2.end, material1))
-				controllerObserver.expectMsg(StartTask(outboundCmd.uid, Seq(material1)))
-				controllerObserver.expectMsg(StageLoad(outboundCmd.uid, material1.?))
-				downstreamObserver.expectMsgClass(classOf[TransferLoad[Material]])
-				upstreamObserver.expectMsgClass(classOf[AcknowledgeLoad[Material]])
-				controllerObserver.expectMsg(DeliverResult(outboundCmd.uid, outboundChannel.start,material1))
-				controllerObserver.expectMsg(CompleteTask(outboundCmd.uid,Seq(material1),Seq(material1)))
-
+				downstreamObserver.expectMsg("SendFirstLoad")
+				controllerObserver.expectMsg(ReceiveLoad(inboundChannel.end, material1))
+				controllerObserver.expectMsg(StartTask(inboundCmd.uid, Seq(material1)))
+				controllerObserver.expectMsg(StageLoad(inboundCmd.uid, material1.?))
+				upstreamObserver.expectMsgClass(classOf[TransferLoad[Material]])
+				downstreamObserver.expectMsgClass(classOf[AcknowledgeLoad[Material]])
+				controllerObserver.expectMsg(DeliverResult(inboundCmd.uid, levelChannels(3)._1.start,material1))
+				controllerObserver.expectMsg(CompleteTask(inboundCmd.uid, Seq(material1),Seq(material1)))
 			}
 		}
 	}

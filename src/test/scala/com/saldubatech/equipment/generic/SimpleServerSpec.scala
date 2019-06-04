@@ -2,18 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -35,7 +23,7 @@ import scala.concurrent.duration._
 import scala.languageFeature.postfixOps
 
 
-class SimpleServerSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
+class SimpleServerSpec extends BaseActorSpec(ActorSystem("SimpleServerSpec"),
 	Some(LogEventSpooler(Logger("com.salduba.events.eventCollector")))) {
 
 

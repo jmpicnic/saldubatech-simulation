@@ -2,18 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, ActorSystem, Props}
@@ -36,7 +24,7 @@ import scala.concurrent.duration._
 import scala.languageFeature.postfixOps
 
 
-class SourceServerSinkTimingSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
+class SourceServerSinkTimingSpec extends BaseActorSpec(ActorSystem("SourceServerSinkTimingSpec"),
 	Some(LogEventSpooler(Logger("com.saldubatech.events.eventCollector")))) {
 
 

@@ -6,10 +6,7 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-package com.saldubatech.equipment.units.lift
+package com.saldubatech.equipment.units.shuttle.lift
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
@@ -25,8 +22,12 @@ import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._
 
-class LiftExecutorOutboundSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
+class LiftExecutorOutboundCmdDelayedSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import SpecActorHarness._
+
+	val nopStep: HarnessStep = (host, _, at) => { case _ => host.log.info(s"Step in ${host.self.path.name} at $at")}
+	val nopTrigger: HarnessTrigger = (_, _, _) => {}
+	val nopConfigure: HarnessConfigurer = _ => {case _ => }
 
 	def this() = this(ActorSystem("LiftSpec"))
 
@@ -76,7 +77,7 @@ class LiftExecutorOutboundSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val upstreamTrigger: HarnessTrigger = nopTrigger
 	val upstreamActions: Seq[HarnessStep] = Seq(
 		sendOutboundLoad,
-		nopStep(),
+		nopStep,
 	)
 	val upstreamObserver = TestProbe()
 	class UpstreamHarness(configurer: HarnessConfigurer)
@@ -128,12 +129,12 @@ class LiftExecutorOutboundSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 	val kickOff: HarnessTrigger = (host: SimActor, from: ActorRef, at: Long) => {
 		implicit val iHost: SimActor = host
 		host.log.info("Kickoff Controller, sending Outbound to underTest and triggering upstream equipment")
-		outboundCmd ~> underTest now at
-		"SendFirstLoad" ~> upstreamEquipment in (at -> 10)
+		"SendFirstLoad" ~> upstreamEquipment now at
+		outboundCmd ~> underTest in ((at, 10))
 	}
 	val controllerTrigger: HarnessTrigger = kickOff
 	val controllerActions: Seq[HarnessStep] = Seq(
-		nopStep(), nopStep(), nopStep(), nopStep(), nopStep()
+		nopStep, nopStep, nopStep, nopStep, nopStep
 	)
 	val controllerObserver = TestProbe()
 	class ControllerHarness(configurer: HarnessConfigurer)
@@ -164,6 +165,7 @@ class LiftExecutorOutboundSpec(_system: ActorSystem) extends BaseActorSpec(_syst
 				upstreamObserver.expectMsgClass(classOf[AcknowledgeLoad[Material]])
 				controllerObserver.expectMsg(DeliverResult(outboundCmd.uid, outboundChannel.start,material1))
 				controllerObserver.expectMsg(CompleteTask(outboundCmd.uid,Seq(material1),Seq(material1)))
+
 			}
 		}
 	}

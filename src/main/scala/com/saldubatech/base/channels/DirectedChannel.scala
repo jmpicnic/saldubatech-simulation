@@ -63,7 +63,7 @@ object DirectedChannel {
 				owner.log.debug(s"$name sending Transfer Load ($load) from ${owner.uid} to ${peerOwner.!.path.name}")
 				//owner.! send TransferLoad[L](name, load, resource get) _to peerOwner.! now at
 				if(sendDelay == 0) TransferLoad[L](name, load, resource) ~> peerOwner.! now at
-				else TransferLoad[L](name, load, resource) ~> peerOwner.! in ((at, sendDelay))
+				else TransferLoad[L](name, load, resource) ~> peerOwner.! in (at -> sendDelay)
 				true
 			} else false
 		}

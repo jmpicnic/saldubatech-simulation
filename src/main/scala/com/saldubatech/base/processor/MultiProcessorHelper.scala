@@ -23,13 +23,13 @@ object MultiProcessorHelper {
 		protected def resources: Map[String, R]
 		protected def updateState(at: Long): Unit
 		protected def findResource(cmd: C, resources: mutable.Map[String, R]): Option[(C, String, R)]
-		protected def localReceiveMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Boolean // Same
-		protected def collectMaterials(cmd: C, resource: R, available: mutable.Map[M, DirectedChannel.End[M]]): Map[M, DirectedChannel.End[M]]
+		protected def consumeMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Boolean // Same
+		protected def collectMaterialsForCommand(cmd: C, resource: R, available: mutable.Map[M, DirectedChannel.End[M]]): Map[M, DirectedChannel.End[M]]
 		protected def newTask(cmd: C, materials: Map[M, DirectedChannel.End[M]], resource: R, at: Long): Option[TK]
 		protected def triggerTask(task: TK, at: Long): Unit // Same
-		protected def loadOnResource(resource: Option[R], material: Option[M])
-		protected def offloadFromResource(resource: Option[R], product: Set[PR])
-		protected def localFinalizeDelivery(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit
+		protected def loadOnResource(tsk: TK, material: Option[M], via: Option[DirectedChannel.End[M]], at: Long)
+		protected def offloadFromResource(resource: Option[R])
+		protected def finalizeTask(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit
 	}
 
 	trait MultiProcessorSupport[C <: ExecutionCommand, M <: Material, PR <: Material]
@@ -71,79 +71,76 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C, R, M, PR, TK]
 	with Owned[Processor.ExecutionNotification] {
 	import com.saldubatech.base.processor.Processor._
 
+	private val pendingCommands: mutable.ArrayBuffer[C] = mutable.ArrayBuffer[C]()
+	protected val currentTasks: mutable.Map[String, TK] = mutable.Map.empty
+	private val resourcePool = ResourcePool[R](resources)
+
+	// INITIATION
 	override def receiveCommand(cmd: C, at: Long): Unit = {
 		log.info(s"Multi-Processor Receiving Command: $cmd")
 		updateState(at)
 		pendingCommands += cmd
-		tryExecution(at)
+		tryNewExecution(at)
 	}
 
 	final override def receiveMaterial(via: DirectedChannel.End[M], load: M, tick: Long): Unit = {
 		log.debug(s"Receiving Load: $load")
 		updateState(tick)
 		notify(ReceiveLoad(via, load), tick)
-		if(localReceiveMaterial(via, load, tick))
-			availableMaterials.add(load, via)
-		tryExecution(tick)
+		if(!consumeMaterial(via, load, tick)) availableMaterials.add(load, via)
+		tryNewExecution(tick)
 	}
 
-	override def stageMaterial(cmdId: String, material: M, via: Option[DirectedChannel.End[M]], at: Long): Unit = {
-		if(via isDefined) via.!.doneWithLoad(material, at)
-		stageMaterial(cmdId, material, at)
-	}
-	// Should this be private?
-	private def stageMaterial(cmdId: String, material: M, at: Long): Unit = {
-		val tsk = currentTasks(cmdId)
-		log.debug(s"Stage Load for task $tsk, that has resource: ${tsk.resource}")
-		loadOnResource(tsk.resource, material.?)
-		notify(StageLoad(tsk.cmd.uid, material.?), at)
-	}
-
-	private def tryExecution(at: Long): Unit = {
+	private def tryNewExecution(at: Long): Unit = {
 		if(!resourcePool.isBusy) { // First general check
 			val localResourcePool: mutable.Map[String, R] = mutable.Map.empty ++ resourcePool.availableResources
-			val candidateCommands: Map[C, R] = findCandidates(pendingCommands.toList, localResourcePool, at) // Should be returned based on priority from the business side
+			val candidateCommands: Map[C, R] = findCommandCandidates(pendingCommands.toList, localResourcePool, at) // Should be returned based on priority from the business side
 
 			val localAvailableMaterials: mutable.Map[M, DirectedChannel.End[M]] = mutable.Map.empty ++ availableMaterials.available
 			val candidateTasks = candidateCommands.flatMap {
 				case (cmd, res) =>
-					val tsk = newTask(cmd, collectMaterials(cmd, res, localAvailableMaterials), res, at)
+					val tsk = newTask(cmd, collectMaterialsForCommand(cmd, res, localAvailableMaterials), res, at)
 					tsk.foreach(tk =>	localAvailableMaterials --= tk.initialMaterials.keys)
 					tsk
 			}
 			candidateTasks.foreach {
 				tsk =>
+					tsk.resource.foreach(r => resourcePool.acquire(r.uid.?))
+					tsk.initialMaterials.foreach { case (m, v) => availableMaterials retire m }
 					currentTasks += tsk.cmd.uid -> tsk
 					triggerTask(tsk, at)
 					notify(StartTask(tsk.cmd.uid, tsk.initialMaterials.keys.toSeq), at)
 					pendingCommands -= tsk.cmd
-					tsk.resource.foreach(r => resourcePool.acquire(r.uid.?))
-					tsk.initialMaterials.foreach { case (m, v) => availableMaterials retire m }
 			}
 		}
 	}
-	protected def findCandidates(commands: List[C], resources: mutable.Map[String, R], at: Long): Map[C,R] =
+	protected def findCommandCandidates(commands: List[C], resources: mutable.Map[String, R], at: Long): Map[C,R] =
 		commands.flatMap(cmd => findResource(cmd, resources)).map{a => resources -= a._2; a._1 -> a._3}.toMap
 
-	override def completeCommand(cmdId: String, results: Seq[PR], at: Long):Unit = {
+	// CONTINUATION -- IN PROCESS
+
+	override def stageMaterial(cmdId: String, material: M, via: Option[DirectedChannel.End[M]], at: Long): Unit = {
+		if(via isDefined) via.!.doneWithLoad(material, at)
 		val tsk = currentTasks(cmdId)
-		log.debug(s"Complete Task: $tsk")
-		offloadFromResource(tsk.resource, tsk.products)
-		notify(CompleteTask(cmdId, currentTasks(cmdId).initialMaterials.keys.toSeq, results), at)
-		resourcePool.release(Use.Usage(None, tsk.resource.!))
-		currentTasks -= cmdId
-		tryExecution(at)
+		log.debug(s"Stage Load for task $tsk, that has resource: ${tsk.resource}")
+		loadOnResource(tsk, material.?, via, at)
+		notify(StageLoad(tsk.cmd.uid, material.?), at)
 	}
+
+
+	// CONTINUATION -- READY TO COMPLETE
 
 	private val pendingDeliveries: mutable.Map[DirectedChannel.Start[PR], mutable.Queue[(PR, String)]] =
 		mutable.Map()
 
+	// Triggered by Production complete.
 	override def tryDelivery(cmdId: String, load: PR, via: DirectedChannel.Start[PR], tick: Long): Unit = {
 		if(! pendingDeliveries.contains(via)) pendingDeliveries += via -> mutable.Queue()
 		pendingDeliveries(via).enqueue((load, cmdId))
 		tryDelivery(via, tick)
 	}
 
+	// Triggered by outbound capacity
 	final override def restoreChannelCapacity(via: DirectedChannel.Start[PR], tick: Long): Unit = {
 		updateState(tick)
 		tryDelivery(via, tick)
@@ -151,27 +148,29 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C, R, M, PR, TK]
 
 	override def tryDelivery(via: DirectedChannel.Start[PR], tick: Long): Unit = {
 		if(pendingDeliveries contains via) {
-			var ongoing = true
-			while(pendingDeliveries(via).nonEmpty && ongoing) {
+			while(pendingDeliveries(via).nonEmpty && via.sendLoad(pendingDeliveries(via).head._1, tick)) {
 				val (load, cmdId) = pendingDeliveries(via).head
-				if (via.sendLoad(load, tick)) {
-					log.info(s"Sending result of task ${currentTasks(cmdId).uid} for tote $load")
-					notify(DeliverResult(cmdId, via, load), tick)
-					localFinalizeDelivery(cmdId, load, via, tick)
-					pendingDeliveries(via).dequeue
-					currentTasks -= cmdId
-				} else {
-					log.error(s"Failed to deliver $load to $via")
-					ongoing = false
-				}
+				log.info(s"Sending result of task ${currentTasks(cmdId).uid} for tote $load")
+				notify(DeliverResult(cmdId, via, load), tick)
+				pendingDeliveries(via).dequeue
+				finalizeTask(cmdId, load, via, tick)
+				currentTasks -= cmdId
 			}
 		}
-		tryExecution(tick)
+		tryNewExecution(tick)
 	}
 
-	private val pendingCommands: mutable.ArrayBuffer[C] = mutable.ArrayBuffer[C]()
-	protected val currentTasks: mutable.Map[String, TK] = mutable.Map.empty
-	private val resourcePool = ResourcePool[R](resources)
+	// CONTINUATION -- COMPLETE TASK
+	override def completeCommand(cmdId: String, results: Seq[PR], at: Long):Unit = {
+		val tsk = currentTasks(cmdId)
+		log.debug(s"Complete Task: $tsk")
+		offloadFromResource(tsk.resource)
+		notify(CompleteTask(cmdId, currentTasks(cmdId).initialMaterials.keys.toSeq, results), at)
+		resourcePool.release(Use.Usage(None, tsk.resource.!))
+		currentTasks -= cmdId
+		tryNewExecution(at)
+	}
+
 
 	private object availableMaterials {
 		private val availableMaterials: mutable.Map[M, DirectedChannel.End[M]] = mutable.Map.empty

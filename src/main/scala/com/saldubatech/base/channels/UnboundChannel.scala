@@ -47,7 +47,7 @@ object UnboundChannel {
 		override def sendLoad(load: L, at: Long, delay: Long = 0): Boolean = {
 			owner.log.debug(s"$name sending Transfer Load ($load) from ${owner.uid} to ${peerOwner.!.path.name}")
 			if(delay == 0) TransferLoad[L](name, load) ~> peerOwner.! now at
-			else TransferLoad[L](name, load) ~> peerOwner.! in ((at, delay))
+			else TransferLoad[L](name, load) ~> peerOwner.! in (at -> delay)
 			true
 		}
 	}

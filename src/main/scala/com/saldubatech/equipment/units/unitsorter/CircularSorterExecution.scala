@@ -45,18 +45,11 @@ object CircularSorterExecution {
 		assert(tote nonEmpty, "No Materials passed to creation nof CircularSorterTask")
 		override def isAcceptable(mat: Material): Boolean = true
 
-		override def addMaterialPostStart(mat: Material, via: DirectedChannel.End[Material], at: Long): Boolean = false
+		override protected def canStart(at: Long): Boolean = true
 
-		override protected def isReadyToStart: Boolean = true
+		override protected def canCompletePreparations(at: Long): Boolean = true
 
-		override protected def doStart(at: Long): Boolean = true
-
-		override protected def prepareToComplete(at: Long): Boolean = true
-
-		override protected def doProduce(at: Long): Boolean = {
-			_products ++ _materials.keySet
-			true
-		}
+		override protected def canComplete(at: Long): Boolean = tray.nonEmpty && tray.head.slot.nonEmpty
 	}
 }
 
@@ -96,13 +89,13 @@ extends SimActorImpl(name, gw) with MultiProcessorHelper[Transfer[Material], Tra
 			inducts.map(_.end.loadReceiving(from, at)).fold(nullProcessing)((acc, el) => acc orElse el) orElse
 			discharges.map(_.start.restoringResource(from, at)).fold(nullProcessing)((acc, el) => acc orElse el)
 
-	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = true
+	override protected def consumeMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = false
 
 	override protected def findResource(cmd: Transfer[Material], resources: mutable.Map[String, Tray]): Option[(Transfer[Material], String, Tray)] =
 		if (resources isEmpty) None else resources.minBy(t => distance(t._2, cmd.source)).?.map(t => (cmd, t._1, t._2))
 
-	override protected def collectMaterials(cmd: Transfer[Material], resource: Tray,
-	                                        available: mutable.Map[Material, DirectedChannel.End[Material]])
+	override protected def collectMaterialsForCommand(cmd: Transfer[Material], resource: Tray,
+	                                                  available: mutable.Map[Material, DirectedChannel.End[Material]])
 	: Map[Material, DirectedChannel.End[Material]] = {
 		available.filter(t => t._2 == cmd.source).toMap
 	}
@@ -123,18 +116,19 @@ extends SimActorImpl(name, gw) with MultiProcessorHelper[Transfer[Material], Tra
 		Induct(task) ~> self in ((at, timeToPickUp))
 	}
 
-	override protected def loadOnResource(resource: Option[Tray], material: Option[Material]): Unit =
-		resource.! << material.!
+	override protected def loadOnResource(task: CircularSorterTask, material: Option[Material],
+	                                      via: Option[DirectedChannel.End[Material]], at: Long): Unit =
+		task.resource.! << material.!
 
-	override protected def offloadFromResource(resource: Option[Tray], product: Set[Material]): Unit =
-		resource.! >>
+	override protected def offloadFromResource(resource: Option[Tray]): Unit = resource.!.>>
+
 	def distance(t: Tray, v: DirectedChannel.End[Material]): Long = {
 		val tIndex: ClosedPathPoint = physics.indexForElement(t.number)
 		geography.distance(tIndex, v)
 	}
 
-	override protected def localFinalizeDelivery(cmdId: String, load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit = {
-		val trayNumber = physics.pointAtIndex(geography.location(via))
+	override protected def finalizeTask(cmdId: String, load: Material, via: DirectedChannel.Start[Material], tick: Long): Unit = {
+		//val trayNumber = physics.pointAtIndex(geography.location(via))
 		//trays(trayNumber.coord.toInt).>> // Empty the tray, now Handled by offloadFromResource
 		completeCommand(cmdId, Seq(load), tick)
 	}

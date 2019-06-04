@@ -5,17 +5,16 @@
 
 package com.saldubatech.equipment.units.grouping
 
-import akka.actor.ActorRef
-import com.saldubatech.base.Material.{Tote, TotePallet, DefaultPalletBuilder}
+import akka.actor.{ActorRef, Props}
+import com.saldubatech.base.Material.{DefaultPalletBuilder, Tote, TotePallet}
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.base.processor.Processor.ConfigureOwner
-import com.saldubatech.base.resource.{KittingSlot, Use}
-import com.saldubatech.base.processor.{MultiProcessorHelper, Processor, Task}
+import com.saldubatech.base.processor.{MultiProcessorHelper, Task}
+import com.saldubatech.base.resource.KittingSlot
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.utils.Boxer._
-import com.saldubatech.ddes.SimDSL._
 
 import scala.collection.mutable
 
@@ -27,6 +26,14 @@ object TotePalletizer {
 	type PalletChannelStart = DirectedChannel.Start[TotePallet]
 	type PalletSlot = KittingSlot[Tote, TotePallet]
 
+	def apply[C <: TotePalletizer.GroupExecutionCommand](name: String,
+                                            capacity: Int,
+                                            induct: TotePalletizer.ToteChannel,
+                                            discharge: TotePalletizer.PalletChannel,
+                                            palletBuilder: (String, List[Tote]) => Option[TotePallet] = DefaultPalletBuilder,
+                                            perSlotCapacity: Option[Int] = None)
+                                           (implicit gw: Gateway) =
+		gw.simActorOf(Props(new TotePalletizer[C](name, capacity, induct, discharge, palletBuilder, perSlotCapacity)), name)
 
 	sealed abstract class GroupExecutionCommand(val slot: Option[String] = None, name:String = java.util.UUID.randomUUID().toString)
 		extends Task.ExecutionCommandImpl(name) {
@@ -47,34 +54,20 @@ object TotePalletizer {
 		extends Task[C, Tote, TotePallet, PalletSlot](cmd, initialMaterials, Some(slot)) {
 
 		override def isAcceptable(mat: Tote): Boolean = cmd match {
-			case GroupByNumber(quantity, _) => quantity < currentMaterials.size
+			case GroupByNumber(quantity, _) => quantity < slot.currentContents.size
 			case GroupByIds(ids, _) => ids.contains(mat.uid)
 		}
 
-		override def addMaterialPostStart(mat: Tote, via: DirectedChannel.End[Tote], at: Long): Boolean =
-			slot << mat
+		override protected def canStart(at: Long): Boolean = slot.currentContents nonEmpty
 
-		override protected def isReadyToStart: Boolean = cmd match {
-			case GroupByNumber(quantity, _) => quantity == currentMaterials.size
-			case GroupByIds(ids, _) => ids.size == currentMaterials.size
-		}
 
-		override protected def doStart(at: Long): Boolean = {
-			for ((mat, via) <- _materials) slot << mat
-			true
-		}
+		protected def canCompletePreparations(at: Long): Boolean = true
 
-		protected def prepareToComplete(at: Long): Boolean = {
-			true
-		}
-
-		protected def doProduce(at: Long): Boolean = {
-			val p = slot.build(uid)
-			if (p) {
-				slot.currentProduct.foreach(_products += _)
-				complete
-				true
-			} else false
+		protected def canComplete(at: Long): Boolean = {
+			cmd match {
+				case c @ GroupByNumber(q, _) =>	q == slot.currentContents.size
+				case c @ GroupByIds(ids, _) => ids.forall(id => slot.currentContents.map(_.uid).contains(id))
+			}
 		}
 	}
 }
@@ -115,7 +108,6 @@ class TotePalletizer
 
 	override def process(from: ActorRef, at: Long): Processing =
 		commandReceiver(from, at) orElse
-			//completeStaging(from, at) orElse
 			induct.end.loadReceiving(from, at) orElse discharge.start.restoringResource(from, at)
 
 	override protected def findResource(cmd: C, resources: mutable.Map[String, PalletSlot]): Option[(C, String, PalletSlot)] =
@@ -123,18 +115,31 @@ class TotePalletizer
 			case (id, slot) if slot.isIdle => (cmd, id, slot)
 		}
 
-	override protected def localReceiveMaterial(via: ToteChannelEnd, load: Tote, tick: Long): Boolean = {
-		val task = currentTasks.filter {
+	override protected def consumeMaterial(via: ToteChannelEnd, load: Tote, tick: Long): Boolean = {
+		val candidates = currentTasks.filter {
 			case (_, GroupingTask(cmd, _, slot)) => cmd.canAccept(load, slot.currentContents)
 		}
-		if (task isEmpty) true // No matching task, should go to the available materials for the future
+		log.debug(s"Found Task to add load: $candidates within $currentTasks")
+		if (candidates isEmpty) false // No matching task, should go to the available materials for the future
 		else {
-			task.values.foreach(_.addMaterial(load, via, tick))
-			false
+			val task = candidates.values.head
+			//>>>>>
+			stageMaterial(task.cmd.uid, load, via.?, tick) // Already does the loading into the resource
+			log.debug(s"Task $task is loaded checking next steps : ${task.isInProcess}//${task.status}")
+			if(task.isInitializing) task.start(tick)
+			if(task.isInProcess) {
+				log.debug(s"Task $task is inProcess attempt to complete preps")
+				task.completePreparations(tick)
+			}
+			if(task.isReadyToComplete) {
+				log.debug(s"Task $task is ready to complete, attempt to complete execution")
+				produceAndDeliver(task, tick)
+			}
+			true
 		}
 	}
 
-	override protected def collectMaterials(cmd: C, resource: PalletSlot, available: mutable.Map[Tote, ToteChannelEnd])
+	override protected def collectMaterialsForCommand(cmd: C, resource: PalletSlot, available: mutable.Map[Tote, ToteChannelEnd])
 	: Map[Tote, ToteChannelEnd] =
 		cmd match {
 			case c@GroupByNumber(q, _) => available.take(c.quantity).toMap
@@ -144,18 +149,36 @@ class TotePalletizer
 	override protected def newTask(cmd: C, materials: Map[Tote, ToteChannelEnd], resource: PalletSlot, at: Long): Option[GroupingTask[C]] =
 		GroupingTask[C](cmd, materials, resource)(at).?
 
-	override protected def triggerTask(task: GroupingTask[C], at: Long): Unit =
-		if (task.start(at) && task.completePreparations(at) && task.produce(at))
-			tryDelivery(task.cmd.uid, task.products.head, discharge.start, at)
-
-
-	override protected def loadOnResource(resource: Option[PalletSlot], material: Option[Tote]): Unit =
-		material.foreach(resource.!.<< _)
-
-	override def offloadFromResource(resource: Option[PalletSlot], product: Set[TotePallet]): Unit = {
-		resource.! >>
+	override protected def triggerTask(task: GroupingTask[C], at: Long): Unit =  {
+		if (task.start(at)) {
+			task.initialMaterials.foreach {
+				case (mat, via) =>
+					stageMaterial(task.cmd.uid, mat, via.?, at)
+					task.slot << _
+			}
+		}
+		if (task.completePreparations(at) && task.isReadyToComplete) produceAndDeliver(task, at)
 	}
 
-	override protected def localFinalizeDelivery(cmdId: String, load: TotePallet, via: PalletChannelStart, tick: Long): Unit =
+	private def produceAndDeliver(task: GroupingTask[C], at: Long): Unit = {
+		val slot = task.resource.!
+		val totes = slot.currentContents
+		val taskCompleteTask = task.completeTask(at)
+		if(taskCompleteTask && slot.build(task.cmd.uid)) {
+			val maybePallet = slot.>>
+			val maybePalletDefined = maybePallet.isDefined
+			if(maybePalletDefined && taskCompleteTask)
+				tryDelivery(task.cmd.uid, maybePallet.!, discharge.start, at)
+			else
+				assert(false, s"Should be able to complete task $task: MaybePallet: $maybePalletDefined, task.completeTask $taskCompleteTask with ${totes}")
+		}
+	}
+
+	override protected def loadOnResource(tsk: GroupingTask[C], material: Option[Tote], via: Option[ToteChannelEnd], at: Long)
+	: Unit = material.foreach{mat => tsk.resource.! << mat}
+
+	override def offloadFromResource(resource: Option[PalletSlot]): Unit = resource.!.>>
+
+	override protected def finalizeTask(cmdId: String, load: TotePallet, via: PalletChannelStart, tick: Long): Unit =
 		completeCommand(cmdId, Seq(load), tick)
 }

@@ -39,14 +39,9 @@ object LiftExecutor {
 		extends Task[Transfer[Material], Material, Material, Slot[Material]](cmd, initialMaterials, resource) {
 
 		override def isAcceptable(mat: Material): Boolean = true
-		override def addMaterialPostStart(mat: Material, via: DirectedChannel.End[Material], at: Long): Boolean = false
-		override protected def isReadyToStart: Boolean = true
-		override protected def doStart(at: Long): Boolean = true
-		override protected def prepareToComplete(at: Long): Boolean = true
-		override protected def doProduce(at: Long): Boolean = {
-			_products ++ _materials.keySet
-			true
-		}
+		override protected def canStart(at: Long): Boolean = true
+		override protected def canCompletePreparations(at: Long): Boolean = true
+		override protected def canComplete(at: Long): Boolean = resource.nonEmpty && resource.head.slot.nonEmpty
 	}
 
 	class Commander(inChannel: DirectedChannel.End[Material], outChannel: DirectedChannel.Start[Material]) {
@@ -124,10 +119,10 @@ class LiftExecutor(name: String,
 			levelConnectors.map(ep => ep._1.start.restoringResource(from, at) orElse ep._2.end.loadReceiving(from, at))
 				.fold(nullProcessing)((acc, el) => acc orElse el)
 
-	override protected def localReceiveMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = true
+	override protected def consumeMaterial(via: DirectedChannel.End[Material], load: Material, tick: Long): Boolean = false
 
-	override protected def collectMaterials(cmd: Transfer[Material], resource: Slot[Material],
-	                                        available: mutable.Map[Material, DirectedChannel.End[Material]])
+	override protected def collectMaterialsForCommand(cmd: Transfer[Material], resource: Slot[Material],
+	                                                  available: mutable.Map[Material, DirectedChannel.End[Material]])
 	:Map[Material, DirectedChannel.End[Material]] =
 		available.map{case (m, v) if v == cmd.source => m -> v}.toMap
 
@@ -143,18 +138,19 @@ class LiftExecutor(name: String,
 	override protected def triggerTask(task: LiftTask, at: Long): Unit =
 		engine.!.initiateCmd(task.cmd, task.initialMaterials.head._1, at)
 
-	override protected def loadOnResource(resource: Option[Slot[Material]], material: Option[Material]): Unit = {
-		assert(resource.! == carriage, s"Only resource available is $carriage")
+	override protected def loadOnResource(tsk: LiftTask, material: Option[Material],
+	                                      via: Option[DirectedChannel.End[Material]], at: Long): Unit = {
+		assert(tsk.resource.! == carriage, s"Only resource available is $carriage")
 		assert(carriage << material.!, s"Carriage $carriage should be able to accept material")
 	}
 
-	override protected def offloadFromResource(resource: Option[Slot[Material]], product: Set[Material]): Unit = {
+	override protected def offloadFromResource(resource: Option[Slot[Material]]): Unit = {
 		assert(resource.! == carriage, s"Only resource available is $carriage")
 		assert(carriage.>> isDefined, s"Carriage $carriage was already empty")
 	}
 
-	override protected def localFinalizeDelivery(load: Material,
-	                                             via: DirectedChannel.Start[Material], tick: Long): Unit =
+	override protected def finalizeTask(load: Material,
+	                                    via: DirectedChannel.Start[Material], tick: Long): Unit =
 		engine.!.finalizeDelivery(load, tick)
 
 }

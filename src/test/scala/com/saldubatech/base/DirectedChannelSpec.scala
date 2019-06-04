@@ -122,12 +122,12 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 				expectMsgAllOf("Registering Left", "Registering Right")
 				assert(underTest.end != null)
 				assert(underTest.start != null)
-			}
-			"2. Accept an activation once configuration is complete" in {
+			//}
+			//"2. Accept an activation once configuration is complete" in {
 				Await.result(gw.isConfigurationComplete, 1 second) shouldBe Gateway.SimulationState.READY
 				gw.activate()
-			}
-			"3. reject the 4th call to sendLoad" in {
+			//}
+			//"3. reject the 4th call to sendLoad" in {
 				val material = Material("Material"+1)
 				underTest.start.sendLoad(material, 0) shouldBe true
 				expectMsg(s"New Job Arrival $material")

@@ -6,28 +6,33 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.equipment.units
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
+package com.saldubatech.equipment.units.shuttle
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.event.Logging.StandardOutLogger
 import akka.testkit.TestProbe
-import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.channels.Channel.{AcknowledgeLoad, TransferLoad}
 import com.saldubatech.base.channels.DirectedChannel
-import com.saldubatech.base.resource.DiscreteResourceBox
+import com.saldubatech.base.processor.Processor._
 import com.saldubatech.base.{Aisle, CarriagePhysics, Material}
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.equipment.units.shuttle.ShuttleLevelExecutor
 import com.saldubatech.equipment.units.shuttle.ShuttleLevelExecutor.{Groom, Inbound, Outbound}
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.utils.Boxer._
 
 
 class ShuttleLevelExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
-	import DirectedChannel._
 	import SpecActorHarness._
 
 	def this() = this(ActorSystem("ShuttleSpec"))
