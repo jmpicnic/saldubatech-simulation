@@ -27,8 +27,10 @@ import scala.languageFeature.postfixOps
 
 
 
-class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnidirectionalSpec")) {
+class DirectedChannelSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 
+	specLog.info("Starting the actor system.")
+	def this() = this(ActorSystem("MaterialChannelUnidirectionalSpec"))
 
 	val underTest: DirectedChannel[Material] = new DirectedChannel[Material](3, "underTest Channel") {
 
@@ -87,7 +89,6 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 
 	}
 
-	val origin: ActorRef = gw.simActorOf(Props(new MockSource()), "origin")
 
 
 	var lastJob: Material = _
@@ -110,13 +111,13 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
 
-	val destination: ActorRef = gw.simActorOf(Props(new MockDestination()),"destination")
-
-
-
 	"A Material Channel" when {
 		"created" must {
 			"1. allow registering Origin and Destination" in {
+				val origin: ActorRef = gw.simActorOf(Props(new MockSource()), "origin")
+				val destination: ActorRef = gw.simActorOf(Props(new MockDestination()),"destination")
+
+
 				gw.configure(origin, ConfigureStarts[DirectedChannel[Material]](Seq(underTest)))
 				gw.configure(destination, ConfigureEnds[DirectedChannel[Material]](Seq(underTest)))
 				expectMsgAllOf("Registering Left", "Registering Right")
@@ -124,7 +125,7 @@ class DirectedChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnid
 				assert(underTest.start != null)
 			//}
 			//"2. Accept an activation once configuration is complete" in {
-				Await.result(gw.isConfigurationComplete, 1 second) shouldBe Gateway.SimulationState.READY
+				//Await.result(gw.isConfigurationComplete, 1 second) shouldBe Gateway.SimulationState.READY
 				gw.activate()
 			//}
 			//"3. reject the 4th call to sendLoad" in {

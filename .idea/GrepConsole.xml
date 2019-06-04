@@ -54,6 +54,17 @@
                 </Pins>
               </value>
             </entry>
+            <entry>
+              <key>
+                <RunConfigurationRef>
+                  <option name="icon" value="scala_test_icon.svg" />
+                  <option name="name" value="PalletizerOnePalletByIdsXtraTotesSpec.The Palletizer should Create a pallet when receiving 4 totes that fulfill a command" />
+                </RunConfigurationRef>
+              </key>
+              <value>
+                <Pins />
+              </value>
+            </entry>
           </map>
         </option>
       </PinnedGrepConsolesState>

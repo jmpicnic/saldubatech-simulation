@@ -21,22 +21,16 @@ class BaseActorSpec(_system: ActorSystem, val spooler: Option[EventSpooler] = No
 		def getClock: ActorRef = clock
 		def getWatcher: ActorRef = watcher
 	}
-	type TestGateway = gw.type
-
-	var beforeCount = 0
-	var afterCount = 0
 
 	override def afterAll: Unit = {
-		afterCount += 1
-		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute After ALL: $afterCount")
+		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute After ALL")
     gw.shutdown()
 		_system.terminate()
   }
 
 	override def beforeAll: Unit = {
-		beforeCount += 1
-		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute Before ALL: $beforeCount")
-		val simActorRef: ActorRef = gw.simActorOf(SimTestProbeForwarder.props("HostForwarder", gw, testActor), "hostForwarder")
-		gw.configure(simActorRef)
+		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute Before ALL")
+		//val simActorRef: ActorRef = gw.simActorOf(SimTestProbeForwarder.props("HostForwarder", gw, testActor), "hostForwarder")
+		//gw.configure(simActorRef)
   }
 }

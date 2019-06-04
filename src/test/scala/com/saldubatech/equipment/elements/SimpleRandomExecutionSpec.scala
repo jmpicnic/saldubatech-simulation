@@ -16,6 +16,7 @@ import akka.util.Timeout
 import com.saldubatech.utils.Boxer._
 import com.saldubatech.base.Material
 import com.saldubatech.ddes.Epoch.Action
+import com.saldubatech.ddes.Gateway
 import com.saldubatech.equipment.elements.SimpleRandomExecution.{CompleteProcessing, CompleteStaging, ConfigureOwner, Process}
 import com.saldubatech.test.utils.BaseActorSpec
 
@@ -26,7 +27,7 @@ import scala.concurrent.duration._
 class SimpleRandomExecutionSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import com.saldubatech.ddes.GlobalClock.WhatTimeIsIt
 
-	class TestSimProbe(probeName: String, gw: TestGateway) extends TestProbe(system, probeName) {
+	class TestSimProbe(probeName: String, gw: Gateway) extends TestProbe(system, probeName) {
 		override def expectMsg[T](obj: T): T = {
 			val act = obj.asInstanceOf[Action]
 			super.expectMsg(obj)

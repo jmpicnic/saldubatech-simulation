@@ -105,6 +105,7 @@ extends MultiProcessorHelper.MultiProcessorImplementor[C, R, M, PR, TK]
 			}
 			candidateTasks.foreach {
 				tsk =>
+					log.debug(s"Candidate task: $tsk with resource ${tsk.resource} and initial Materials ${tsk.initialMaterials}")
 					tsk.resource.foreach(r => resourcePool.acquire(r.uid.?))
 					tsk.initialMaterials.foreach { case (m, v) => availableMaterials retire m }
 					currentTasks += tsk.cmd.uid -> tsk

@@ -58,7 +58,8 @@ object TotePalletizer {
 			case GroupByIds(ids, _) => ids.contains(mat.uid)
 		}
 
-		override protected def canStart(at: Long): Boolean = slot.currentContents nonEmpty
+		override protected def canStart(at: Long): Boolean =
+			initialMaterials.nonEmpty || slot.currentContents.nonEmpty
 
 
 		protected def canCompletePreparations(at: Long): Boolean = true
@@ -170,7 +171,7 @@ class TotePalletizer
 			if(maybePalletDefined && taskCompleteTask)
 				tryDelivery(task.cmd.uid, maybePallet.!, discharge.start, at)
 			else
-				assert(false, s"Should be able to complete task $task: MaybePallet: $maybePalletDefined, task.completeTask $taskCompleteTask with ${totes}")
+				assert(false, s"Should be able to complete task $task: MaybePallet: $maybePalletDefined, task.completeTask $taskCompleteTask with $totes")
 		}
 	}
 
