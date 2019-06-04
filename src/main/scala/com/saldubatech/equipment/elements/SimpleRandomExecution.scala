@@ -6,14 +6,18 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.{ActorRef, Props}
 import com.saldubatech.base.Material
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.ddes.{Gateway, SimActor, SimMessage}
+import com.saldubatech.ddes.{Gateway, SimActorImpl, SimMessage}
 import com.saldubatech.randomvariables.Distributions.LongRVar
 import com.saldubatech.utils.Boxer._
 
@@ -37,7 +41,7 @@ object SimpleRandomExecution {
 }
 
 class SimpleRandomExecution(name: String, gw: Gateway, delayer: LongRVar)
-  extends SimActor(name, gw) {
+  extends SimActorImpl(name, gw) {
 
   import SimpleRandomExecution._
 

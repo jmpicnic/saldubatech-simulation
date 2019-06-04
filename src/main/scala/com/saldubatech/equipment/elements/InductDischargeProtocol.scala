@@ -5,8 +5,8 @@
 package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
+import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimMessage
-import com.saldubatech.resource.DiscreteResourceBox
 
 object InductDischargeProtocol {
   // Discharge --> Induct :: Configuration

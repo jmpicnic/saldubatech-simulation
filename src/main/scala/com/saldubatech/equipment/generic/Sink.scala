@@ -10,12 +10,21 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.base.{Material, OneWayChannel}
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.OneWayChannel
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.Induct
 import com.saldubatech.events.OperationalEvent
 
@@ -24,8 +33,8 @@ object Sink{
 	def props(name: String, gw: Gateway): Props = Props(new Sink(name, gw))
 }
 
-class Sink(name: String, gw: Gateway)
-  extends SimActor(name,gw)
+class Sink(val name: String, gw: Gateway)
+  extends SimActorImpl(name,gw)
 	  with Induct
 	  with Induct.Processor {
 	val inductProcessor: Induct.Processor = this
@@ -40,7 +49,7 @@ class Sink(name: String, gw: Gateway)
 		collect(at, OperationalEvent.End,name,operation.uid)
 	}
 
-	override def configure: SimActor.Configuring = inductConfiguring
+	override def configure: SimActorImpl.Configuring = inductConfiguring
 
 	override def process(from: ActorRef, at: Long): Processing = inducting(from, at)
 

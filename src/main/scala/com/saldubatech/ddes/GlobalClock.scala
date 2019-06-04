@@ -2,6 +2,10 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.ddes
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
@@ -200,8 +204,8 @@ class GlobalClock(eventCollector: Option[ActorRef], initialTick: Long = 0L) exte
 
     def dumpEpochHistory(): Unit = {
       log.error("============== LAST =========================")
-      log.error(s"=============== $last ===============")
-      log.error(s"===== S: ${onSendLast.size} R: ${onReceiveLast.size} C: ${onCompleteLast.size} =======")
+      log.error(s"========== Last Epoch: $last ==========")
+      log.error(s"=== Sent: ${onSendLast.size} = Receive: ${onReceiveLast.size} = Complete: ${onCompleteLast.size} ===")
       log.error("=============== On Send =====================")
       onSendLast.foreach(a => log.error(a.toString))
       log.error("=============== On Receive ==================")
@@ -209,9 +213,9 @@ class GlobalClock(eventCollector: Option[ActorRef], initialTick: Long = 0L) exte
       log.error("=============== On Complete =================")
       onCompleteLast.foreach(a => log.error(a.toString))
       log.error("=============================================")
-      log.error(s"===== Epoch.S: ${epoch.actionsSending.size}")
+      log.error(s"===== Epoch.Sending: ${epoch.actionsSending.size}")
       epoch.actionsSending.foreach(a => log.error(a.toString))
-      log.error(s"===== Epoch.R ${epoch.actionsReceiving.size}")
+      log.error(s"===== Epoch.Receiving ${epoch.actionsReceiving.size}")
       epoch.actionsReceiving.foreach(a => log.error(a.toString))
     }
 

@@ -10,20 +10,28 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
 import com.saldubatech.utils.Boxer._
 import com.saldubatech.base._
-import com.saldubatech.ddes.SimActor.Configuring
-import com.saldubatech.ddes.SimActorMixIn.Processing
-import com.saldubatech.ddes.{Gateway, SimActor, SimActorMixIn}
+import com.saldubatech.base.channels.v1.{AbstractChannel, ReversibleChannel}
+import com.saldubatech.ddes.SimActorImpl.Configuring
+import com.saldubatech.ddes.SimActor.Processing
+import com.saldubatech.ddes.{Gateway, SimActor, SimActorImpl}
 import com.saldubatech.test.utils.SpecActorHarness.KickOff
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
 import com.saldubatech.ddes.SimDSL._
-
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -51,10 +59,9 @@ class ReversibleChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUn
 			}
 		}
 
-		class MockDestination(name: String, isLeft: Boolean, driver: ActorRef, gw: Gateway)
-			extends SimActor(name, gw)
+		class MockDestination(val name: String, isLeft: Boolean, driver: ActorRef, gw: Gateway)
+			extends SimActorImpl(name, gw)
 				with  ReversibleChannel.Destination[Material] {
-
 			override def onAccept(via: ReversibleChannel.Endpoint[Material], load: Material, tick: Long): Unit = {
 				log.info(s"New Load Arrival ${load.uid} at $name")
 				s"New Load Arrival ${load.uid}" ~> driver now tick
@@ -87,11 +94,11 @@ class ReversibleChannelSpec extends BaseActorSpec(ActorSystem("MaterialChannelUn
 		val secondLoadMsg = newLoadArrivalMsg(otherLoad)
 
 		// Protocol Definition from left point of view
-		val kickOff: (SimActorMixIn, ActorRef, Long) => Unit = (host, from, at) => {
+		val kickOff: (SimActor, ActorRef, Long) => Unit = (host, from, at) => {
 			underTest.leftEP.sendLoad(loadProbe, at)
 			specLog.debug("Sending Load through Left Endpoint")
 		}
-		def actions(observer: ActorRef) = Seq[(SimActorMixIn, ActorRef, Long) => Processing](
+		def actions(observer: ActorRef) = Seq[(SimActor, ActorRef, Long) => Processing](
 			(host, from, tick) => {case s: String if s == firstLoadMsg => observer ! firstLoadMsg},
 			(host, from, tick) => {case "Received Acknowledgement at left" => observer ! "Completed First Transfer"; underTest.rightEP.requestSendingRole(tick)},
 			(host, from, tick) => {

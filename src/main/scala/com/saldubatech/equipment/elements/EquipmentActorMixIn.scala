@@ -2,15 +2,19 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 import akka.actor.ActorRef
-import com.saldubatech.ddes.SimActorMixIn
+import com.saldubatech.ddes.SimActor
 import com.saldubatech.events.EventCollector.Report
 import com.saldubatech.events.{Event, EventTypeEnum}
 
 trait EquipmentActorMixIn
-	extends SimActorMixIn{
+	extends SimActor{
 	private val eventCollector: Option[ActorRef] = gw.eventCollector
 	val name: String
 

@@ -16,6 +16,7 @@
     <option name="debuggingInfoLevel" value="Notailcalls" />
     <parameters>
       <parameter value="-feature" />
+      <parameter value="-Xfatal-warnings" />
     </parameters>
     <profile name="sbt 1" modules="simakka_3603">
       <option name="dynamics" value="true" />

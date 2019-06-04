@@ -2,6 +2,7 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, ActorSystem}
@@ -20,16 +21,16 @@ class BaseActorSpec(_system: ActorSystem, val spooler: Option[EventSpooler] = No
 		def getClock: ActorRef = clock
 		def getWatcher: ActorRef = watcher
 	}
-	type TestGateway = gw.type
-
-  val simActorRef: ActorRef = gw.simActorOf(SimTestProbeForwarder.props("HostForwarder", gw, testActor), "hostForwarder")
-
 
 	override def afterAll: Unit = {
+		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute After ALL")
     gw.shutdown()
+		_system.terminate()
   }
 
 	override def beforeAll: Unit = {
-		gw.configure(simActorRef)
+		specLogger.info(s">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>Execute Before ALL")
+		//val simActorRef: ActorRef = gw.simActorOf(SimTestProbeForwarder.props("HostForwarder", gw, testActor), "hostForwarder")
+		//gw.configure(simActorRef)
   }
 }

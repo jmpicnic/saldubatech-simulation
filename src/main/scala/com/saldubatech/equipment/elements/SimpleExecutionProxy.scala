@@ -6,22 +6,26 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.equipment.elements
 
 
 import akka.actor.ActorRef
 import com.saldubatech.base.Material
-import com.saldubatech.ddes.SimActorMixIn
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.base.resource.DiscreteResourceBox
+import com.saldubatech.ddes.SimActor
+import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.resource.DiscreteResourceBox
 import com.saldubatech.utils.Boxer._
 
 import scala.collection.mutable
 
 object SimpleExecutionProxy {
   def apply(name: String, capacity: Int,
-            host: ExecutionProxy.ExecutionObserver with SimActorMixIn,
+            host: ExecutionProxy.ExecutionObserver with SimActor,
             executor: ActorRef): SimpleExecutionProxy = {
     new SimpleExecutionProxy(name,
       Set[String]() ++ (1 to capacity).map(_ => java.util.UUID.randomUUID().toString),
@@ -32,7 +36,7 @@ object SimpleExecutionProxy {
 
 
 class SimpleExecutionProxy(name: String, assets: Set[String],
-                           implicit val executionHost: ExecutionProxy.ExecutionObserver with SimActorMixIn,
+                           implicit val executionHost: ExecutionProxy.ExecutionObserver with SimActor,
                            executor: ActorRef)
   extends DiscreteResourceBox(name, assets)
 	  with ExecutionProxy[ProcessingCommand] {

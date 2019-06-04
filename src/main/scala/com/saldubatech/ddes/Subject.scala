@@ -6,10 +6,14 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
+/*
+ * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.ddes
 
 import akka.actor.ActorRef
-import com.saldubatech.ddes.SimActorMixIn.Processing
+import com.saldubatech.ddes.SimActor.Processing
 
 import scala.collection.mutable
 import com.saldubatech.ddes.SimDSL._
@@ -30,7 +34,7 @@ object Subject {
 }
 
 trait Subject[N <: Subject.Notification]
-	extends SimActorMixIn {
+	extends SimActor {
 	import Subject._
 
 	protected val observers: mutable.Set[ActorRef] = mutable.Set.empty

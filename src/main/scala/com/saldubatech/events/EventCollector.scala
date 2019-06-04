@@ -19,7 +19,7 @@ object EventCollector {
 
 	case class Report(station: String, event: Event)
 
-	var records: mutable.Map[String,Long] = mutable.Map()
+	val records: mutable.Map[String,Long] = mutable.Map()
 	val cache: mutable.Map[String, mutable.Map[String, LoadTiming]] = mutable.Map.empty
 
 	class LoadTiming(ev: Event) {

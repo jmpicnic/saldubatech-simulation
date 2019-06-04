@@ -2,19 +2,12 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.base.{OneWayChannel, Material}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.OneWayChannel
 import com.saldubatech.ddes.Gateway
 import com.saldubatech.equipment.elements.SimpleRandomExecution.ConfigureOwner
 import com.saldubatech.equipment.elements.{Discharge, SimpleRandomExecution, StepProcessor}
@@ -30,7 +23,7 @@ import scala.concurrent.duration._
 import scala.languageFeature.postfixOps
 
 
-class SimpleServerSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
+class SimpleServerSpec extends BaseActorSpec(ActorSystem("SimpleServerSpec"),
 	Some(LogEventSpooler(Logger("com.salduba.events.eventCollector")))) {
 
 
@@ -59,7 +52,7 @@ class SimpleServerSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
 
 	def runUntil(tick: Long): (Option[Material], Long) => Boolean = (_,at) => at > tick
 
-	var source: ActorRef = gw.simActorOf(
+	val source: ActorRef = gw.simActorOf(
 		Props(
 			new Source("underTest",
 				gw,
@@ -118,12 +111,12 @@ class SimpleServerSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
 				while(
 					expectMsgPF[Boolean](500 millis)({
 						case msg:String if msg.matches(s"Generate Load.*") => specLog.info(msg); true
-						case msg:Tuple2[String, Long] if msg._1.matches("Material.*") => specLog.info(msg.toString());tick = msg._2;false
+						case msg:(String, Long) if msg._1.matches("Material.*") => specLog.info(msg.toString());tick = msg._2;false
 						case msg: Any => specLog.info(s"Unknown msg: $msg");false
 					})) loadN += 1
 				for (i <- 2 until loadN)
 					expectMsgPF[Boolean](500 millis)({
-					case msg:Tuple2[String, Long] if msg._1.matches(s"Material$i") => tick = msg._2;true})
+					case msg:(String, Long) if msg._1.matches(s"Material$i") => tick = msg._2;true})
 				//expectMsg((s"Material$i", )
 //				gw.epoch.now shouldBe tick // This is consistent with 7 jobs --> @TODO Is this the right number?
 			}

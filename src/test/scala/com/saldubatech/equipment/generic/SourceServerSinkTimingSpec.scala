@@ -2,20 +2,13 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.equipment.generic
 
 import akka.actor.{ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
-import com.saldubatech.base.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.base.{OneWayChannel, Material}
+import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
+import com.saldubatech.base.Material
+import com.saldubatech.base.channels.v1.OneWayChannel
 import com.saldubatech.ddes.Gateway
 import com.saldubatech.equipment.elements.SimpleRandomExecution.ConfigureOwner
 import com.saldubatech.equipment.elements.{Discharge, SimpleRandomExecution, StepProcessor}
@@ -31,7 +24,7 @@ import scala.concurrent.duration._
 import scala.languageFeature.postfixOps
 
 
-class SourceServerSinkTimingSpec extends BaseActorSpec(ActorSystem("StepProcessorTest"),
+class SourceServerSinkTimingSpec extends BaseActorSpec(ActorSystem("SourceServerSinkTimingSpec"),
 	Some(LogEventSpooler(Logger("com.saldubatech.events.eventCollector")))) {
 
 
@@ -60,7 +53,7 @@ class SourceServerSinkTimingSpec extends BaseActorSpec(ActorSystem("StepProcesso
 	def runUntil(limit: Long): (Option[Material], Long) => Boolean =
 		(_,at) => {if(at > limit) {testActor ! "Finished Generating";true} else false}
 
-	var source: ActorRef = gw.simActorOf(
+	val source: ActorRef = gw.simActorOf(
 		Props(
 			new Source("underTest",
 				gw,
