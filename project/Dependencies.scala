@@ -8,19 +8,19 @@
 
 import sbt._
 
-trait Package {
+trait PackageDependency {
   val deps: Seq[ModuleID]
   val testDeps: Seq[ModuleID]
 }
 
-object AkkaHttp extends Package  {
+object AkkaHttp extends PackageDependency  {
   val version = "10.1.7"
   val deps = Seq(
     "com.typesafe.akka" %% "akka-http").map(_ % version)
   lazy val testDeps = Seq.empty
 }
 
-object Akka extends Package  {
+object Akka extends PackageDependency  {
   lazy val version = "2.5.11"
   lazy val deps = Seq(
     "com.typesafe.akka" %% "akka-actor",
@@ -32,7 +32,7 @@ object Akka extends Package  {
   ).map(_ % version)
 }
 
-object Circe extends Package {
+object Circe extends PackageDependency {
   val version = "0.11.1"
   val deps = Seq(
     "io.circe" %% "circe-core",
@@ -42,7 +42,7 @@ object Circe extends Package {
   lazy val testDeps = Seq.empty
 }
 
-object Sangria extends Package  {
+object Sangria extends PackageDependency  {
   lazy val version = "1.4.2"
   lazy val deps = Seq(
     "org.sangria-graphql" %% "sangria" % version,//"1.3.0",
@@ -52,7 +52,7 @@ object Sangria extends Package  {
   lazy val testDeps = Seq.empty
 }
 
-object JaxBBackPort extends Package  {
+object JaxBBackPort extends PackageDependency  {
   val version = "2.2.11"
 
   lazy val deps = Seq("javax.xml.bind" % "jaxb-api",
@@ -62,8 +62,8 @@ object JaxBBackPort extends Package  {
   lazy val testDeps = Seq.empty
 }
 
-object Slick extends Package  {
-  lazy val version = "3.3.0"
+object Slick extends PackageDependency  {
+  lazy val version = "3.3.2"
   val deps = Seq(
     "com.typesafe.slick" %% "slick-hikaricp",
     "com.typesafe.slick" %% "slick"
@@ -73,7 +73,7 @@ object Slick extends Package  {
   }.map(_ % version)
 }
 
-object DB extends Package  {
+object DB extends PackageDependency  {
   lazy val deps = Seq(
     "org.postgresql" % "postgresql" % "9.4-1206-jdbc42", // Postgres access
     "com.zaxxer" % "HikariCP" % "3.3.0", // Connection Pool
@@ -81,7 +81,7 @@ object DB extends Package  {
   lazy val testDeps = Seq.empty
 }
 
-object Graph extends Package {
+object Graph extends PackageDependency {
   // http://www.scala-graph.org/
   lazy val deps = Seq(
     "org.scala-graph" %% "graph-core" % "1.12.5",
@@ -91,7 +91,7 @@ object Graph extends Package {
   )
   lazy val testDeps = Seq.empty
 }
-object Misc extends Package  {
+object Misc extends PackageDependency  {
   val deps = Seq(
     "org.apache.commons" % "commons-math3" % "3.5",
     "org.scala-graph" %% "graph-core" % "1.12.5"
@@ -99,7 +99,7 @@ object Misc extends Package  {
   lazy val testDeps = Seq.empty
 }
 
-object Logging extends Package  {
+object Logging extends PackageDependency  {
   lazy val deps = Seq(
     "org.slf4j" % "slf4j-api" % "1.7.25",
     "org.slf4j" % "slf4j-log4j12" % "1.7.25",// % Test
@@ -111,13 +111,13 @@ object Logging extends Package  {
   lazy val testDeps = Seq.empty
 }
 
-object Core extends Package {
+object Core extends PackageDependency {
   lazy val deps = Seq.empty
   lazy val testDeps = Seq("org.scalatest" %% "scalatest" % "3.0.5")
 }
 
 object _Dependencies {
-  lazy val modules: Seq[Package] = Seq(
+  lazy val modules: Seq[PackageDependency] = Seq(
     Akka,
     Core,
     DB,
@@ -126,8 +126,8 @@ object _Dependencies {
     Misc,
     Slick
   )
-  lazy val production = modules.map(_.deps).fold(Seq.empty)((acc, el) => acc ++ el)
-  lazy val test = modules.map(_.testDeps.map(_ % "test")).fold(Seq.empty)((acc, el) => acc ++ el)
+  lazy val production: Seq[sbt.ModuleID] = modules.map(_.deps).fold(Seq.empty)((acc, el) => acc ++ el)
+  lazy val test: Seq[sbt.ModuleID] = modules.map(_.testDeps.map(_ % "test")).fold(Seq.empty)((acc, el) => acc ++ el)
 
-  lazy val all = production ++ test
+  lazy val all: Seq[sbt.ModuleID] = production ++ test
 }

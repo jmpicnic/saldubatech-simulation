@@ -30,6 +30,6 @@
       <option name="featureWarnings" value="true" />
       <option name="explainTypeErrors" value="true" />
     </profile>
-    <profile name="sbt 2" modules="simAkka" />
+    <profile name="sbt 2" modules="dcf-equipment,dcf-network,dcf-poc,equipment,foundation,foundation-dcf-equipment,network,network-util,simAkka,util" />
   </component>
 </project>

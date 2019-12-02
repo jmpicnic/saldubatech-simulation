@@ -8,7 +8,15 @@
       <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
       <secret-storage>master_key</secret-storage>
       <user-name>postgres</user-name>
-      <introspection-schemas>@:@|crux_schema:@</introspection-schemas>
+      <schema-mapping>
+        <introspection-scope>
+          <node kind="database">
+            <name qname="@" />
+            <name qname="crux_schema" />
+            <node kind="schema" qname="@" />
+          </node>
+        </introspection-scope>
+      </schema-mapping>
     </data-source>
   </component>
 </project>
