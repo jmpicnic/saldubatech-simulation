@@ -1,5 +1,5 @@
 
-scalaVersion := "2.12.7"
+scalaVersion := "2.12.10"
 
 resolvers += Resolver.url("bintray-sbt-plugins",
 	url("https://dl.bintray.com/sbt/sbt-plugin-releases/"))(Resolver.ivyStylePatterns)

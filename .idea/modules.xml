@@ -2,9 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/analysis/analysis.iml" filepath="$PROJECT_DIR$/analysis/analysis.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/simAkka.iml" filepath="$PROJECT_DIR$/.idea/modules/simAkka.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/simAkka-build.iml" filepath="$PROJECT_DIR$/.idea/modules/simAkka-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/saldubatech-simulation_7745.iml" filepath="$PROJECT_DIR$/.idea/modules/saldubatech-simulation_7745.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/saldubatech-simulation_7745-build.iml" filepath="$PROJECT_DIR$/.idea/modules/saldubatech-simulation_7745-build.iml" />
     </modules>
   </component>
 </project>

@@ -7,9 +7,9 @@ name := "simAkka"
 
 version := "0.1"
 
-scalaVersion := "2.12.7"
+scalaVersion := "2.12.10"
 
-lazy val akkaVersion = "2.5.21"
+lazy val akkaVersion = "2.6.0"
 
 
 libraryDependencies ++= Seq(
