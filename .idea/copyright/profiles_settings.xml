@@ -1,9 +1,0 @@
-<component name="CopyrightManager">
-  <settings default="Salduba Technologies">
-    <module2copyright>
-      <element module="All" copyright="Salduba Technologies" />
-      <element module="Production" copyright="Salduba Technologies" />
-      <element module="Tests" copyright="Salduba Technologies" />
-    </module2copyright>
-  </settings>
-</component>
