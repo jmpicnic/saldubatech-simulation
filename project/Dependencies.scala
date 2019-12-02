@@ -21,7 +21,7 @@ object AkkaHttp extends PackageDependency  {
 }
 
 object Akka extends PackageDependency  {
-  lazy val version = "2.5.11"
+  lazy val version = "2.6.0"
   lazy val deps = Seq(
     "com.typesafe.akka" %% "akka-actor",
     "com.typesafe.akka" %% "akka-slf4j",
