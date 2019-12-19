@@ -7,7 +7,7 @@ package com.saldubatech.base.resource
 import com.saldubatech.base.Identification
 
 import scala.collection.mutable
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object Use {
 	object Use extends Enumeration {

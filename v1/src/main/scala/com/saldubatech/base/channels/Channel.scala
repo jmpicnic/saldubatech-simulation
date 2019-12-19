@@ -14,7 +14,7 @@ import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.base.layout.TaggedGeography.Tag
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 import com.typesafe.scalalogging.Logger
 
 import scala.collection.mutable

@@ -23,7 +23,7 @@ package com.saldubatech.equipment.elements
 import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.TestProbe
 import com.saldubatech.base.channels.v1.AbstractChannel.{ConfigureLeftEndpoints, ConfigureRightEndpoints}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 import com.saldubatech.base._
 import com.saldubatech.base.channels.v1.{AbstractChannel, ReversibleChannel}
 import com.saldubatech.ddes.SimActorImpl.Configuring

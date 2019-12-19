@@ -5,7 +5,7 @@ package com.saldubatech.base.resource
 
 import com.saldubatech.base.Material
 import com.saldubatech.base.resource.Use.Usable
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

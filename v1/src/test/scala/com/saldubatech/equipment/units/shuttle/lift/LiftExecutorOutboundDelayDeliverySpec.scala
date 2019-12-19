@@ -19,7 +19,7 @@ import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 class LiftExecutorOutboundDelayDeliverySpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import SpecActorHarness._

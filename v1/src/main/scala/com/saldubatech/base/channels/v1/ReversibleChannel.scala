@@ -34,7 +34,7 @@ import com.saldubatech.base.channels.v1.AbstractChannel.FlowDirection
 import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object ReversibleChannel {
 	def apply[L <: Identification](capacity: Int, name: String = java.util.UUID.randomUUID().toString) =
@@ -77,7 +77,7 @@ object ReversibleChannel {
 			case ConfirmDirectionSwitch(channelName) if channelName == name =>
 				role = Role.SENDER
 				if(continuation isDefined) {
-					continuation.!()
+					continuation.!.apply(this)
 					continuation = None
 				}
 				owner.onRestore(this, at)

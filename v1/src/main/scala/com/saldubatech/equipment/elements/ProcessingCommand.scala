@@ -9,7 +9,7 @@
 package com.saldubatech.equipment.elements
 
 import com.saldubatech.base.Identification
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object ProcessingCommand{
 	def apply(): ProcessingCommand = new Impl()

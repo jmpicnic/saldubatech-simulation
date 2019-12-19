@@ -16,7 +16,7 @@ import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.model.builders.Builder.{Registry, Token}
 import com.saldubatech.model.builders.ChannelBuilder.IOChannels
 import com.saldubatech.model.configuration.ShuttleStorage.Lift
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

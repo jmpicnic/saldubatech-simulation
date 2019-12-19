@@ -9,7 +9,7 @@
 package com.saldubatech.base.layout
 
 import com.saldubatech.base.Identification
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object LocationTag {
 	abstract class Impl(id: String) extends LocationTag {

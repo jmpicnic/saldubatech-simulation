@@ -27,7 +27,7 @@ object UseState {
 
 class UseState(val capacity: Double) extends State(UseState.Idle()) {
   import UseState._
-  import com.saldubatech.utils.Lang.ZERO_TOLERANCE
+  import com.saldubatech.util.Lang.ZERO_TOLERANCE
 
   var _usage: Double = 0.0
   val _current = new State(Idle())

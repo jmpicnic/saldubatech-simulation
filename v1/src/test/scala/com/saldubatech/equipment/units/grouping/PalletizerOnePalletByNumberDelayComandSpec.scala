@@ -24,7 +24,7 @@ import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.ddes.{Gateway, SimActor}
 import com.saldubatech.equipment.units.grouping.TotePalletizer.GroupByNumber
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 import com.typesafe.scalalogging.Logger
 
 class PalletizerOnePalletByNumberDelayComandSpec(_system: ActorSystem) extends BaseActorSpec(_system) {

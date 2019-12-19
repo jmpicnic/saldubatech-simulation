@@ -28,7 +28,7 @@ import com.saldubatech.base.layout.Geography.{ClosedPathPoint, Length}
 import com.saldubatech.base.layout.TaggedGeography
 import com.saldubatech.test.utils.MockSimEquipment._
 import com.saldubatech.test.utils.{BaseActorSpec, MockSimEquipment}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.concurrent.duration._
 import scala.collection.mutable

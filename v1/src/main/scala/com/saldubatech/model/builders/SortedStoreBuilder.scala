@@ -16,7 +16,7 @@ import com.saldubatech.model.builders.Builder.Registry
 import com.saldubatech.model.builders.ChannelBuilder.{IO, IOChannels}
 import com.saldubatech.model.configuration.GTP.SortedStore
 import com.saldubatech.model.configuration.Layout.TransportLink
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 class SortedStoreBuilder(conf: SortedStore)(implicit gw: Gateway,
                           override protected val channelRegistry: Registry[DirectedChannel[Material]],

@@ -11,7 +11,7 @@ import com.saldubatech.base.processor.Task.ExecutionCommand
 import com.saldubatech.base.Material
 import com.saldubatech.base.resource.Resource
 import com.saldubatech.ddes.Subject
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

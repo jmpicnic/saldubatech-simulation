@@ -20,7 +20,7 @@ import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.units.unitsorter.{CircularPathPhysics, CircularSorterExecution}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.languageFeature.postfixOps
 

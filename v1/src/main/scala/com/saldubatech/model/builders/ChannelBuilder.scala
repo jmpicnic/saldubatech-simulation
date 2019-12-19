@@ -18,7 +18,7 @@ import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.model.builders.Builder.Registry
 import com.saldubatech.model.configuration.Layout.TransportLink
 import com.saldubatech.randomvariables.Distributions._
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object ChannelBuilder {
 

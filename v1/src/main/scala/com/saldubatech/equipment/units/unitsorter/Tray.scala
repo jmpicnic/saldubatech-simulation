@@ -10,7 +10,7 @@ package com.saldubatech.equipment.units.unitsorter
 
 import com.saldubatech.base.Material
 import com.saldubatech.base.resource.Resource
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object Tray {
 	def apply(number: Int): Tray = new Tray(number)

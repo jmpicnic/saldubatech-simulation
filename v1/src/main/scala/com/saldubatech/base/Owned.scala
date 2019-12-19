@@ -10,7 +10,7 @@ package com.saldubatech.base
 
 import akka.actor.ActorRef
 import com.saldubatech.ddes.Subject
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 trait Owned[N <: Subject.Notification] extends Subject[N] {
 	private var _owner: Option[ActorRef] = None

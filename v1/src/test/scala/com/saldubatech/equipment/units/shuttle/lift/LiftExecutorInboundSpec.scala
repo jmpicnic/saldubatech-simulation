@@ -23,7 +23,7 @@ import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.base.processor.XSwitchTransfer.Transfer
 import com.saldubatech.equipment.units.shuttle.LiftExecutor
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 class LiftExecutorInboundSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import SpecActorHarness._

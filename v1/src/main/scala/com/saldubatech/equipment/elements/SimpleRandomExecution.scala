@@ -19,7 +19,7 @@ import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.ddes.{Gateway, SimActorImpl, SimMessage}
 import com.saldubatech.randomvariables.Distributions.LongRVar
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object SimpleRandomExecution {
   def props(name: String, gw: Gateway, delayer: LongRVar): Props =

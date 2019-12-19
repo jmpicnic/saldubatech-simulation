@@ -19,7 +19,7 @@ import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActor
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimDSL._
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

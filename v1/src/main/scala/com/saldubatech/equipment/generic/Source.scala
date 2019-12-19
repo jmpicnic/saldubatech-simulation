@@ -28,7 +28,7 @@ import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.{Gateway, SimActorImpl, SimMessage}
 import com.saldubatech.equipment.elements.{Discharge, StepProcessor}
 import com.saldubatech.events.{Event, OperationalEvent}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable.ListBuffer
 

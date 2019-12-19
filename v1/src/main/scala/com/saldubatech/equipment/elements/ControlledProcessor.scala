@@ -9,7 +9,7 @@
 package com.saldubatech.equipment.elements
 
 import com.saldubatech.base.Material
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

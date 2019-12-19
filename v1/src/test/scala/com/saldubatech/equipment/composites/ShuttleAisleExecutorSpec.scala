@@ -35,7 +35,7 @@ import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.equipment.composites.StorageModule.{Groom, Inbound, Outbound}
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 class ShuttleAisleExecutorSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import SpecActorHarness._

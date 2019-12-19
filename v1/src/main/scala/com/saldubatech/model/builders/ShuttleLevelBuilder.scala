@@ -16,7 +16,7 @@ import com.saldubatech.equipment.units.shuttle.ShuttleLevelExecutor
 import com.saldubatech.model.builders.Builder.Registry
 import com.saldubatech.model.builders.ChannelBuilder.IOChannels
 import com.saldubatech.model.configuration.ShuttleStorage.ShuttleLevel
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object ShuttleLevelBuilder {
 

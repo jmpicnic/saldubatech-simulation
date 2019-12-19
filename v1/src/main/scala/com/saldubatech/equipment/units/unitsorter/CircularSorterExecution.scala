@@ -17,7 +17,7 @@ import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.base.processor.XSwitchTransfer.Transfer
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

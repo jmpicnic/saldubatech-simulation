@@ -22,7 +22,7 @@ import com.saldubatech.base.channels.v1.AbstractChannel
 import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.SimMessage
 import com.saldubatech.events.OperationalEvent
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

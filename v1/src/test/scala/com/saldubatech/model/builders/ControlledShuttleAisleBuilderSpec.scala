@@ -29,7 +29,7 @@ import com.saldubatech.model.builders.ChannelBuilder.IOChannels
 import com.saldubatech.model.configuration.Layout.TransportLink
 import com.saldubatech.model.configuration.ShuttleStorage.{Lift, ShuttleAisle, ShuttleLevel}
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 class ControlledShuttleAisleBuilderSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 	import SpecActorHarness._

@@ -17,7 +17,7 @@ import com.saldubatech.model.builders.Builder.Registry
 import com.saldubatech.model.builders.ChannelBuilder.IOChannels
 import com.saldubatech.model.configuration.Layout.TransportLink
 import com.saldubatech.model.configuration.ShuttleStorage.ShuttleAisle
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object ShuttleAisleBuilder {
 	def apply(conf: ShuttleAisle)(implicit gw: Gateway,

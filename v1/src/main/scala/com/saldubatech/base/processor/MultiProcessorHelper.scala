@@ -11,7 +11,7 @@ import com.saldubatech.base.processor.Task._
 import com.saldubatech.base.processor.Processor.ExecutionNotification
 import com.saldubatech.base.resource.{Resource, ResourcePool, Use}
 import com.saldubatech.ddes.{Gateway, Subject}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

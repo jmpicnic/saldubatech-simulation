@@ -14,7 +14,7 @@ package com.saldubatech.ddes
 
 import com.saldubatech.base.Identification
 
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object SimMessage {
 	class Impl(_id: String) extends Identification.Impl(_id) with SimMessage

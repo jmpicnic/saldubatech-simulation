@@ -5,7 +5,7 @@
 package com.saldubatech.base.resource
 
 import com.saldubatech.base.Material
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object Slot {
 	def apply[M <: Material](id: String = java.util.UUID.randomUUID.toString): Slot[M] = new Slot(id)

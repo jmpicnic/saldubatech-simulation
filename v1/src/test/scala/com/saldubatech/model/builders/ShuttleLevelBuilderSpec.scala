@@ -27,7 +27,7 @@ import com.saldubatech.model.builders.Builder.Registry
 import com.saldubatech.model.configuration.Layout.TransportLink
 import com.saldubatech.model.configuration.ShuttleStorage.ShuttleLevel
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 
 class ShuttleLevelBuilderSpec(_system: ActorSystem) extends BaseActorSpec(_system) {

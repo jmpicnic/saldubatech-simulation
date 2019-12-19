@@ -25,7 +25,7 @@ import com.saldubatech.base.processor.XSwitchTransfer.Transfer
 import com.saldubatech.base.layout.Geography.{ClosedPathPoint, Length}
 import com.saldubatech.base.layout.TaggedGeography
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.concurrent.duration._
 

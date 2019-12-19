@@ -14,7 +14,7 @@ import com.saldubatech.base.resource.DiscreteResourceBox
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.randomvariables.Distributions._
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

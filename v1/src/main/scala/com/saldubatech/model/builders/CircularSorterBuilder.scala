@@ -18,7 +18,7 @@ import com.saldubatech.equipment.units.unitsorter.CircularSorterExecution
 import com.saldubatech.model.builders.Builder.Registry
 import com.saldubatech.model.builders.ChannelBuilder.{IO, IOChannels}
 import com.saldubatech.model.configuration.Sorting.CircularSorter
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 
 object CircularSorterBuilder {

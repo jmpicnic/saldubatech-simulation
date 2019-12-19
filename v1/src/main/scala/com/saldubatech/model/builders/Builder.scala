@@ -14,7 +14,7 @@ import akka.actor.ActorRef
 import com.saldubatech.base.{Identification, Material}
 import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.model.builders.Builder.Token
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 
 object Builder {

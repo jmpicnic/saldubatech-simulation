@@ -22,7 +22,7 @@ import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.composites.StorageModule.{Groom, Inbound, InitializeInventory, Outbound, StorageAisleCommand}
 import com.saldubatech.equipment.units.shuttle.{LiftExecutor, ShuttleLevelExecutor}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 import scala.languageFeature.postfixOps

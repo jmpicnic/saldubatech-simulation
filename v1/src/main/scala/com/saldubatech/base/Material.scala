@@ -9,7 +9,7 @@
 package com.saldubatech.base
 
 import com.saldubatech.base.resource.Use
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

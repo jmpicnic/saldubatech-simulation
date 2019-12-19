@@ -18,7 +18,7 @@ import com.saldubatech.base.channels.DirectedChannel
 import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
 import com.saldubatech.ddes.SimActorImpl.Configuring
 import com.saldubatech.ddes.{Gateway, SimActor, SimActorImpl}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 object MockSimEquipment {
 

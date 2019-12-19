@@ -12,7 +12,7 @@ package com.saldubatech.ddes
 import akka.actor.{Actor, ActorLogging, ActorRef}
 import com.saldubatech.ddes.Gateway.Configure
 import com.saldubatech.ddes.SimActor.Processing
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

@@ -18,7 +18,7 @@ import com.saldubatech.ddes.SimDSL._
 import com.saldubatech.ddes.{Gateway, SimActor, SimActorImpl}
 import com.saldubatech.test.utils.SpecActorHarness.KickOff
 import com.saldubatech.test.utils.{BaseActorSpec, SpecActorHarness}
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.languageFeature.postfixOps
 

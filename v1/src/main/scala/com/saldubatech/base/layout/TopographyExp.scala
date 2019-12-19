@@ -10,7 +10,7 @@ package com.saldubatech.base.layout
 
 import com.saldubatech.base.Identification
 import com.saldubatech.base.layout.Geography.Length
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 

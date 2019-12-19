@@ -17,7 +17,7 @@ import com.saldubatech.ddes.SimActor.Processing
 import com.saldubatech.ddes.{Gateway, SimActorImpl}
 import com.saldubatech.equipment.elements.{Discharge, Induct, StepProcessor}
 import com.saldubatech.test.utils.BaseActorSpec
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

@@ -13,7 +13,7 @@ import akka.event.Logging.StandardOutLogger
 import akka.pattern._
 import akka.testkit.{EventFilter, TestProbe}
 import akka.util.Timeout
-import com.saldubatech.utils.Boxer._
+import com.saldubatech.util.Lang._
 import com.saldubatech.base.Material
 import com.saldubatech.ddes.Epoch.Action
 import com.saldubatech.ddes.Gateway
