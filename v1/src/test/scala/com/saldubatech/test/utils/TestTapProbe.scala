@@ -5,7 +5,7 @@
 package com.saldubatech.test.utils
 
 import akka.actor.{Actor, ActorLogging, ActorRef}
-import com.saldubatech.ddes.Gateway
+import com.saldubatech.v1.ddes.Gateway
 
 
 class TestTapProbe(val name: String, gw: Gateway, monitor: ActorRef, target: ActorRef,

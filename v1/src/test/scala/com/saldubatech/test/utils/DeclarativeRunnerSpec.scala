@@ -8,7 +8,7 @@ import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import akka.testkit.TestKit
 import org.scalatest.{BeforeAndAfterAll, WordSpecLike}
 
-//class ActorToTest(gw: Gateway) extends SimActor("To Test", gw)
+//class ActorToTest(gw: Simulation) extends SimActor("To Test", gw)
 
 
 class DeclarativeRunnerSpec(_system: ActorSystem)

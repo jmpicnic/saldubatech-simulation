@@ -12,7 +12,8 @@
 
 package com.example
 
-import com.saldubatech.base.{Identification, Material}
+import com.saldubatech.base.Identification
+import com.saldubatech.v1.base.Material
 
 /**
 	* THis is not for production, but just to learn a bit about typeclasses and extending classes with "ad-hoc" polymorphism.

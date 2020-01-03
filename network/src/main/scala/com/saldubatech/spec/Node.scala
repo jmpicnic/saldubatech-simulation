@@ -5,10 +5,10 @@
 package com.saldubatech.spec
 
 import akka.actor.ActorRef
-import com.saldubatech.base.Material
-import com.saldubatech.base.channels.DirectedChannel
-import com.saldubatech.ddes.SimActor
-import com.saldubatech.ddes.SimDSL._
+import com.saldubatech.v1.base.Material
+import com.saldubatech.v1.base.channels.DirectedChannel
+import com.saldubatech.v1.ddes.SimActor
+import com.saldubatech.v1.ddes.SimDSL._
 import com.saldubatech.spec.ProcessorProtocol.Task
 
 import scala.collection.mutable

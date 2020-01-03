@@ -11,7 +11,9 @@ object Dependencies {
 		DB,
 		//Graph,
 		Logging,
+		Log4JCore,
 		//Misc,
+		Scalaz,
 		Slick
 	)
 	lazy val production: Seq[sbt.ModuleID] = modules.map(_.deps).fold(Seq.empty)((acc, el) => acc ++ el)

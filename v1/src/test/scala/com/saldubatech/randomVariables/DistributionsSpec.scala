@@ -4,7 +4,7 @@
 
 package com.saldubatech.randomVariables
 
-import com.saldubatech.randomvariables.Distributions._
+import com.saldubatech.v1.randomvariables.Distributions._
 import com.saldubatech.test.utils.BaseSpec
 
 

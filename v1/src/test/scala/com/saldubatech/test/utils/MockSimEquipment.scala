@@ -13,11 +13,11 @@
 package com.saldubatech.test.utils
 
 import akka.actor.ActorRef
-import com.saldubatech.base.Material
-import com.saldubatech.base.channels.DirectedChannel
-import com.saldubatech.ddes.SimActor.{Processing, nullProcessing}
-import com.saldubatech.ddes.SimActorImpl.Configuring
-import com.saldubatech.ddes.{Gateway, SimActor, SimActorImpl}
+import com.saldubatech.v1.base.Material
+import com.saldubatech.v1.base.channels.DirectedChannel
+import com.saldubatech.v1.ddes.SimActor.{Processing, nullProcessing}
+import com.saldubatech.v1.ddes.SimActorImpl.Configuring
+import com.saldubatech.v1.ddes.{Gateway, SimActor, SimActorImpl}
 import com.saldubatech.util.Lang._
 
 object MockSimEquipment {

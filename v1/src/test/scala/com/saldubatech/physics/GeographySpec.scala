@@ -14,12 +14,12 @@
 
 package com.saldubatech.physics
 
-import com.saldubatech.base.layout.Geography
+import com.saldubatech.v1.base.layout.Geography
 import com.saldubatech.test.utils.BaseSpec
 
 
 class GeographySpec extends BaseSpec {
-	import com.saldubatech.base.layout.Geography._
+	import com.saldubatech.v1.base.layout.Geography._
 
 	implicit val nTrays: Length = Length(12)
 	val underTest = new Geography.ClosedPathGeography(nTrays)

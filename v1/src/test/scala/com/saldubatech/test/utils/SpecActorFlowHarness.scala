@@ -14,10 +14,10 @@
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.ddes.SimActorImpl.Configuring
-import com.saldubatech.ddes.SimActor.nullProcessing
-import com.saldubatech.ddes.SimActor.Processing
-import com.saldubatech.ddes.{Gateway, SimActorImpl, SimActor}
+import com.saldubatech.v1.ddes.SimActorImpl.Configuring
+import com.saldubatech.v1.ddes.SimActor.nullProcessing
+import com.saldubatech.v1.ddes.SimActor.Processing
+import com.saldubatech.v1.ddes.{Gateway, SimActorImpl, SimActor}
 import com.saldubatech.util.Lang._
 
 import scala.collection.{AbstractIterable, AbstractIterator, mutable}

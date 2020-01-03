@@ -4,8 +4,9 @@
 
 package com.saldubatech.spec
 
-import com.saldubatech.base.{Identification, Material}
-import com.saldubatech.base.channels.DirectedChannel
+import com.saldubatech.base.Identification
+import com.saldubatech.v1.base.Material
+import com.saldubatech.v1.base.channels.DirectedChannel
 import com.saldubatech.util.Implicits._
 
 object ProcessorProtocol {

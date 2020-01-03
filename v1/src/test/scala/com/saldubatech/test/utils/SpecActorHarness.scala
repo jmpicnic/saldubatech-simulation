@@ -13,9 +13,9 @@
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, Props}
-import com.saldubatech.ddes.SimActorImpl.Configuring
-import com.saldubatech.ddes.SimActor.Processing
-import com.saldubatech.ddes.{Gateway, SimActorImpl, SimActor}
+import com.saldubatech.v1.ddes.SimActorImpl.Configuring
+import com.saldubatech.v1.ddes.SimActor.Processing
+import com.saldubatech.v1.ddes.{Gateway, SimActorImpl, SimActor}
 
 object SpecActorHarness {
 	def simActor(trigger: HarnessTrigger,

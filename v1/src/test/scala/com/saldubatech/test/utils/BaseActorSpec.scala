@@ -7,8 +7,8 @@ package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.TestKit
-import com.saldubatech.ddes.Gateway
-import com.saldubatech.events.EventSpooler
+import com.saldubatech.v1.ddes.Gateway
+import com.saldubatech.v1.events.EventSpooler
 import com.typesafe.scalalogging.Logger
 
 

@@ -73,11 +73,14 @@ object DependenciesSpecification {
     lazy val deps = Seq(
       "com.typesafe.akka" %% "akka-actor",
       "com.typesafe.akka" %% "akka-slf4j",
-      "com.typesafe.akka" %% "akka-stream"
+      "com.typesafe.akka" %% "akka-stream",
+      "com.typesafe.akka" %% "akka-actor-typed",
+      "com.typesafe.akka" %% "akka-stream-typed"
     ).map(_ % version)
     lazy val testDeps = Seq(
       "com.typesafe.akka" %% "akka-testkit",
-      "com.typesafe.akka" %% "akka-stream-testkit"
+      "com.typesafe.akka" %% "akka-stream-testkit",
+      "com.typesafe.akka" %% "akka-actor-testkit-typed"
     ).map(_ % version)
   }
 
@@ -195,7 +198,7 @@ object DependenciesSpecification {
   }
 
   object Scalaz extends Package {
-    lazy val scalazVersion = "7.2.27"
+    lazy val scalazVersion = "7.2.30"
     lazy val shapelessVersion = "2.3.3"
     val deps = Seq(
       "org.scalaz" %% "scalaz-core" % scalazVersion,
@@ -218,14 +221,14 @@ object DependenciesSpecification {
   }
 
   object Log4JCore extends Package {
-
+    val version = "2.13.0"
     lazy val deps = Seq(
-      "org.apache.logging.log4j" % "log4j-core" % "2.12.1",
+      "org.apache.logging.log4j" % "log4j-core",
       // https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api
-      "org.apache.logging.log4j" % "log4j-api" % "2.12.1",
-      "org.apache.logging.log4j" % "log4j-slf4j-impl" % "2.12.1" // Log4JSLF4J Bridge
+      "org.apache.logging.log4j" % "log4j-api",
+      "org.apache.logging.log4j" % "log4j-slf4j-impl" // Log4JSLF4J Bridge
       //"log4j" % "log4j" % "1.2.17" ????
-    )
+    ).map(_ % version)
     lazy val testDeps = Vals.EMPTY
   }
 
@@ -238,7 +241,7 @@ object DependenciesSpecification {
 
   object Logging extends Package {
     lazy val deps = Seq(
-      "org.slf4j" % "slf4j-api" % "1.7.28",
+      "org.slf4j" % "slf4j-api" % "1.7.29",
       //"org.slf4j" % "slf4j-log4j12" % "1.7.27", Not needed, using the Log4J bundled bridge
       "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
       //"de.heikoseeberger" %% "akka-log4j" % "1.6.1"
@@ -269,7 +272,7 @@ object DependenciesSpecification {
 
   object Sttp extends Package {
     override val deps: Seq[sbt.ModuleID] = Seq(
-      "com.softwaremill.sttp" %% "core" % "1.7.2",
+      "com.softwaremill.sttp" %% "core" % "1.7.2"
 
     )
     override val testDeps = Vals.EMPTY

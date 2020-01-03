@@ -9,9 +9,9 @@
 package com.saldubatech.test.utils
 
 import akka.actor.{ActorRef, ActorSystem, Props}
-import com.saldubatech.ddes.SimActorImpl.Configuring
-import com.saldubatech.ddes.SimActor.Processing
-import com.saldubatech.ddes.{Gateway, SimActorImpl}
+import com.saldubatech.v1.ddes.SimActorImpl.Configuring
+import com.saldubatech.v1.ddes.SimActor.Processing
+import com.saldubatech.v1.ddes.{Gateway, SimActorImpl}
 
 object SimTestProbeForwarder {
 	def props(name: String, gw: Gateway, testProbe: ActorRef,

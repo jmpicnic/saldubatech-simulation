@@ -13,7 +13,14 @@ object Lang {
   implicit class Optionable[T](naked: T) {
     def ? = Some(naked)
   }
-  implicit class Deoptionable[T](boxed: Option[T]) {
+  implicit class DeOptionable[T](boxed: Option[T]) {
     def ! = boxed.get
   }
+
+  implicit class PFMatcher[A](v: A) { // should be PFMatcher[-A]
+    def matchTo[B](prtF: PartialFunction[A, B]): B = prtF(v) // Intellij Seems to flag this wrong (?)
+  }
+
+  def PF[A, B](pf: PartialFunction[A, B]): PartialFunction[A,B] = pf
+
 }
