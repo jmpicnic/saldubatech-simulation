@@ -4,16 +4,15 @@
 
 package com.saldubatech.ddes
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Props}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import com.saldubatech.ddes.Clock.{ClockMessage, ClockNotification, NoMoreWork, NotifyAdvance, RegisterMonitor, RegisteredClockMonitors, StartTime, StartedOn, StopTime, Tick}
 import com.saldubatech.ddes.Processor.{CompleteConfiguration, ProcessorMessage, RegisterProcessor}
 import com.saldubatech.ddes.Simulation.{Command, Notification}
 import com.saldubatech.util.Lang._
 
-import com.saldubatech.util.LogEnabled
-
 import scala.collection.mutable
+import scala.concurrent.Await
 
 object SimulationController {
 	trait ControllerMessage
@@ -22,48 +21,33 @@ object SimulationController {
 	case object SimulationShutdown extends ControllerCommand
 	case object CheckSimulationState extends ControllerCommand
 	case object KILL extends ControllerCommand
+
 	sealed trait ControllerNotification extends Notification
 	case class SimulationState(stateInfo: TBD) extends ControllerNotification
 
-
-	class ConfigurationTracker(clock: ActorRef[ClockMessage]) {
-		val registered = mutable.Set.empty[ActorRef[ProcessorMessage]]
-		val pending = mutable.Set.empty[ActorRef[ProcessorMessage]]
-		def isInitialized: Boolean = registered.nonEmpty && pending.isEmpty
-
-
-		def configuring(next: Behavior[ControllerMessage], at: Tick): PartialFunction[ControllerMessage, Behavior[ControllerMessage]] = {
-			case RegisterProcessor(processor) =>
-				registered += processor
-				pending += processor
-				Behaviors.same
-			case CompleteConfiguration(processor) =>
-				pending -= processor
-				if(isInitialized) {
-					clock ! StartTime(at)
-					next
-				} else Behaviors.same
-		}
-	}
 
 	val PB = PF[ControllerMessage, Behavior[ControllerMessage]] _
 
 }
 
-class SimulationController(simulationName: String, startTime: Tick) {
+class SimulationController(simulationName: String, startTime: Tick, props: Props = Props.empty) {
 	import SimulationController._
 
-	private var _clkHolder: ActorRef[ClockMessage] = null
+	private var _clkHolder: ActorRef[ClockMessage] = _
 
 	private def initClock =
 		if(_clkHolder == null) throw new IllegalStateException("Clock Not initialized yet")
 		else _clkHolder
 
+	//def spawn[T](behavior: Behavior[T], props: Props): ActorRef[T] =
+	//	Await.result(internalSystem.ask(ActorTestKitGuardian.SpawnActorAnonymous(behavior, _, props)), timeout.duration)
+
 
 
 	def start = Behaviors.setup[ControllerMessage]{
 		ctx =>
-			_clkHolder = ctx.spawn(Clock(), "GlobalClock")
+			val wkw = ctx
+			_clkHolder = ctx.spawn(Clock(), "GlobalClock", props)
 			_clkHolder ! RegisterMonitor(ctx.self)
 			initializing
 	}
@@ -105,5 +89,25 @@ class SimulationController(simulationName: String, startTime: Tick) {
 	private val system: ActorSystem[ControllerMessage] = ActorSystem(this.start, simulationName)
 	private lazy val clock = initClock
 	private lazy val confTracker = new ConfigurationTracker(clock)
+
+	private class ConfigurationTracker(clock: ActorRef[ClockMessage]) {
+		val registered = mutable.Set.empty[ActorRef[ProcessorMessage]]
+		val pending = mutable.Set.empty[ActorRef[ProcessorMessage]]
+		def isInitialized: Boolean = registered.nonEmpty && pending.isEmpty
+
+
+		def configuring(next: Behavior[ControllerMessage], at: Tick): PartialFunction[ControllerMessage, Behavior[ControllerMessage]] = {
+			case RegisterProcessor(processor) =>
+				registered += processor
+				pending += processor
+				Behaviors.same
+			case CompleteConfiguration(processor) =>
+				pending -= processor
+				if(isInitialized) {
+					clock ! StartTime(at)
+					next
+				} else Behaviors.same
+		}
+	}
 
 }

@@ -19,6 +19,7 @@ object Clock {
 	type Tick = Long
 	type Delay = Long
 	trait ClockMessage
+	type ClockRef = ActorRef[ClockMessage]
 
 	sealed trait ClockCommand extends Command with ClockMessage
 
@@ -50,7 +51,6 @@ object Clock {
 	case class NoMoreWork(at: Tick) extends ClockStateNotification
 	case class ClockShuttingDown(at: Tick) extends ClockStateNotification
 	case class TheTimeIs(tick: Tick) extends ClockNotification
-
 
 	def apply() = new Clock().init
 

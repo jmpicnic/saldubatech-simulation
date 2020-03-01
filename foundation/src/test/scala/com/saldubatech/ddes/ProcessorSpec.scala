@@ -50,22 +50,24 @@ class ProcessorSpec
 		val action1UUID = java.util.UUID.randomUUID.toString
 		val action2UUID = java.util.UUID.randomUUID.toString
 
-		def mockConfigurer = (p: Processor.Configuring[DomainType]) =>
-			new Processor.DomainConfigure[DomainType] {
-				override def configure(config: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Unit = config match {
-					case DomainType(msg) => testActor.ref ! msg
-				}
-			}
-		def mockRunner = (p: Processor.Running[DomainType]) =>
-			new Processor.DomainRun[DomainType]{
-			override def process(processMessage: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Unit = processMessage match {
+		val mockRunner = new Processor.DomainRun[DomainType]{
+			override def process(processMessage: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Processor.DomainRun[DomainType] = processMessage match {
 				case DomainType(msg) =>
 					testActor.ref ! msg
-					p.tellTo(DomainType(s"Answering: $msg"), mockProcessorReceiver.ref, Some(0L))
-				}
+					ctx.tellTo(mockProcessorReceiver.ref, DomainType(s"Answering: $msg"))
+					this
 			}
-		val testProcessor = new Processor("underTest", globalClock, testController.ref, mockRunner, mockConfigurer)
-		val underTest = testKit.spawn(testProcessor.init)
+		}
+		val mockConfigurer: Processor.DomainConfigure[DomainType] = new Processor.DomainConfigure[DomainType] {
+			override def configure(config: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Processor.DomainRun[DomainType] = config match {
+				case DomainType(msg) =>
+					testActor.ref ! msg
+					mockRunner
+			}
+		}
+
+		val testProcessor = new Processor("underTest", globalClock, testController.ref, mockConfigurer)
+		val underTest = testKit.spawn(testProcessor.init, "Clock")
 
 		val action1 = ProcessCommand(mockProcessorSender.ref, 0, DomainType("MOCK PROCESS COMMAND"))
 		val action2 = ProcessCommand(underTest, 0L, DomainType("Answering: MOCK PROCESS COMMAND"))
