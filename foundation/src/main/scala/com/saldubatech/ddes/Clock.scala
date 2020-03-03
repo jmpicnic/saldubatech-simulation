@@ -127,9 +127,15 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		openAction(cmd)
 		to ! cmd
 	}
-	private def enqueue(tick: Tick, act: Enqueue) = {
+	private def enqueue(tick: Tick, act: Enqueue): Behavior[ClockMessage] = {
 		log.debug(s"Enqueueing $act for $tick")
-		actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += act)
+		if(tick >= now) {
+			actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += act)
+			Behaviors.same
+		} else {
+			log.error(s"Received action for earlier: $tick when now is $now")
+			Behaviors.stopped
+		}
 	}
 
 	private def maybeAdvance: Behavior[ClockMessage] =

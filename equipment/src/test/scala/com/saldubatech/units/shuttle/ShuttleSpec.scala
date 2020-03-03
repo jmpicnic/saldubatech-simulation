@@ -60,8 +60,6 @@ class ShuttleSpec
 
 		val loadProbe = new MaterialLoad("loadProbe")
 
-		case class SequenceWrapper(tick: Clock.Tick) extends ActionCommand(testActor.ref, tick)
-
 
 		"A. Register Itself for configuration" should {
 			//			globalClock ! RegisterMonitor(testController.ref)
@@ -69,8 +67,6 @@ class ShuttleSpec
 
 			//			testController.expectMessage(StartedOn(0L))
 			globalClock ! StartTime(0L)
-			val firstAction = SequenceWrapper(0L)
-			globalClock ! StartActionOnReceive(firstAction)
 
 
 			"A01. Send a registration message to the controller" in {
@@ -81,59 +77,47 @@ class ShuttleSpec
 				underTest ! ConfigurationCommand(shuttleHarness, 0L, Shuttle.NoConfigure)
 				testController.expectMessage(CompleteConfiguration(underTest))
 				testController.expectNoMessage(500 millis)
-				cmdrProbe.expectMessage(ShuttleHarnessConfigure)
 			}
 			"A03 Load the tray when empty with the acquire delay" in {
 				val loadCommand = Shuttle.Load(Shuttle.OnRight(0), loadProbe)
 				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
-<<<<<<< HEAD
-				shuttleObserver.expectMessage((10L, Shuttle.Loaded(loadCommand)))
+				shuttleObserver.expectMessage(500 millis, (10L, Shuttle.Loaded(loadCommand)))
 				shuttleObserver.expectNoMessage(500 millis)
-=======
-				cmdrProbe.expectMessage(Shuttle.Loaded(loadCommand))
-				cmdrProbe.expectNoMessage(500 millis)
->>>>>>> Prepare to merge
 			}
 			"A04 Reject a command to load again" in {
 				val loadCommand = Shuttle.Load(Shuttle.OnRight(0), loadProbe)
 				println(s"Sender is: ${shuttleHarness}")
-<<<<<<< HEAD
-				underTest ! ProcessCommand(shuttleHarness, 4L, loadCommand)
-				shuttleObserver.expectMessage(500 millis, (4L, Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable while at place")))
+				underTest ! ProcessCommand(shuttleHarness, 11L, loadCommand)
+				shuttleObserver.expectMessage(500 millis,
+					(11L, Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable when Tray loaded with ${Some(loadProbe)} at ${Shuttle.OnRight(0)}")))
 				shuttleObserver.expectNoMessage(500 millis)
  			}
-=======
-				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
-				cmdrProbe.expectMessage(Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable while at place"))
-				cmdrProbe.expectNoMessage(500 millis)
-			}
->>>>>>> Prepare to merge
 			"A05 Go To a given position in the travel time" in {
 				val moveCommand = Shuttle.GoTo(Shuttle.OnRight(10))
 				underTest ! ProcessCommand(shuttleHarness, 2L, moveCommand)
-				cmdrProbe.expectMessage(500 millis, Shuttle.Arrived(moveCommand))
-				cmdrProbe.expectNoMessage(500 millis)
+				shuttleObserver.expectMessage(500 millis, (12L, Shuttle.Arrived(moveCommand)))
+				shuttleObserver.expectNoMessage(500 millis)
 			}
 			"A06 Reject an unload request for the wrong location"  in {
 				val probeRef = new Shuttle.Ref[MaterialLoad]()
 				val unloadCommand = Shuttle.Unload(Shuttle.OnRight(17), probeRef)
-				underTest ! ProcessCommand(shuttleHarness, 2L, unloadCommand)
-				cmdrProbe.expectMessage(Shuttle.UnacceptableCommand(unloadCommand,s"Current Location ${Shuttle.OnRight(10)} incompatible with ${Shuttle.OnRight(17)}"))
-				cmdrProbe.expectNoMessage(500 millis)
+				underTest ! ProcessCommand(shuttleHarness, 14L, unloadCommand)
+				shuttleObserver.expectMessage(500 millis, (14L, Shuttle.UnacceptableCommand(unloadCommand,s"Current Location ${Shuttle.OnRight(10)} incompatible with ${Shuttle.OnRight(17)}")))
+				shuttleObserver.expectNoMessage(500 millis)
 			}
 			"A07 Unload the tray with the original content" in {
 				val probeRef = new Shuttle.Ref[MaterialLoad]()
 				val unloadCommand = Shuttle.Unload(Shuttle.OnRight(10), probeRef)
-				underTest ! ProcessCommand(shuttleHarness, 2L, unloadCommand)
-				cmdrProbe.expectMessage(500 millis, Shuttle.Unloaded(unloadCommand))
-				cmdrProbe.expectNoMessage(500 millis)
+				underTest ! ProcessCommand(shuttleHarness, 15L, unloadCommand)
+				shuttleObserver.expectMessage(500 millis,(23L, Shuttle.Unloaded(unloadCommand)))
+				shuttleObserver.expectNoMessage(500 millis)
 			}
 			"A08 Reject a command to unload again" in {
 				val probeRef = new Shuttle.Ref[MaterialLoad]()
 				val unloadCommand = Shuttle.Unload(Shuttle.OnRight(10), probeRef)
-				underTest ! ProcessCommand(shuttleHarness, 2L, unloadCommand)
-				cmdrProbe.expectMessage(Shuttle.UnacceptableCommand(unloadCommand,s"Command not applicable while at place"))
-				cmdrProbe.expectNoMessage(500 millis)
+				underTest ! ProcessCommand(shuttleHarness, 24L, unloadCommand)
+				shuttleObserver.expectMessage(500 millis, (24L, Shuttle.UnacceptableCommand(unloadCommand,s"Command not applicable while at place")))
+				shuttleObserver.expectNoMessage(500 millis)
 			}
 		}
 	}

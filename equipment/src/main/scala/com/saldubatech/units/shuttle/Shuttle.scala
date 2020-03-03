@@ -82,7 +82,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case cmd @ Unload(loc, store) =>
 				if(loc == currentLocation) {
-					ctx.tellSelf(DoneUnloading(cmd, store))
+					ctx.tellSelf(DoneUnloading(cmd, store), travelPhysics.releaseTime)
 					currentClient = Some(ctx.from)
 					unloading
 				} else {
@@ -111,6 +111,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 					println(s"Loading to be complete by now(${ctx.now}) + Acquire Time: ${travelPhysics.acquireTime}")
 					ctx.tellSelf(DoneLoading(cmd, load), travelPhysics.acquireTime)
 					currentClient = Some(ctx.from)
+					println(s"SelfSent DoneLoading")
 					loading
 				}	else {
 					ctx.reply(UnacceptableCommand(cmd, s"Current Location $currentLocation incompatible with $loc or Tray not empty $tray"))
@@ -138,7 +139,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 				currentClient = None
 				idleFull
 			case other =>
-				log.error(s"Unknown signal received $other")
+				log.error(s"Unknown signal received loading $other")
 				this
 		}
 	}
@@ -152,7 +153,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 				currentClient = None
 				idleEmpty
 			case other =>
-				log.error(s"Unknown signal received $other")
+				log.error(s"Unknown signal received unloading: $other")
 				this
 		}
 	}
@@ -165,7 +166,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 				currentClient = None
 				if(tray isEmpty) idleEmpty else idleFull
 			case other =>
-				log.error(s"Unknown signal received $other")
+				log.error(s"Unknown signal received running: $other")
 				this
 		}
 	}
