@@ -83,11 +83,13 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 			case cmd @ Unload(loc, store) =>
 				if(loc == currentLocation) {
 					ctx.tellSelf(DoneUnloading(cmd, store))
-					unloading
 					currentClient = Some(ctx.from)
-				} else ctx.reply(UnacceptableCommand(cmd,
-					s"Current Location $currentLocation incompatible with $loc"))
-				this
+					unloading
+				} else {
+					ctx.reply(UnacceptableCommand(cmd,
+						s"Current Location $currentLocation incompatible with $loc"))
+					this
+				}
 			case cmd @ GoTo(loc) =>
 				if(loc == currentLocation) {ctx.reply(Arrived(cmd)); this}
 				else  {

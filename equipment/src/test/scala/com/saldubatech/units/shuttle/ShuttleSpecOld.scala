@@ -81,33 +81,20 @@ class ShuttleSpec
 				underTest ! ConfigurationCommand(shuttleHarness, 0L, Shuttle.NoConfigure)
 				testController.expectMessage(CompleteConfiguration(underTest))
 				testController.expectNoMessage(500 millis)
-				cmdrProbe.expectMessage(ShuttleHarnessConfigure)
 			}
 			"A03 Load the tray when empty with the acquire delay" in {
 				val loadCommand = Shuttle.Load(Shuttle.OnRight(0), loadProbe)
 				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
-<<<<<<< HEAD
 				shuttleObserver.expectMessage((10L, Shuttle.Loaded(loadCommand)))
 				shuttleObserver.expectNoMessage(500 millis)
-=======
-				cmdrProbe.expectMessage(Shuttle.Loaded(loadCommand))
-				cmdrProbe.expectNoMessage(500 millis)
->>>>>>> Prepare to merge
 			}
 			"A04 Reject a command to load again" in {
 				val loadCommand = Shuttle.Load(Shuttle.OnRight(0), loadProbe)
 				println(s"Sender is: ${shuttleHarness}")
-<<<<<<< HEAD
 				underTest ! ProcessCommand(shuttleHarness, 4L, loadCommand)
 				shuttleObserver.expectMessage(500 millis, (4L, Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable while at place")))
 				shuttleObserver.expectNoMessage(500 millis)
  			}
-=======
-				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
-				cmdrProbe.expectMessage(Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable while at place"))
-				cmdrProbe.expectNoMessage(500 millis)
-			}
->>>>>>> Prepare to merge
 			"A05 Go To a given position in the travel time" in {
 				val moveCommand = Shuttle.GoTo(Shuttle.OnRight(10))
 				underTest ! ProcessCommand(shuttleHarness, 2L, moveCommand)

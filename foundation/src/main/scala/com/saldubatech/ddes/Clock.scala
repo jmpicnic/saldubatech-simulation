@@ -146,13 +146,14 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 				Behaviors.same[ClockMessage]
 			} else {
 				log.debug(s"No more work at $now")
-				notifyObservers(NoMoreWork(now), ClockShuttingDown(now))
-				Behaviors.stopped
+				notifyObservers(NoMoreWork(now))
+				Behaviors.same[ClockMessage]
 			}
 		} else {
 			log.debug(s"Epoch is not closed || active: $activatedEpoch, opemnActions: ${openActions.size}")
 			Behaviors.same[ClockMessage]
 		}
+
 	private def openAction(act: ActionCommand): Unit = {
 		log.debug(s"Open Action: $act")
 		activatedEpoch = true

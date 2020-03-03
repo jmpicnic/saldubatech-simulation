@@ -4,68 +4,72 @@ scale 350 width
 title Shuttle Level State Diagram.
 
 state Idle
-state Storing {
-  [*] --> S.Fetching: /shuttle->Goto(loc)
-  S.Fetching --> S.Arrived: arrived
-  S.Arrived --> S.Loading: [nonEmptyLoc]/shuttle-->load
-  S.Arrived --> S.Waiting: [emptyLoc]
-  S.Waiting --> S.Loading: receivedLoad/shuttle->load
-  S.Loading --> S.Delivering: loaded/shuttle->goto(loc)
-  S.Delivering --> S.Unloading: arrived[emptyLoc]/shuttle->unload
-  S.Delivering --> [*]: arrived[nonEmptyLoc]/controller->ReleaseError
-  S.Unloading --> [*]: unloaded/controller->Complete
-}
-state ErroredFull
-state Grooming {
-  [*] --> G.Fetching: /shuttle->Goto(loc)
-  G.Fetching --> G.Arrived: arrived
-  G.Arrived --> G.Loading: [nonEmptyLoc]/shuttle-->load
-  G.Arrived --> [*]: [emptyLoc]/controller->LoadError
-  G.Loading --> G.Delivering: loaded/shuttle->goto(loc)
-  G.Delivering --> G.Unloading: arrived[emptyLoc]/shuttle->unload
-  G.Delivering --> [*]: arrived[nonEmptyLoc]/controller->ReleaseError
-  G.Unloading --> [*]: unloaded/controller->Complete
+
+state Delivering {
+  [*] --> TravelFull: /shuttle->Goto(Loc)
+  TravelFull --> Unloading: arrived[emptyLoc]/shuttle->unload
+  Unloading --> [*]: doneUnloading/controller->Complete
+  TravelFull --> [*]: arrived[fullLoc]/controller->ErrorLoaded
 }
 
-state Retrieving {
-  [*] --> R.Fetching: /shuttle->Goto(loc)
-  R.Fetching --> R.Arrived: arrived
-  R.Arrived --> R.Loading: [nonEmptyLoc]/shuttle-->load
-  R.Arrived --> [*]: [emptyLoc]/controller->LoadError
-  R.Loading --> R.Delivering: loaded/shuttle->goto(loc)
-  R.Delivering --> R.Unloading: arrived[emptyLoc]/shuttle->unload
-  R.Delivering --> R.Waiting: arrived[fullLocation]
-  R.Waiting --> R.Unloading: openSlot/shuttle->unload
-  R.Unloading --> [*]: unloaded/controller->Complete
-}
-
-state LoopingBack {
-  [*] --> L.Fetching: /shuttle->Goto(loc)
-  L.Fetching --> L.Arrived: arrived
-  L.Arrived --> L.Loading: [nonEmptyLoc]/shuttle-->load
-  L.Arrived --> L.WaitToLoad: [emptyLoc]
-  L.WaitToLoad --> L.Loading: receivedLoad/shuttle->load
-  L.Loading --> L.Delivering: loaded/shuttle->goto(loc)
-  L.Delivering --> L.Unloading: arrived[emptyLoc]/shuttle->unload
-  L.Delivering --> L.WaitToRelease: arrived[nonEmptyLoc]
-  L.WaitToRelease --> L.Unloading: openSlot/shuttle->unload
-  L.Unloading --> [*]: unloaded/controller->Complete
+state Fetching {
+  [*] --> TravelEmpty: /shuttle->Goto(loc)
+  TravelEmpty --> Loading: shuttle.arrived[fullLoc]/shuttle->load
+  Loading --> [*]: shuttle.doneLoading/controller->Complete
+  TravelEmpty --> [*]: shuttle.arrived[emptyLoc]/controller->ErrorEmpty
 }
 
 
 [*] --> Idle
-Idle --> Storing : Store
-Storing --> Idle: Complete/controller->complete
-Storing --> ErroredFull: ReleaseError/controller->ReleaseError
-Idle --> Retrieving: Retrieve
-Retrieving --> Idle: Complete/controller->Complete
-Retrieving --> Idle: Complete/controller->LoadError
-Idle --> Grooming: Groom(from, to)
-Grooming --> Idle: Complete/controller->Complete
-Grooming --> Idle: LoadError/controller->LoadError
-Grooming --> ErroredFull: ReleaseError/controller->Complete
-Idle --> LoopingBack: LoopBack
-LoopingBack -> Idle: Complete/controller->Complete
+Idle --> Storing: store(from, to)
+Idle --> Retrieving: retrieve(from, to)
+Idle --> Grooming: groom(from, to)
+Idle --> Loopback: loopback(from, to)
+Storing --> Idle: complete/controller->complete
+Storing --> StuckLoaded: errorLoaded
+Retrieving --> Idle: complete || errorEmpty /controller->complete
+Grooming --> Idle: complete/controller->complete
+Loopback --> Idle: complete/controller->complete
+
+state Storing {
+  [*] --> S.Fetching
+  S.Fetching --> S.Waiting: ErrorEmpty/controller->errorEmpty
+  S.Fetching --> S.Delivering: complete
+  S.Waiting --> S.Loading: loadArrived/shuttle->load
+  S.Loading --> S.Delivering: complete
+  S.Delivering --> [*]: Complete/controller->complete
+  S.Delivering --> [*]: ErrorLoaded/controller->errorLoaded
+}
+
+state Retrieving {
+  [*] --> R.Fetching
+  R.Fetching --> R.Delivering: complete
+  R.Fetching --> [*]: errorEmpty
+  R.Delivering --> [*]: complete
+  R.Delivering --> R.Waiting: errorLoaded
+  R.Waiting --> R.Unloading: openSlot/shuttle.unload
+  R.Unloading --> [*]: complete
+}
+
+state Grooming {
+  [*] --> G.Fetching
+  G.Fetching --> G.Delivering: complete
+  G.Fetching --> [*]: errorEmpty
+  G.Delivering --> [*]: Complete/controller->complete
+  G.Delivering --> [*]: ErrorLoaded/controller->errorLoaded
+}
+
+state Loopback {
+  [*] --> L.Fetching
+  L.Fetching --> L.WaitForLoad: ErrorEmpty/controller->errorEmpty
+  L.Fetching --> L.Delivering: complete
+  L.WaitForLoad --> L.Loading: loadArrived/shuttle->load
+  L.Loading --> L.Delivering: complete
+  L.Delivering --> L.WaitForSlot: errorLoaded
+  L.Delivering --> [*]: complete
+  L.WaitForSlot --> L.Unloading: openSlot/shuttle.unload
+  L.Unloading --> [*]: complete
+}
 
 
 /'
