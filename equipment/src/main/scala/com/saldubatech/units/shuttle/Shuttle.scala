@@ -40,7 +40,8 @@ object Shuttle {
 	sealed trait ShuttleSignal
 
 	sealed trait ShuttleConfigure extends ShuttleSignal
-	object NoConfigure extends Identification.Impl() with ShuttleConfigure
+	case object NoConfigure extends Identification.Impl() with ShuttleConfigure
+	case class Configure(initialPosition: LevelLocator) extends Identification.Impl() with ShuttleConfigure
 
 
 	sealed trait ShuttleCommand extends ShuttleSignal
@@ -73,7 +74,11 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 
 	def configurer: Processor.DomainConfigure[ShuttleSignal] = new Processor.DomainConfigure[ShuttleSignal] {
 		override def configure(config: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = config match {
-			case cfg: ShuttleConfigure => idleEmpty
+			case NoConfigure =>
+				idleEmpty
+			case Configure(loc) =>
+				currentLocation = loc
+				idleEmpty
 			case other => throw new IllegalArgumentException(s"Unknown Signal; $other")
 		}
 	}
