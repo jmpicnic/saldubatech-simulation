@@ -320,12 +320,12 @@ object DependenciesSpecification {
     override val testDeps: Seq[ModuleID] = Seq.empty
   }
 
-  object ScalaPB extends Package {
+  /*object ScalaPB extends Package {
     override val deps: Seq[ModuleID] = Seq(
       "com.thesamet.scalapb" %% "scalapb-runtime" % scalapb.compiler.Version.scalapbVersion % "protobuf"
     )
     override val testDeps =  Seq.empty[ModuleID]
-  }
+  }*/
 
   /* To add in the future:
 https://neotypes.github.io/neotypes/docs.html

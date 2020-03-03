@@ -20,7 +20,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 import scala.concurrent.duration._
 
 
-class ShuttleTravvelSpec
+class ShuttleTravelSpec
 	extends WordSpec
 		with Matchers
     with WordSpecLike

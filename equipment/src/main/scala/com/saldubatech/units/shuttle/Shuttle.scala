@@ -97,7 +97,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 				}
 			case other: ShuttleCommand =>
 				println(s"Responding with Unacceptable Command: $other to ${ctx.from}")
-				ctx.reply(UnacceptableCommand(other,s"Command not applicable while at place"))
+				ctx.reply(UnacceptableCommand(other,s"Command not applicable when Tray loaded with $tray at $currentLocation"))
 				this
 		}
 	}
@@ -131,6 +131,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case DoneLoading(cmd, load) =>
 				tray = Some(load)
+				println(s"Loaded Tray with $load at ${ctx.now}")
 				ctx.tellTo(currentClient.head, Loaded(cmd))
 				currentClient = None
 				idleFull
