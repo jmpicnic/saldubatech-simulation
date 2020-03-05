@@ -17,7 +17,7 @@ object ShuttleLevelAux {
 		implicit ctx: Processor.CommandContext[ShuttleLevelMessage] => {
 			case Shuttle.Arrived(Shuttle.GoTo(destination)) =>
 				ctx.tellTo(shuttle, Shuttle.Load(destination))
-				loading(success)(ctx)
+				loading(success)(masterContext)
 			case other: Shuttle.ShuttleNotification =>
 				masterContext.reply(ShuttleLevel.FailedEmpty(cmd, s"Could not load tray"))
 				failure
@@ -25,10 +25,13 @@ object ShuttleLevelAux {
 	}
 
 	def loading(continue: Processor.DomainRun[ShuttleLevelMessage])(implicit masterContext: CommandContext[ShuttleLevelMessage]): Processor.DomainRun[ShuttleLevelMessage] = {
-		implicit ctx: Processor.CommandContext[ShuttleLevelMessage] => {
-			case Shuttle.Loaded(Shuttle.Load(loc)) =>
-				continue
+		val wkw: Processor.DomainRun[ShuttleLevelMessage] = {
+			implicit ctx: Processor.CommandContext[ShuttleLevelMessage] => {
+				case Shuttle.Loaded(Shuttle.Load(loc)) =>
+					continue
+			}
 		}
+		wkw
 	}
 
 	def delivering(shuttle: ProcessorRef, cmd: ShuttleLevel.ExternalCommand)(success: Processor.DomainRun[ShuttleLevelMessage], failure: Processor.DomainRun[ShuttleLevelMessage])(implicit masterContext: CommandContext[ShuttleLevelMessage]): Processor.DomainRun[ShuttleLevelMessage] = {

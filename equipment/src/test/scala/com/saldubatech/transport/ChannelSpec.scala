@@ -78,38 +78,27 @@ class ChannelSpec extends BaseSpec {
 			override def configure(config: SenderSignal)(implicit ctx: Processor.CommandContext[SenderSignal]): Processor.DomainRun[SenderSignal] = config match {
 				case SenderConfigType(msg) =>
 					ops.start.register(ctx.aCtx.self);	testActor.ref ! msg
-					senderRunner
+					senderRunner(ops)
 			}
 		}
+
+
 	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, SenderSignal, ReceiverSignal]): Processor.DomainRun[SenderSignal] = {
-		implicit ctx: Processor.CommandContext[SenderSignal] => {
-			val resultLoad = (ops.start.receiveAcknowledgement orElse[SenderType, Option[ProbeLoad]] {
-				case SenderProcessType(msg, load) =>
-					log.info(s"Got Domain Message in Sender $msg")
-					testActor.ref ! msg
-					Some(load).filter(ops.start.send(_))
-				case other =>
-					fail(s"Unexpected Message $other");None
-			})
-			senderRunner(ops)(ctx)
-		}
-	}
-	/*
-		new Processor.DomainRun[SenderSignal]{
-			override def process(processMessage: SenderSignal)(implicit ctx: Processor.CommandContext[SenderSignal]): Processor.DomainRun[SenderSignal] = {
-				val resultLoad = (ops.start.receiveAcknowledgement orElse[SenderType, Option[ProbeLoad]] {
+			implicit ctx: Processor.CommandContext[SenderSignal] => {
+				ops.start.receiveAcknowledgement orElse[SenderSignal, Option[ProbeLoad]] {
 					case SenderProcessType(msg, load) =>
 						log.info(s"Got Domain Message in Sender $msg")
 						testActor.ref ! msg
 						Some(load).filter(ops.start.send(_))
 					case other =>
-						fail(s"Unexpected Message $other");None
-				})(processMessage)
-				this
+						fail(s"Unexpected Message $other");
+						None
+				}
+				senderRunner(ops)(ctx)
 			}
-		}
 	}
-*/
+
+
 
 	val sender = new Processor("sender", globalClock, testController.ref, senderConfigurer)
 
