@@ -15,14 +15,17 @@ import scala.collection.mutable
 
 object Channel {
 
-	trait AcknowledgeLoad[L <: Identification]{val channel: String; val load: L; val resource: String}
+
+	trait AcknowledgeLoad[L <: Identification] extends ChannelConnections.ChannelSourceMessage {val channel: String; val load: L; val resource: String}
 	abstract class AckLoadImpl[L <: Identification](override val channel: String, override val load: L, override val resource: String)
 		extends Identification.Impl() with AcknowledgeLoad[L]
-	trait ReceiverSignal[L]
-	trait TransferLoad[L <: Identification] extends ReceiverSignal[L] {val channel: String; val load: L; val resource: String}
+
+
+	trait TransferLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {val channel: String; val load: L; val resource: String}
 	abstract class TransferLoadImpl[L <: Identification](override val channel: String, override val load: L, override val resource: String)
 		extends Identification.Impl() with TransferLoad[L]
-	trait LoadConsumed[L <: Identification] extends ReceiverSignal[L] {val channel: String}
+
+	trait LoadConsumed[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {val channel: String}
 	abstract class LoadConsumedImpl[L <: Identification](override val channel: String)
 		extends Identification.Impl() with LoadConsumed[L]
 

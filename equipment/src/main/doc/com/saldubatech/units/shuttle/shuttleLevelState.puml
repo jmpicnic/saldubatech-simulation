@@ -26,10 +26,12 @@ Idle --> Retrieving: retrieve(from, to)
 Idle --> Grooming: groom(from, to)
 Idle --> Loopback: loopback(from, to)
 Storing --> Idle: complete/controller->complete
-Storing --> StuckLoaded: errorLoaded
+Storing --> ErrorLoaded: errorLoaded
 Retrieving --> Idle: complete || errorEmpty /controller->complete
 Grooming --> Idle: complete/controller->complete
 Loopback --> Idle: complete/controller->complete
+ErrorLoaded --> Idle: complete/controller->complete
+ErrorLoaded -left-> ErrorLoaded:errorLoaded
 
 state Storing {
   [*] --> S.Fetching
@@ -70,7 +72,16 @@ state Loopback {
   L.WaitForSlot --> L.Unloading: openSlot/shuttle.unload
   L.Unloading --> [*]: complete
 }
-
+state ErrorLoaded {
+ [*] --> E.Delivering.loc : putawayFromTray/shuttle->goTo(loc)
+ [*] --> E.Delivering.out : oiutputFromTray/shittle->goTo(loc)
+ E.Delivering.out --> [*]:complete
+ E.Delivering.out --> E.Waiting:errorLoaded
+ E.Delivering.loc --> [*]:Complete/controller->complete
+ E.Delivering.loc --> [*]:errorLoaded/controller->errorLoaded
+ E.Waiting --> E.Unloading:openSlot/shuttle->unload
+ E.Unloading --> [*]:Complete/controller->Complete
+}
 
 /'
 state configuring

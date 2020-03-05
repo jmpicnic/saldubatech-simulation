@@ -40,38 +40,31 @@ class ChannelSpec extends BaseSpec {
 	sealed trait SenderType
 	case class SenderConfigType(id: String) extends SenderType
 	case class SenderProcessType(id: String, l: ProbeLoad) extends SenderType
-	case class AcknowledgeLoad1(override val channel: String, override val load: ProbeLoad, override val resource: String) extends SenderType with Channel.AcknowledgeLoad[ProbeLoad]
+	case class AcknowledgeLoad1(override val channel: String, override val load: ProbeLoad, override val resource: String) extends Identification.Impl() with SenderType with Channel.AcknowledgeLoad[ProbeLoad]
 
 	type SenderSignal = SenderType
 
 	sealed trait ReceiverType
 	case class ReceiverConfigType(id: String) extends ReceiverType
 	case class ReceiverProcessType(id: String, load: ProbeLoad) extends ReceiverType
-	case class TransferLoad1(override val channel: String, override val load: ProbeLoad, override val resource: String) extends ReceiverType with Channel.TransferLoad[ProbeLoad]
-	case class LoadConsumed1(override val channel: String) extends ReceiverType with Channel.LoadConsumed[ProbeLoad]
+	case class TransferLoad1(override val channel: String, override val load: ProbeLoad, override val resource: String) extends Identification.Impl() with ReceiverType with Channel.TransferLoad[ProbeLoad]
+	case class LoadConsumed1(override val channel: String) extends Identification.Impl() with  ReceiverType with Channel.LoadConsumed[ProbeLoad]
 
 	type ReceiverSignal = ReceiverType
 
 	implicit object source extends Channel.Source[ProbeLoad, SenderSignal]{
-		override def acknowledgeBuilder(ch: String, ld: ProbeLoad, rs: String): Signal = new Channel.AcknowledgeLoad[ProbeLoad] with SenderSignal {
-			override val channel: String = ch
-			override val load: ProbeLoad = ld
-			override val resource: String = rs
+		override def acknowledgeBuilder(ch: String, ld: ProbeLoad, rs: String): Signal = new Channel.AckLoadImpl[ProbeLoad](ch, ld, rs)  with SenderSignal {
 			override def toString = s"Sender.AcknowledgeLoad(ch: $channel, ld: $load, rs: $resource)"
 		}
 		override def loadAcknowledge(load: ProbeLoad): Option[ProbeLoad] = {testActor.ref ! s"${load.lid}-Acknowledged";Some(load)}
 	}
 
 	implicit object sink extends Channel.Sink[ProbeLoad, ReceiverSignal] {
-		override def transferBuilder(ch: String, ld: ProbeLoad, rs: String): TransferSignal = new Channel.TransferLoad[ProbeLoad] with ReceiverSignal {
-			override val channel: String = ch
-			override val load: ProbeLoad = ld
-			override val resource: String = rs
+		override def transferBuilder(ch: String, ld: ProbeLoad, rs: String): TransferSignal = new Channel.TransferLoadImpl[ProbeLoad](ch, ld, rs) with ReceiverSignal {
 			override def toString = s"Receiver.TransferLoad(ch: $channel, ld: $load, rs: $resource)"
 		}
 
-		override def releaseBuilder(ch: String): ConsumeSignal = new Channel.LoadConsumed[ProbeLoad] with ReceiverSignal {
-			override val channel: String = ch
+		override def releaseBuilder(ch: String): ConsumeSignal = new Channel.LoadConsumedImpl[ProbeLoad](ch) with ReceiverSignal {
 			override def toString = s"Receiver.ReleaseLoad(ch: $channel)"
 		}
 
@@ -88,40 +81,56 @@ class ChannelSpec extends BaseSpec {
 					senderRunner
 			}
 		}
-	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, SenderSignal, ReceiverSignal]): Processor.DomainRun[SenderSignal] =
+	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, SenderSignal, ReceiverSignal]): Processor.DomainRun[SenderSignal] = {
+		implicit ctx: Processor.CommandContext[SenderSignal] => {
+			val resultLoad = (ops.start.receiveAcknowledgement orElse[SenderType, Option[ProbeLoad]] {
+				case SenderProcessType(msg, load) =>
+					log.info(s"Got Domain Message in Sender $msg")
+					testActor.ref ! msg
+					Some(load).filter(ops.start.send(_))
+				case other =>
+					fail(s"Unexpected Message $other");None
+			})
+			senderRunner(ops)(ctx)
+		}
+	}
+	/*
 		new Processor.DomainRun[SenderSignal]{
 			override def process(processMessage: SenderSignal)(implicit ctx: Processor.CommandContext[SenderSignal]): Processor.DomainRun[SenderSignal] = {
 				val resultLoad = (ops.start.receiveAcknowledgement orElse[SenderType, Option[ProbeLoad]] {
 					case SenderProcessType(msg, load) =>
 						log.info(s"Got Domain Message in Sender $msg")
 						testActor.ref ! msg
-						Some(load).filter(ops.start.send)
+						Some(load).filter(ops.start.send(_))
 					case other =>
 						fail(s"Unexpected Message $other");None
 				})(processMessage)
 				this
 			}
 		}
-
+	}
+*/
 
 	val sender = new Processor("sender", globalClock, testController.ref, senderConfigurer)
 
-	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, SenderSignal, ReceiverSignal]): Processor.DomainRun[ReceiverSignal] =
-		new Processor.DomainRun[ReceiverSignal]{
-			override def process(processMessage: ReceiverSignal)(implicit ctx: Processor.CommandContext[ReceiverSignal]): Processor.DomainRun[ReceiverSignal] = {
-				log.info(s"Received Message at Receiver: $processMessage")
-				processMessage match {
+	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, SenderSignal, ReceiverSignal]): Processor.DomainRun[ReceiverSignal] = {
+				implicit ctx: Processor.CommandContext[ReceiverSignal] => {
+					//override def process(processMessage: ReceiverSignal)(implicit ctx: Processor.CommandContext[ReceiverSignal]): Processor.DomainRun[ReceiverSignal] {
+//					log.info(s"Received Message at Receiver: $processMessage")
+//				processMessage match {
 					case ReceiverProcessType(msg, load) =>
 						log.info(s"Received a domain message: $msg")
 						ops.end.releaseLoad(load)
 						testActor.ref ! msg
 						Some(load)
+						receiverRunner(ops)
 					case other =>
+						log.info(s"Received Other Message at Receiver: $other")
 						if(ops.end.receiveLoad(other) isEmpty) fail(s"Unexpected Message $other");None
+						receiverRunner(ops)
 				}
-				this
 			}
-		}
+
 
 	def receiverConfigurer(implicit ops: Channel.Ops[ProbeLoad, SenderSignal, ReceiverSignal]): Processor.DomainConfigure[ReceiverSignal] =
 		new Processor.DomainConfigure[ReceiverSignal] {

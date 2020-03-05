@@ -50,14 +50,20 @@ class ProcessorSpec
 		val action1UUID = java.util.UUID.randomUUID.toString
 		val action2UUID = java.util.UUID.randomUUID.toString
 
-		val mockRunner = new Processor.DomainRun[DomainType]{
+		def mockRunner: Processor.DomainRun[DomainType] = (ctx: Processor.CommandContext[DomainType]) => {
+			case DomainType(msg) =>
+				testActor.ref ! msg
+				ctx.tellTo(mockProcessorReceiver.ref, DomainType(s"Answering: $msg"))
+				mockRunner
+		}
+		/*val mockRunner = new Processor.DomainRun[DomainType]{
 			override def process(processMessage: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Processor.DomainRun[DomainType] = processMessage match {
 				case DomainType(msg) =>
 					testActor.ref ! msg
 					ctx.tellTo(mockProcessorReceiver.ref, DomainType(s"Answering: $msg"))
 					this
 			}
-		}
+		}*/
 		val mockConfigurer: Processor.DomainConfigure[DomainType] = new Processor.DomainConfigure[DomainType] {
 			override def configure(config: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Processor.DomainRun[DomainType] = config match {
 				case DomainType(msg) =>

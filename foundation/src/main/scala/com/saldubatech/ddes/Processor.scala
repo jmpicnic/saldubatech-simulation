@@ -41,9 +41,17 @@ object Processor {
 		def reply[TargetDomainMessage](msg: TargetDomainMessage) = doTell(from, msg, None)
 	}
 
-	trait DomainRun[DomainMessage] {
-		def process(processMessage: DomainMessage)(implicit ctx: CommandContext[DomainMessage]): DomainRun[DomainMessage]
+	//trait DomainRun[DomainMessage] extends PartialFunction[DomainMessage, Function1[CommandContext[DomainMessage],DomainRun[DomainMessage]]]
+	trait DomainRun[DomainMessage] extends Function[CommandContext[DomainMessage], PartialFunction[DomainMessage,DomainRun[DomainMessage]]]
+	case object Same extends DomainRun[Any]{
+		def apply(ctx: CommandContext[Any]): PartialFunction[Any, DomainRun[Any]] = {
+			case a: Any => null
+		}
+	}
 
+
+	trait DomainRunOld[DomainMessage] {
+		def process(processMessage: DomainMessage)(implicit ctx: CommandContext[DomainMessage]): DomainRun[DomainMessage]
 	}
 	trait DomainConfigure[DomainMessage] {
 		def configure(config: DomainMessage)(implicit ctx: CommandContext[DomainMessage]): DomainRun[DomainMessage]
@@ -54,9 +62,9 @@ object Processor {
 			case cmd: ProcessCommand[DomainMessage] =>
 				ctx.log.debug(s"Processing Command: ${cmd.dm}")
 				clock ! StartActionOnReceive(cmd)
-				val next = runner.process(cmd.dm)(CommandContext(cmd.from, cmd.at, ctx)(clock))
+				val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)
 				clock ! CompleteAction(cmd)
-				behaviorizeRunner(next)
+				behaviorizeRunner[DomainMessage](if(next == Same) runner else next)
 			//case Shutdown => do something
 		}
 	}
@@ -88,7 +96,7 @@ class Processor[DomainMessage](val processorName: String,
 				ctx.log.debug(s"Configuring with $cmd")
 				val run = configurer.configure(cmd.cm)(CommandContext(cmd.from, cmd.at, ctx)(clock))
 				controller ! CompleteConfiguration(ctx.self)
-				behaviorizeRunner(run)(clock)
+				behaviorizeRunner[DomainMessage](run)(clock)
 		}
 	}
 }

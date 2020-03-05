@@ -59,6 +59,10 @@ class ShuttleSpec
 		val underTest = testKit.spawn(shuttleProcessor.init, "undertest")
 
 		val loadProbe = new MaterialLoad("loadProbe")
+		val locAt0 = Shuttle.ShuttleLocation(Shuttle.OnRight(0))
+		locAt0.store(loadProbe)
+		val locAt7 = Shuttle.ShuttleLocation(Shuttle.OnRight(7))
+		val locAt10 = Shuttle.ShuttleLocation(Shuttle.OnRight(10))
 
 
 		"A. Register Itself for configuration" should {
@@ -74,47 +78,47 @@ class ShuttleSpec
 				testController.expectNoMessage(500 millis)
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
-				underTest ! ConfigurationCommand(shuttleHarness, 0L, Shuttle.NoConfigure)
+				underTest ! ConfigurationCommand(shuttleHarness, 0L, Shuttle.Configure(locAt0))
 				testController.expectMessage(CompleteConfiguration(underTest))
 				testController.expectNoMessage(500 millis)
 			}
 			"A03 Load the tray when empty with the acquire delay" in {
-				val loadCommand = Shuttle.Load(Shuttle.OnRight(0), loadProbe)
+				val loadCommand = Shuttle.Load(locAt0)
 				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
 				shuttleObserver.expectMessage(500 millis, (10L, Shuttle.Loaded(loadCommand)))
 				shuttleObserver.expectNoMessage(500 millis)
+				locAt0.isEmpty should be (true)
 			}
 			"A04 Reject a command to load again" in {
-				val loadCommand = Shuttle.Load(Shuttle.OnRight(0), loadProbe)
+				val loadCommand = Shuttle.Load(locAt0)
 				println(s"Sender is: ${shuttleHarness}")
 				underTest ! ProcessCommand(shuttleHarness, 11L, loadCommand)
 				shuttleObserver.expectMessage(500 millis,
-					(11L, Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable when Tray loaded with ${Some(loadProbe)} at ${Shuttle.OnRight(0)}")))
+					(11L, Shuttle.UnacceptableCommand(loadCommand,s"Command not applicable when Tray loaded with ${Some(loadProbe)} at $locAt0")))
 				shuttleObserver.expectNoMessage(500 millis)
  			}
 			"A05 Go To a given position in the travel time" in {
-				val moveCommand = Shuttle.GoTo(Shuttle.OnRight(10))
+				val moveCommand = Shuttle.GoTo(locAt10)
 				underTest ! ProcessCommand(shuttleHarness, 2L, moveCommand)
 				shuttleObserver.expectMessage(500 millis, (12L, Shuttle.Arrived(moveCommand)))
 				shuttleObserver.expectNoMessage(500 millis)
 			}
 			"A06 Reject an unload request for the wrong location"  in {
-				val probeRef = new Shuttle.Ref[MaterialLoad]()
-				val unloadCommand = Shuttle.Unload(Shuttle.OnRight(17), probeRef)
+				val unloadCommand = Shuttle.Unload(locAt7)
 				underTest ! ProcessCommand(shuttleHarness, 14L, unloadCommand)
-				shuttleObserver.expectMessage(500 millis, (14L, Shuttle.UnacceptableCommand(unloadCommand,s"Current Location ${Shuttle.OnRight(10)} incompatible with ${Shuttle.OnRight(17)}")))
+				shuttleObserver.expectMessage(500 millis, (14L, Shuttle.UnacceptableCommand(unloadCommand,s"Current Location $locAt10 incompatible with $locAt7")))
 				shuttleObserver.expectNoMessage(500 millis)
+				locAt7.inspect should be (None)
 			}
 			"A07 Unload the tray with the original content" in {
-				val probeRef = new Shuttle.Ref[MaterialLoad]()
-				val unloadCommand = Shuttle.Unload(Shuttle.OnRight(10), probeRef)
+				val unloadCommand = Shuttle.Unload(locAt10)
 				underTest ! ProcessCommand(shuttleHarness, 15L, unloadCommand)
-				shuttleObserver.expectMessage(500 millis,(23L, Shuttle.Unloaded(unloadCommand)))
+				shuttleObserver.expectMessage(500 millis,(23L, Shuttle.Unloaded(unloadCommand,loadProbe)))
 				shuttleObserver.expectNoMessage(500 millis)
+				locAt10.inspect should be (Some(loadProbe))
 			}
 			"A08 Reject a command to unload again" in {
-				val probeRef = new Shuttle.Ref[MaterialLoad]()
-				val unloadCommand = Shuttle.Unload(Shuttle.OnRight(10), probeRef)
+				val unloadCommand = Shuttle.Unload(locAt10)
 				underTest ! ProcessCommand(shuttleHarness, 24L, unloadCommand)
 				shuttleObserver.expectMessage(500 millis, (24L, Shuttle.UnacceptableCommand(unloadCommand,s"Command not applicable while at place")))
 				shuttleObserver.expectNoMessage(500 millis)
