@@ -42,13 +42,36 @@ object Processor {
 	}
 
 	//trait DomainRun[DomainMessage] extends PartialFunction[DomainMessage, Function1[CommandContext[DomainMessage],DomainRun[DomainMessage]]]
-	trait DomainRun[DomainMessage] extends Function[CommandContext[DomainMessage], PartialFunction[DomainMessage,DomainRun[DomainMessage]]]
+	trait DomainRun[DomainMessage] extends Function[CommandContext[DomainMessage], PartialFunction[DomainMessage,DomainRun[DomainMessage]]] {
+		def orElse(other: DomainRun[DomainMessage]): DomainRun[DomainMessage] = (ctx: CommandContext[DomainMessage]) => this (ctx) orElse other(ctx)
+	}
+	object DomainRun {
+		def apply[DomainMessage](runLogic: PartialFunction[DomainMessage, DomainRun[DomainMessage]]): DomainRun[DomainMessage] = {
+			implicit ctx: CommandContext[DomainMessage] => runLogic
+		}
+	}
+
 	case object Same extends DomainRun[Any]{
 		def apply(ctx: CommandContext[Any]): PartialFunction[Any, DomainRun[Any]] = {
 			case a: Any => null
 		}
 	}
 
+	object dr1 extends DomainRun[String] {
+		override def apply(v1: CommandContext[String]): PartialFunction[String, DomainRun[String]] = {
+			case "asdf" => null
+		}
+	}
+
+	object dr2 extends DomainRun[String] {
+		override def apply(v1: CommandContext[String]): PartialFunction[String, DomainRun[String]] = {
+			case "asdf" => null
+		}
+	}
+
+	val dr3: DomainRun[String] = {
+		ctx: CommandContext[String] => dr1.apply(ctx) orElse dr3(ctx)
+	}
 
 	trait DomainRunOld[DomainMessage] {
 		def process(processMessage: DomainMessage)(implicit ctx: CommandContext[DomainMessage]): DomainRun[DomainMessage]

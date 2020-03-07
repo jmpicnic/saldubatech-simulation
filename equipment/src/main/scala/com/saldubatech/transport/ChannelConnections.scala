@@ -8,6 +8,9 @@ import com.saldubatech.units.shuttle.ShuttleLevel
 
 object ChannelConnections {
 	// Registration of consumers of the messages to allow the typing of Actors to work O.K.
-	trait ChannelSourceMessage extends ShuttleLevel.ShuttleLevelMessage
-	trait ChannelDestinationMessage extends ShuttleLevel.ShuttleLevelMessage
+	trait DummySourceMessageType
+	trait DummySinkMessageType
+
+	trait ChannelSourceMessage extends DummySourceMessageType with ShuttleLevel.ShuttleLevelMessage
+	trait ChannelDestinationMessage extends DummySinkMessageType with ShuttleLevel.ShuttleLevelMessage
 }

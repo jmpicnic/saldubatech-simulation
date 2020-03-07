@@ -2,10 +2,6 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-/*
- * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
- */
-
 package com.saldubatech.units.shuttle
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
@@ -20,7 +16,6 @@ import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
 import scala.concurrent.duration._
-
 
 class ShuttleSpec
 	extends WordSpec

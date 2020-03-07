@@ -9,159 +9,199 @@ import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
 import com.saldubatech.ddes.Processor.CommandContext
 import com.saldubatech.util.LogEnabled
-import com.saldubatech.v1.base.channels.Channel.AcknowledgeLoad
 
 import scala.collection.mutable
 
 object Channel {
 
-
-	trait AcknowledgeLoad[L <: Identification] extends ChannelConnections.ChannelSourceMessage {val channel: String; val load: L; val resource: String}
+	trait AcknowledgeLoad[L <: Identification] extends ChannelConnections.ChannelSourceMessage {
+		val channel: String;
+		val load: L;
+		val resource: String
+	}
 	abstract class AckLoadImpl[L <: Identification](override val channel: String, override val load: L, override val resource: String)
 		extends Identification.Impl() with AcknowledgeLoad[L]
 
 
-	trait TransferLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {val channel: String; val load: L; val resource: String}
+	trait TransferLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
+		val channel: String;
+		val load: L;
+		val resource: String
+	}
 	abstract class TransferLoadImpl[L <: Identification](override val channel: String, override val load: L, override val resource: String)
 		extends Identification.Impl() with TransferLoad[L]
 
-	trait LoadConsumed[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {val channel: String}
-	abstract class LoadConsumedImpl[L <: Identification](override val channel: String)
-		extends Identification.Impl() with LoadConsumed[L]
-
-	trait Sink[L <: Identification, SinkProfile]{
-		type TransferSignal = TransferLoad[L] with SinkProfile
-		type ConsumeSignal = LoadConsumed[L] with SinkProfile
-		def transferBuilder(channel: String, load: L, resource: String): TransferSignal
-		def releaseBuilder(channel: String): ConsumeSignal
-
-		def loadArrived(endpoint: End[L, SinkProfile], load: L)(implicit ctx: CommandContext[SinkProfile]): Boolean
-	}
-
-	trait Source[L <: Identification, SourceProfile]{
-		type Signal = SourceProfile with AcknowledgeLoad[L]
-		def acknowledgeBuilder(channel: String, load: L, resource: String): Signal
-		def loadAcknowledge(load: L): Option[L]
-	}
-
 	trait Endpoint[DomainMessage] {
 		val channelName: String
-		private var _hostValue: Option[Processor.ProcessorRef] = None
-		private def hostValue = _hostValue
-		lazy val host: Option[Processor.ProcessorRef] = hostValue
-
-		def register(hostParameter: Processor.ProcessorRef) =
-			if (_hostValue nonEmpty) throw new IllegalStateException(s"Start is already configured")
-			else _hostValue = Some(hostParameter)
 	}
+	trait Start[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] extends Endpoint[SourceProfile] {
+		val source: Source[LOAD, SourceProfile]
 
-	trait Start[LOAD, SourceProfile] extends Endpoint[SourceProfile]{
-		def availableSlots: Int
+		def availableCards: Int
+		def reserveCard: Option[String]
 		def send(load: LOAD)(implicit ctx: CommandContext[SourceProfile]): Boolean
-		def send(load: LOAD, onSlot: String)(implicit ctx: CommandContext[SourceProfile]): Boolean
-		def receiveAcknowledgement: PartialFunction[SourceProfile, Option[LOAD]]
-		def reserveSlot: Option[String]
+		def send(load: LOAD, withCard: String)(implicit ctx: CommandContext[SourceProfile]): Boolean
+		def ackReceiver: Processor.DomainRun[SourceProfile]
 	}
 
-	trait End[LOAD, SinkProfile] extends Endpoint[SinkProfile] {
+	trait PulledLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
+		val load: L;
+		val idx: Int
+	}
+	abstract class PulledLoadImpl[L <: Identification](override val load: L, override val idx: Int)
+		extends Identification.Impl() with PulledLoad[L]
+
+	trait End[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] extends Endpoint[SinkProfile] {
+		val sink: Sink[LOAD, SinkProfile]
 		val receivingSlots: Int
-		def releaseLoad(load: LOAD)(implicit ctx: CommandContext[SinkProfile]): Unit
-		def receiveLoad(msg: SinkProfile)(implicit ctx: CommandContext[SinkProfile]): Option[LOAD]
-		def receiveLoad2(implicit ctx: CommandContext[SinkProfile]): PartialFunction[SinkProfile, Option[LOAD]]
+		def getNext(implicit ctx: CommandContext[SinkProfile]): Option[(LOAD, String)]
+		def get(l: LOAD)(implicit ctx: CommandContext[SinkProfile]): Option[(LOAD, String)]
+		def get(idx: Int)(implicit ctx: CommandContext[SinkProfile]): Option[(LOAD, String)]
+		def loadReceiver: Processor.DomainRun[SinkProfile]
 	}
 
-	class Ops[LOAD <: Identification, SourceProfile, SinkProfile](val ch: Channel, val configuredOpenSlots: Int = 1)
-	                                                             (implicit sender: Channel.Source[LOAD, SourceProfile], receiver: Channel.Sink[LOAD, SinkProfile])
-	extends LogEnabled {
+	trait Sink[L <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] {
+		val ref: Processor.ProcessorRef
+		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: CommandContext[SinkProfile]): Processor.DomainRun[SinkProfile]
+		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: CommandContext[SinkProfile]): Processor.DomainRun[SinkProfile]
+	}
+
+	trait Source[L <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] {
+		val ref: Processor.ProcessorRef
+		def loadAcknowledged(load: L)(implicit ctx: CommandContext[SourceProfile]): Processor.DomainRun[SourceProfile]
+	}
 
 
-		lazy val start: Start[LOAD, SourceProfile] = new Start[LOAD, SourceProfile]{
+	class Ops[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage,
+		SinkProfile >: ChannelConnections.ChannelDestinationMessage](val ch: Channel[LOAD, SourceProfile, SinkProfile])
+		extends LogEnabled {
+
+		private var _start: Option[Start[LOAD, SourceProfile]] = None
+		lazy val start = _start.head
+		def registerStart(source: Channel.Source[LOAD, SourceProfile]): Start[LOAD, SourceProfile] = {
+			val r = buildStart(source)
+			_start = Some(r)
+			r
+		}
+		private def buildStart(sourcePar: Channel.Source[LOAD, SourceProfile]): Start[LOAD, SourceProfile] = new Start[LOAD, SourceProfile] {
+			override lazy val source = sourcePar
 			override lazy val channelName = ch.name
-			private val localBox = AssetBox(ch.slots, ch.name + "Start")
+			private val localBox = AssetBox(ch.cards, ch.name + "Start")
 			private val reserved: mutable.Set[String] = mutable.Set.empty
 
-			override def reserveSlot: Option[String] = localBox.checkoutAny.map{rs => reserved += rs; rs}
+			override def reserveCard: Option[String] = localBox.checkoutAny.map { rs => reserved += rs; rs }
 
-			override def send(load: LOAD, onSlot: String)(implicit ctx: CommandContext[SourceProfile]): Boolean = {(
-				for {
-					card <- reserved.find(_ == onSlot)
-					doTell <- end.host.map(ctx.teller)
-				} yield {
-					reserved.remove(onSlot)
-					doTell(receiver.transferBuilder(ch.name, load, card), ch.delay())
-				}).isDefined
+			override def send(load: LOAD, withCard: String)(implicit ctx: CommandContext[SourceProfile]): Boolean =
+				reserved.find(_ == withCard).map(c => doSend(load, c)).isDefined
+			override def send(load: LOAD)(implicit ctx: CommandContext[SourceProfile]): Boolean =
+				localBox.checkoutAny.map(c => doSend(load, c)).isDefined
+
+			private def doSend(load: LOAD, withCard: String)(implicit ctx: CommandContext[SourceProfile]) = {
+				(
+					for {
+						doTell <- _end.map(e => ctx.teller(e.sink.ref))
+					} yield {
+						log.debug(s"Sending Load: $load from ${start.source.ref}")
+						reserved.remove(withCard)
+						doTell(ch.transferBuilder(ch.name, load, withCard), ch.delay())
+					}).isDefined
 			}
+			override def availableCards: Int = localBox.available
 
-			override def availableSlots: Int = localBox.available
-
-			override def send(load: LOAD)(implicit ctx: CommandContext[SourceProfile]): Boolean = {(
-				for {
-					doTell <- end.host.map(ctx.teller)
-					card <- localBox.checkoutAny
-				} yield doTell(receiver.transferBuilder(ch.name, load, card), ch.delay())).isDefined
-			}
-
-			override def receiveAcknowledgement: PartialFunction[SourceProfile, Option[LOAD]] = {
-				case ackMsg: AcknowledgeLoad[LOAD] if ackMsg.channel == ch.name =>
-					log.debug(s"Processing Load Acknowledgement for ${ackMsg.load}")
-					localBox.checkin(ackMsg.resource)
-					sender.loadAcknowledge(ackMsg.load)
-			}
-
-		}
-
-		lazy val end: End[LOAD, SinkProfile] = new End[LOAD, SinkProfile] {
-			override lazy val channelName = ch.name
-			override lazy val receivingSlots = configuredOpenSlots
-			private var offeredIdx = 0L
-			private val delivered: mutable.SortedMap[Long, (LOAD, String)] = mutable.SortedMap.empty
-			private val pending: mutable.Queue[(LOAD, String)] = mutable.Queue.empty
-
-			def getNext: Option[(LOAD, String)] = delivered.headOption.map(_._2)
-			def get(idx: Int): Option[(LOAD, String)] = delivered.remove(idx)
-
-			override def releaseLoad(load: LOAD)(implicit ctx: CommandContext[SinkProfile]): Unit = for {
-				stRef <- start.host
-				(_, (ld,rs)) <- delivered.find(p => p._2._1.uid == load.uid)
-			} yield {
-				log.debug(s"Releasing $load to ${stRef} with $rs")
-				ctx.tellTo(stRef, sender.acknowledgeBuilder(ch.name, load, rs))
-				if(pending.nonEmpty) ctx.tellSelf(receiver.releaseBuilder(ch.name))
-			}
-
-			override def receiveLoad(msg: SinkProfile)(implicit ctx: CommandContext[SinkProfile]): Option[LOAD] = msg match {
-				case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
-					doReceive(tr.load, tr.resource)
-					Some(tr.load)
-				case dq: LoadConsumed[LOAD] if dq.channel == ch.name =>
-					pending.dequeueFirst(_ => true).map(t => {doReceive(t._1, t._2);t._1})
-			}
-
-
-			override def receiveLoad2(implicit ctx: CommandContext[SinkProfile]): PartialFunction[SinkProfile, Option[LOAD]] = {
-				case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
-					doReceive(tr.load, tr.resource)
-					Some(tr.load)
-				case dq: LoadConsumed[LOAD] if dq.channel == ch.name =>
-					pending.dequeueFirst(_ => true).map(t => {doReceive(t._1, t._2);t._1})
-			}
-
-			private def doReceive(l: LOAD, rs: String)(implicit ctx: CommandContext[SinkProfile]): Unit = {
-				if(delivered.size < receivingSlots) {
-					delivered += offeredIdx -> (l, rs)
-					offeredIdx += 1
-					receiver.loadArrived(this, l)
-				} else pending.enqueue(l -> rs)
+			override def ackReceiver: Processor.DomainRun[SourceProfile] = {
+				implicit ctx: CommandContext[SourceProfile] => {
+					case ackMsg: AcknowledgeLoad[LOAD] if ackMsg.channel == ch.name =>
+						log.debug(s"Processing Load Acknowledgement for ${ackMsg.load}")
+						localBox.checkin(ackMsg.resource)
+						source.loadAcknowledged(ackMsg.load)
+				}
 			}
 		}
-	}
-/*	def simpleDelayChannel[L <: Identification, SourceProfile, SinkProfile](name: String, delay: Delay, capacity: Int, boundedLookup: Option[Int] = None) =
+
+		lazy val end = _end.head
+		private var _end: Option[End[LOAD, SinkProfile]] = None
+		def registerEnd(sink: Sink[LOAD, SinkProfile]): End[LOAD, SinkProfile] = {
+			_end = Some(buildEnd(sink))
+			_end.head
+		}
+		private def buildEnd(sinkParam: Sink[LOAD, SinkProfile]): End[LOAD, SinkProfile] = {
+			new End[LOAD, SinkProfile] {
+				override lazy val sink = sinkParam
+				override lazy val channelName = ch.name
+				override lazy val receivingSlots = ch.configuredOpenSlots
+				private lazy val openSlots: mutable.Set[Int] = mutable.Set((0 until receivingSlots): _*)
+				private val delivered: mutable.SortedMap[Int, (LOAD, String)] = mutable.SortedMap.empty
+				private val pending: mutable.Queue[(LOAD, String)] = mutable.Queue.empty
+
+				def getNext(implicit ctx: CommandContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
+
+				def get(l: LOAD)(implicit ctx: CommandContext[SinkProfile]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
+
+				def get(idx: Int)(implicit ctx: CommandContext[SinkProfile]): Option[(LOAD, String)] = {
+					var r = delivered.get(idx)
+					if (r nonEmpty) {
+						if (pending nonEmpty) {
+							val next = pending.dequeue
+							delivered += idx -> next
+							sink.loadArrived(this, next._1, Some(idx) )
+						} else {
+							openSlots += idx
+						}
+						ctx.tellSelf(ch.loadPullBuilder(r.head._1,idx))
+					}
+					r
+				}
+
+				private def acknowledgeLoad(load: LOAD)(implicit ctx: CommandContext[SinkProfile]): Unit = {
+					log.debug(s"Start Acknowledge Load $load with endpoint ${_start}, from $delivered")
+					for {
+						st <- _start
+						(idx, (ld, rs)) <- delivered.find(p => p._2._1.uid == load.uid)
+					} yield {
+						log.debug(s"Releasing $load to ${st.source.ref} with $rs")
+						ctx.tellTo(st.source.ref, ch.acknowledgeBuilder(ch.name, load, rs))
+						delivered.remove(idx)
+					}
+				}
+
+				override def loadReceiver: Processor.DomainRun[SinkProfile] = {
+					implicit ctx: CommandContext[SinkProfile] => {
+						case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
+							log.debug(s"Processing Transfer Load ${tr.load} on channel ${ch.name}")
+							if (openSlots nonEmpty) {
+								val idx = openSlots.head
+								openSlots -= idx
+								delivered += idx -> (tr.load, tr.resource)
+								sink.loadArrived(this, tr.load, Some(idx))
+							} else {
+								pending.enqueue((tr.load -> tr.resource))
+								sink.loadArrived(this, tr.load)
+							}
+						case tr: PulledLoad[LOAD] =>
+							acknowledgeLoad(tr.load)
+							sink.loadReleased(this, tr.load, Some(tr.idx))
+					}
+				}
+			}
+		}
+		/*	def simpleDelayChannel[L <: Identification, SourceProfile, SinkProfile](name: String, delay: Delay, capacity: Int, boundedLookup: Option[Int] = None) =
 		new Channel[L, SourceProfile, SinkProfile]((1 to capacity).map(_ => java.util.UUID.randomUUID.toString).toSet, () => Some(delay), boundedLookup, name)*/
+
+	}
 
 }
 
-class Channel(val delay: () => Option[Delay], val slots: Set[String], val name:String = java.util.UUID.randomUUID().toString)
+abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage, SinkProfile >: ChannelConnections.ChannelDestinationMessage]
+(val delay: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, val name:String = java.util.UUID.randomUUID().toString)
 	extends Identification.Impl(name) {
-	import Channel._
+	type TransferSignal = Channel.TransferLoad[LOAD] with SinkProfile
+	type PullSignal = Channel.PulledLoad[LOAD] with SinkProfile
+
+	def transferBuilder(channel: String, load: LOAD, resource: String): TransferSignal
+	def loadPullBuilder(ld: LOAD, idx: Int): PullSignal
+
+	type AckSignal = SourceProfile with Channel.AcknowledgeLoad[LOAD]
+
+	def acknowledgeBuilder(channel: String, load: LOAD, resource: String): AckSignal
 
 }

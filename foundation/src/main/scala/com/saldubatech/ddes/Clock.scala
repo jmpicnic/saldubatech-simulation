@@ -123,9 +123,10 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		maybeAdvance
 	}
 	private def sendNow(to: ActorRef[ProcessorMessage], cmd: ActionCommand): Unit = {
-		log.debug(s"Sending Now($now): $to, $cmd")
+		log.debug(s"Sending Now($now): To: $to($cmd)")
 		openAction(cmd)
 		to ! cmd
+		log.debug(s"Sent Now($now): To: $to($cmd)")
 	}
 	private def enqueue(tick: Tick, act: Enqueue): Behavior[ClockMessage] = {
 		log.debug(s"Enqueueing $act for $tick")
