@@ -68,7 +68,7 @@ object Channel {
 
 	trait Source[L <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] {
 		val ref: Processor.ProcessorRef
-		def loadAcknowledged(load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
+		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
 	}
 
 
@@ -113,7 +113,7 @@ object Channel {
 					case ackMsg: AcknowledgeLoad[LOAD] if ackMsg.channel == ch.name =>
 						log.debug(s"Processing Load Acknowledgement for ${ackMsg.load}")
 						localBox.checkin(ackMsg.resource)
-						source.loadAcknowledged(ackMsg.load)
+						source.loadAcknowledged(this, ackMsg.load)
 				}
 			}
 		}

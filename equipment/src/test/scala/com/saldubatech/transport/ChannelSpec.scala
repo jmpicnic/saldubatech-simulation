@@ -67,7 +67,7 @@ class ChannelSpec extends BaseSpec {
 
 	def source(host: Processor.ProcessorRef):Channel.Source[ProbeLoad, DummySourceMessageType] = new Channel.Source[ProbeLoad, DummySourceMessageType]{
 		override lazy val ref = host
-		override def loadAcknowledged(load: ProbeLoad)(implicit ctx: SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = {
+		override def loadAcknowledged(chStart: Channel.Start[ProbeLoad, DummySourceMessageType], load: ProbeLoad)(implicit ctx: SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = {
 			testActor.ref ! s"${load.lid}-Acknowledged"
 			senderRunner
 		}
