@@ -7,7 +7,7 @@ package com.saldubatech.transport
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes
-import com.saldubatech.ddes.Processor.CommandContext
+import com.saldubatech.ddes.Processor.SignallingContext
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.test.BaseSpec
@@ -67,7 +67,7 @@ class ChannelSpec extends BaseSpec {
 
 	def source(host: Processor.ProcessorRef):Channel.Source[ProbeLoad, DummySourceMessageType] = new Channel.Source[ProbeLoad, DummySourceMessageType]{
 		override lazy val ref = host
-		override def loadAcknowledged(load: ProbeLoad)(implicit ctx: CommandContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = {
+		override def loadAcknowledged(load: ProbeLoad)(implicit ctx: SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = {
 			testActor.ref ! s"${load.lid}-Acknowledged"
 			senderRunner
 		}
@@ -75,7 +75,7 @@ class ChannelSpec extends BaseSpec {
 
 	def sink(host: Processor.ProcessorRef) = new Channel.Sink[ProbeLoad, DummySinkMessageType] {
 		override lazy val ref = host
-		override def loadArrived(endpoint: Channel.End[ProbeLoad, DummySinkMessageType], load: ProbeLoad, at: Option[Int])(implicit ctx: CommandContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = {
+		override def loadArrived(endpoint: Channel.End[ProbeLoad, DummySinkMessageType], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = {
 			log.info(s"Called loadArrived with $load")
 			testActor.ref ! s"${load.lid}-Received";
 			val recovered = endpoint.get(load)
@@ -84,7 +84,7 @@ class ChannelSpec extends BaseSpec {
 			receiverRunner
 		}
 
-		override def loadReleased(endpoint: Channel.End[ProbeLoad, DummySinkMessageType], load: ProbeLoad, at: Option[Int])(implicit ctx: CommandContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = {
+		override def loadReleased(endpoint: Channel.End[ProbeLoad, DummySinkMessageType], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = {
 			log.info(s"After Load Release $load")
 			testActor.ref ! "probe1-release"
 			endpoint.loadReceiver orElse Processor.DomainRun {
@@ -99,7 +99,7 @@ class ChannelSpec extends BaseSpec {
 
 	def senderConfigurer(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType]) =
 		new Processor.DomainConfigure[DummySourceMessageType] {
-			override def configure(config: DummySourceMessageType)(implicit ctx: Processor.CommandContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = config match {
+			override def configure(config: DummySourceMessageType)(implicit ctx: Processor.SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = config match {
 				case SenderConfigType(msg) =>
 					ops.registerStart(source(ctx.aCtx.self));
 					testActor.ref ! msg
@@ -107,7 +107,7 @@ class ChannelSpec extends BaseSpec {
 			}
 		}
 
-	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType], ctx: CommandContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] =
+	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType], ctx: SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] =
 		ops.start.ackReceiver orElse Processor.DomainRun[DummySourceMessageType]{
 			case SenderProcessType(msg, load) =>
 				log.info(s"Got Domain Message in Sender $msg")
@@ -124,7 +124,7 @@ class ChannelSpec extends BaseSpec {
 	val sender = new Processor("sender", globalClock, testController.ref, senderConfigurer)
 
 
-	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType], ctx: CommandContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] =
+	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType], ctx: SignallingContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] =
 		ops.end.loadReceiver orElse Processor.DomainRun {
 			case other =>
 				log.info(s"Received Other Message at Receiver: $other")
@@ -135,7 +135,7 @@ class ChannelSpec extends BaseSpec {
 
 	def receiverConfigurer(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType]): Processor.DomainConfigure[DummySinkMessageType] =
 		new Processor.DomainConfigure[DummySinkMessageType] {
-			override def configure(config: DummySinkMessageType)(implicit ctx: Processor.CommandContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = config match {
+			override def configure(config: DummySinkMessageType)(implicit ctx: Processor.SignallingContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = config match {
 				case ReceiverConfigType(msg) =>
 					ops.registerEnd(sink(ctx.aCtx.self))
 					testActor.ref ! s"From Receiver-Cfg: $msg"
@@ -170,11 +170,11 @@ class ChannelSpec extends BaseSpec {
 				globalClock ! Clock.StartTime(0L)
 				testActor.expectMessage("FromSender: probe1")
 				testActor.expectMessage("probe1-Received")
-//				channelOps.start.availableSlots shouldBe 1
+				channelOps.start.availableCards shouldBe 1
 				testActor.expectMessage("probe1-release")
 				testActor.expectMessage("probe1-Acknowledged")
 				testActor.expectNoMessage(500 millis)
-//				channelOps.start.availableSlots shouldBe 2
+				channelOps.start.availableCards shouldBe 2
 			}
 		}
 

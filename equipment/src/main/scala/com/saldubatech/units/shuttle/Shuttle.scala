@@ -58,6 +58,7 @@ object Shuttle {
 	case class GoTo(loc: ShuttleLocation) extends Identification.Impl() with ShuttleCommand
 
 	trait ShuttleNotification extends ShuttleLevelMessage
+	case class CompleteConfiguration(pr: Processor.ProcessorRef) extends Processor.BaseCompleteConfiguration(pr) with ShuttleNotification
 	case class UnacceptableCommand(cmd: ShuttleCommand, reason: String) extends Identification.Impl() with ShuttleNotification
 	case class Loaded(cmd: Load) extends Identification.Impl() with ShuttleNotification
 	case class Unloaded(cmd: Unload, load: MaterialLoad) extends Identification.Impl() with ShuttleNotification
@@ -68,7 +69,7 @@ object Shuttle {
 	case class DoneLoading(cmd: Load) extends Identification.Impl() with InternalSignal
 	case class DoneUnloading(cmd: Unload) extends Identification.Impl() with InternalSignal
 
-	def ShuttleProcessor(name: String, travelPhysics: ShuttleTravel, clock: ActorRef[ClockMessage], controller: ActorRef[ControllerMessage]): Processor[ShuttleSignal] =
+	def buildProcessor(name: String, travelPhysics: ShuttleTravel, clock: ActorRef[ClockMessage], controller: ActorRef[ControllerMessage]): Processor[ShuttleSignal] =
 		new Processor(name, clock, controller, new Shuttle(name, travelPhysics).configurer)
 }
 
@@ -81,21 +82,22 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 	private var currentClient: Option[ProcessorRef] = None
 
 	def configurer: Processor.DomainConfigure[ShuttleSignal] = new Processor.DomainConfigure[ShuttleSignal] {
-		override def configure(config: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = config match {
+		override def configure(config: ShuttleSignal)(implicit ctx: Processor.SignallingContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = config match {
 			case Configure(loc) =>
 				currentLocation = loc
+				ctx.configureContext.reply(Shuttle.CompleteConfiguration(ctx.aCtx.self) )
 				idleEmpty
 			case other => throw new IllegalArgumentException(s"Unknown Signal; $other")
 		}
 	}
 
 	def idleFull: Processor.DomainRun[ShuttleSignal] = {
-		implicit ctx: Processor.CommandContext[ShuttleSignal] => {
+		implicit ctx: Processor.SignallingContext[ShuttleSignal] => {
 			//		new Processor.DomainRun[ShuttleSignal] {
 			//		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case cmd@Unload(loc) =>
 				if (loc == currentLocation) {
-					ctx.tellSelf(DoneUnloading(cmd), travelPhysics.releaseTime)
+					ctx.signalSelf(DoneUnloading(cmd), travelPhysics.releaseTime)
 					currentClient = Some(ctx.from)
 					unloading
 				} else {
@@ -108,7 +110,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 					ctx.reply(Arrived(cmd)); idleFull
 				}
 				else {
-					ctx.tellSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation.at.idx, loc.at.idx))
+					ctx.signalSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation.at.idx, loc.at.idx))
 					currentClient = Some(ctx.from)
 					running
 				}
@@ -121,13 +123,13 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 
 
 	def idleEmpty: Processor.DomainRun[ShuttleSignal] = {
-		implicit ctx: Processor.CommandContext[ShuttleSignal] => {
+		implicit ctx: Processor.SignallingContext[ShuttleSignal] => {
 			//		new Processor.DomainRun[ShuttleSignal] {
 			//		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case cmd@Load(loc) =>
 				if (currentLocation == loc) {
 					println(s"Loading to be complete by now(${ctx.now}) + Acquire Time: ${travelPhysics.acquireTime}")
-					ctx.tellSelf(DoneLoading(cmd), travelPhysics.acquireTime)
+					ctx.signalSelf(DoneLoading(cmd), travelPhysics.acquireTime)
 					currentClient = Some(ctx.from)
 					println(s"SelfSent DoneLoading")
 					loading
@@ -140,7 +142,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 					ctx.reply(Arrived(cmd)); idleEmpty
 				}
 				else {
-					ctx.tellSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation.at.idx, loc.at.idx))
+					ctx.signalSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation.at.idx, loc.at.idx))
 					currentClient = Some(ctx.from)
 					running
 				}
@@ -152,24 +154,24 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 
 
 	private def loading: Processor.DomainRun[ShuttleSignal] = {
-		implicit ctx: Processor.CommandContext[ShuttleSignal] => {
+		implicit ctx: Processor.SignallingContext[ShuttleSignal] => {
 			//		new Processor.DomainRun[ShuttleSignal] {
 			//		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case DoneLoading(cmd@Load(loc)) =>
 				if (tray isEmpty) {
 					if (loc isEmpty) {
-						ctx.tellTo(currentClient.head, UnacceptableCommand(cmd, s"Cannot Load from an empty location $loc"))
+						ctx.signal(currentClient.head, UnacceptableCommand(cmd, s"Cannot Load from an empty location $loc"))
 						currentClient = None
 						idleEmpty
 					} else {
 						tray = loc.retrieve
 						println(s"Loaded Tray with ${tray.head} at ${ctx.now}")
-						ctx.tellTo(currentClient.head, Loaded(cmd))
+						ctx.signal(currentClient.head, Loaded(cmd))
 						currentClient = None
 						idleFull
 					}
 				} else {
-					ctx.tellTo(currentClient.head, UnacceptableCommand(cmd, s"Cannot load from empty Loaction $loc"))
+					ctx.signal(currentClient.head, UnacceptableCommand(cmd, s"Cannot load from empty Loaction $loc"))
 					currentClient = None
 					idleEmpty
 				}
@@ -180,25 +182,25 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 	}
 
 	private def unloading: Processor.DomainRun[ShuttleSignal] = {
-		implicit ctx: Processor.CommandContext[ShuttleSignal] => {
+		implicit ctx: Processor.SignallingContext[ShuttleSignal] => {
 			//		new Processor.DomainRun[ShuttleSignal] {
 			//		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case DoneUnloading(cmd@Unload(loc)) =>
 				if (tray nonEmpty) {
 					if (loc isEmpty) {
 						loc.store(tray.head)
-						ctx.tellTo(currentClient.head, Unloaded(cmd, tray.head))
+						ctx.signal(currentClient.head, Unloaded(cmd, tray.head))
 						tray = None
 						currentClient = None
 						idleEmpty
 					} else {
-						ctx.tellTo(currentClient.head, UnacceptableCommand(cmd, s"Cannot Unload tray into non empty Location $loc"))
+						ctx.signal(currentClient.head, UnacceptableCommand(cmd, s"Cannot Unload tray into non empty Location $loc"))
 						currentClient = None
 						idleFull
 					}
 				}
 				else {
-					ctx.tellTo(currentClient.head, UnacceptableCommand(cmd, s"Cannot Unload an empty tray"))
+					ctx.signal(currentClient.head, UnacceptableCommand(cmd, s"Cannot Unload an empty tray"))
 					idleEmpty
 				}
 			case other =>
@@ -209,12 +211,12 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 
 
 	private def running: Processor.DomainRun[ShuttleSignal] = {
-		implicit ctx: Processor.CommandContext[ShuttleSignal] => {
+		implicit ctx: Processor.SignallingContext[ShuttleSignal] => {
 			//		new Processor.DomainRun[ShuttleSignal] {
 			//		override def process(processMessage: ShuttleSignal)(implicit ctx: Processor.CommandContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = processMessage match {
 			case Arriving(cmd, toLocation) =>
 				currentLocation = toLocation
-				ctx.tellTo(currentClient.head, Arrived(cmd))
+				ctx.signal(currentClient.head, Arrived(cmd))
 				currentClient = None
 				if (tray isEmpty) idleEmpty else idleFull
 			case other =>

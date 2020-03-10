@@ -7,7 +7,7 @@ package com.saldubatech.ddes
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Props}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import com.saldubatech.ddes.Clock.{ClockMessage, ClockNotification, NoMoreWork, NotifyAdvance, RegisterMonitor, RegisteredClockMonitors, StartTime, StartedOn, StopTime, Tick}
-import com.saldubatech.ddes.Processor.{CompleteConfiguration, ProcessorMessage, RegisterProcessor}
+import com.saldubatech.ddes.Processor.{CompleteConfiguration, ProcessorMessage, RegisterProcessor, Run}
 import com.saldubatech.ddes.Simulation.{Command, Notification}
 import com.saldubatech.util.Lang._
 
@@ -15,7 +15,9 @@ import scala.collection.mutable
 import scala.concurrent.Await
 
 object SimulationController {
-	trait ControllerMessage
+	trait ControllerMessage extends ProcessorMessage
+
+	type ControllerRef = ActorRef[ControllerMessage]
 
 	sealed trait ControllerCommand extends Command with ControllerMessage
 	case object SimulationShutdown extends ControllerCommand
@@ -95,18 +97,28 @@ class SimulationController(simulationName: String, startTime: Tick, props: Props
 		val pending = mutable.Set.empty[ActorRef[ProcessorMessage]]
 		def isInitialized: Boolean = registered.nonEmpty && pending.isEmpty
 
+		def doneRegistering(next: Behavior[ControllerMessage], at: Tick): Behavior[ControllerMessage]  = Behaviors.receive {
+			(ctx, msg) => msg match {
+				case CompleteConfiguration(processor) if pending contains processor =>
+					pending -= processor
+					Behaviors.same
+				case Run(at) =>
+					if (isInitialized) {
+						clock ! StartTime(at)
+						next
+					} else Behaviors.same
+				}
+		}
 
 		def configuring(next: Behavior[ControllerMessage], at: Tick): PartialFunction[ControllerMessage, Behavior[ControllerMessage]] = {
 			case RegisterProcessor(processor) =>
 				registered += processor
 				pending += processor
 				Behaviors.same
-			case CompleteConfiguration(processor) =>
+			case CompleteConfiguration(processor) if pending contains processor =>
 				pending -= processor
-				if(isInitialized) {
-					clock ! StartTime(at)
-					next
-				} else Behaviors.same
+				Behaviors.same
+			case Run(at) => doneRegistering(next, at)
 		}
 	}
 
