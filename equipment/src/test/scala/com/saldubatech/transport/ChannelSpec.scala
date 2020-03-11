@@ -12,7 +12,9 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.transport.ChannelConnections._
+import com.saldubatech.util.LogEnabled
 import org.apache.commons.math3.ode.sampling.DummyStepHandler
+import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 import scalaz.Heap.Empty
 
 import scala.concurrent.duration._
@@ -31,7 +33,11 @@ object ChannelSpec {
 
 }
 
-class ChannelSpec extends BaseSpec {
+class ChannelSpec extends WordSpec
+	with Matchers
+	with WordSpecLike
+	with BeforeAndAfterAll
+	with LogEnabled  {
 	import ChannelSpec._
 
 	val testKit = ActorTestKit()
@@ -55,7 +61,7 @@ class ChannelSpec extends BaseSpec {
 			override def toString = s"Receiver.TransferLoad(ch: $channel, ld: $load, rs: $resource)"
 		}
 
-		override def loadPullBuilder(ld: ProbeLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[ProbeLoad](ld, idx) with DummySinkMessageType {
+		override def loadPullBuilder(ld: ProbeLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[ProbeLoad](ld, idx, this.name) with DummySinkMessageType {
 			override def toString = s"Receiver.PulledLoad(load: $ld, idx: $idx)"
 		}
 
@@ -154,6 +160,7 @@ class ChannelSpec extends BaseSpec {
 			val s = testKit.spawn(sender.init, "Sender")
 			val r = testKit.spawn(receiver.init, "Receiver")
 			"A1. Allow for Start and End registration" in {
+				globalClock ! Clock.StartTime(0L)
 				s ! Processor.ConfigurationCommand[SenderConfigType](mockProcessorOrigin.ref, 0L, SenderConfigType("ConfigureSender"))
 				testActor.expectMessage("ConfigureSender")
 				r ! Processor.ConfigurationCommand[ReceiverConfigType](mockProcessorOrigin.ref, 0L, ReceiverConfigType("ConfigureReceiver"))
@@ -164,10 +171,10 @@ class ChannelSpec extends BaseSpec {
 				testActor.expectMessage("DoneConfiguring")
 				val probe1 = ProbeLoad("probe1")
 				val msg1 = Processor.ProcessCommand(mockProcessorOrigin.ref, 5L, SenderProcessType("probe1", probe1))
-				globalClock ! Clock.Enqueue(s, 5, msg1)
+				globalClock ! Clock.Enqueue(s,msg1)
 //				globalClock ! Clock.Enqueue(r, 15, Processor.ProcessCommand(mockProcessorOrigin.ref, 15, ReceiverProcessType("probe1-release", probe1)))
 
-				globalClock ! Clock.StartTime(0L)
+
 				testActor.expectMessage("FromSender: probe1")
 				testActor.expectMessage("probe1-Received")
 				channelOps.start.availableCards shouldBe 1

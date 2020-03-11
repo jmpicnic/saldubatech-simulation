@@ -10,6 +10,7 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.{ClockMessage, CompleteAction, Delay, Enqueue, StartActionOnReceive, Tick}
 import com.saldubatech.ddes.Simulation.{Command, Notification}
 import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.util.LogEnabled
 
 object Processor {
 	trait ProcessorMessage
@@ -19,8 +20,7 @@ object Processor {
 	trait ProcessorCommand extends Command with ProcessorMessage
 	trait ProcessorControlCommand extends ProcessorCommand
 	case object ProcessorShutdown extends ProcessorControlCommand
-	trait ProcessorDomainCommand extends ProcessorCommand
-	class ActionCommand(val from: ActorRef[ProcessorMessage], val at: Tick, val uid: String = java.util.UUID.randomUUID.toString) extends ProcessorDomainCommand
+	class ActionCommand(val from: ActorRef[ProcessorMessage], val at: Tick, val uid: String = java.util.UUID.randomUUID.toString) extends ProcessorCommand
 	case class ConfigurationCommand[ConfigurationMessage](override val from: ActorRef[ProcessorMessage], override val at: Tick, cm: ConfigurationMessage) extends ActionCommand(from, at)
 	case class ProcessCommand[DomainMessage](override val from: ActorRef[ProcessorMessage], override val at: Tick, dm: DomainMessage) extends ActionCommand(from, at)
 
@@ -39,7 +39,7 @@ object Processor {
 		protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand
 
 		private def doTell[TargetDomainMessage](to: ProcessorRef, msg: TargetDomainMessage, delay: Option[Delay]): Unit =
-			clock ! Clock.Enqueue(to, now + delay.getOrElse(0L), wrap(aCtx.self, now + delay.getOrElse(0L), msg))
+			clock ! Clock.Enqueue(to, wrap(aCtx.self, now + delay.getOrElse(0L), msg))
 
 		def signaller[TargetDomainMessage](to: ProcessorRef): (TargetDomainMessage, Option[Delay]) => Unit = (m, d) => doTell(to, m, d)
 		def signal[TargetDomainMessage](to: ProcessorRef, msg: TargetDomainMessage): Unit = doTell(to, msg, None)
@@ -62,6 +62,8 @@ object Processor {
 	}
 
 	trait DomainMessageProcessor[DomainMessage]
+	object DomainMessageProcessor {
+	}
 
 	//trait DomainRun[DomainMessage] extends PartialFunction[DomainMessage, Function1[CommandContext[DomainMessage],DomainRun[DomainMessage]]]
 	trait DomainRun[DomainMessage] extends Function[SignallingContext[DomainMessage], PartialFunction[DomainMessage,DomainRun[DomainMessage]]] with DomainMessageProcessor[DomainMessage] {
@@ -71,38 +73,22 @@ object Processor {
 		def apply[DomainMessage](runLogic: PartialFunction[DomainMessage, DomainRun[DomainMessage]]): DomainRun[DomainMessage] = {
 			implicit ctx: SignallingContext[DomainMessage] => runLogic
 		}
-	}
 
-	case object Same extends DomainRun[Any]{
-		def apply(ctx: SignallingContext[Any]): PartialFunction[Any, DomainRun[Any]] = {
-			case a: Any => null
+		class Same[DomainMessage] extends DomainRun[DomainMessage] {
+			override def apply(ctx: SignallingContext[DomainMessage]): PartialFunction[DomainMessage, DomainRun[DomainMessage]] = {
+				case any =>
+					throw new IllegalStateException(s"The 'Same' DomainRun should never be active: Received signal: $any from ${ctx.from} as part of ${ctx.aCtx.self}")
+					this
+			}
 		}
+
+		def same[DomainMessage] = new Same[DomainMessage]
+
 	}
 
-	object dr1 extends DomainRun[String] {
-		override def apply(v1: SignallingContext[String]): PartialFunction[String, DomainRun[String]] = {
-			case "asdf" => null
-		}
-	}
-
-	object dr2 extends DomainRun[String] {
-		override def apply(v1: SignallingContext[String]): PartialFunction[String, DomainRun[String]] = {
-			case "asdf" => null
-		}
-	}
-
-	val dr3: DomainRun[String] = {
-		ctx: SignallingContext[String] => dr1.apply(ctx) orElse dr3(ctx)
-	}
-
-	trait DomainRunOld[DomainMessage] {
-		def process(processMessage: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainRun[DomainMessage]
-	}
 	trait DomainConfigure[DomainMessage] extends DomainMessageProcessor[DomainMessage] {
 		def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainMessageProcessor[DomainMessage]
 	}
-
-
 
 }
 
@@ -110,8 +96,7 @@ class Processor[DomainMessage](val processorName: String,
                                protected val clock: ActorRef[ClockMessage],
                                protected val controller: ActorRef[ControllerMessage],
                                protected val initialConfigurer: Processor.DomainConfigure[DomainMessage]
-                              )
-{
+                              ) extends LogEnabled {
 	import Processor._
 
 	lazy val ref: ProcessorRef = _ref.head
@@ -129,9 +114,12 @@ class Processor[DomainMessage](val processorName: String,
 		(ctx, msg) => msg match {
 			case cmd: ConfigurationCommand[DomainMessage] =>
 				ctx.log.debug(s"Configuring with $cmd")
+				clock ! StartActionOnReceive(cmd)
 				val next = c.configure(cmd.cm)(CommandContext(cmd.from, cmd.at, ctx)(clock))
+				clock ! CompleteAction(cmd)
 				next match {
-					case configurer: DomainConfigure[DomainMessage] => doConfigure(configurer)
+					case configurer: DomainConfigure[DomainMessage] =>
+						doConfigure(configurer)
 					case runner: DomainRun[DomainMessage] =>
 						controller ! CompleteConfiguration(ref)
 						behaviorizeRunner[DomainMessage](runner)(clock)
@@ -140,15 +128,21 @@ class Processor[DomainMessage](val processorName: String,
 		}
 	}
 	private def behaviorizeRunner[DomainMessage](runner: DomainRun[DomainMessage])(implicit clock: ActorRef[ClockMessage]): Behavior[ProcessorMessage] =
-		Behaviors.receive[ProcessorMessage] {
+		Behaviors.receive[ProcessorMessage]{
 			(ctx, msg) =>
 				msg match {
 					case cmd: ProcessCommand[DomainMessage] =>
-						ctx.log.debug(s"Processing Command: ${cmd.dm}")
+						ctx.log.debug(s"Processing Command: ${cmd.dm} with $runner")
 						clock ! StartActionOnReceive(cmd)
 						val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)
+						ctx.log.debug(s"Done Processing Command: ${cmd.dm} with $runner")
 						clock ! CompleteAction(cmd)
-						behaviorizeRunner[DomainMessage](if (next == Same) runner else next)
+						next match {
+							case r: DomainRun.Same[DomainMessage] =>
+								log.debug(s"Repeating DomainRun")
+								behaviorizeRunner(runner)
+							case other => behaviorizeRunner(next)
+						}
 					//case Shutdown => do something
 				}
 		}

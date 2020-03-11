@@ -20,7 +20,10 @@ object Channel {
 		val resource: String
 	}
 	abstract class AckLoadImpl[L <: Identification](override val channel: String, override val load: L, override val resource: String)
-		extends Identification.Impl() with AcknowledgeLoad[L]
+		extends Identification.Impl() with AcknowledgeLoad[L] {
+		override def toString = s"AcknowledgeLoad(load: $load, channel: $channel, resource: $resource)"
+	}
+
 
 
 	trait TransferLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
@@ -29,7 +32,10 @@ object Channel {
 		val resource: String
 	}
 	abstract class TransferLoadImpl[L <: Identification](override val channel: String, override val load: L, override val resource: String)
-		extends Identification.Impl() with TransferLoad[L]
+		extends Identification.Impl() with TransferLoad[L]{
+		override def toString = s"TransferLoad(load: $load, channel: $channel, resource: $resource)"
+	}
+
 
 	trait Endpoint[DomainMessage] {
 		val channelName: String
@@ -45,11 +51,15 @@ object Channel {
 	}
 
 	trait PulledLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
-		val load: L;
+		val load: L
+		val channel: String
 		val idx: Int
 	}
-	abstract class PulledLoadImpl[L <: Identification](override val load: L, override val idx: Int)
-		extends Identification.Impl() with PulledLoad[L]
+	abstract class PulledLoadImpl[L <: Identification](override val load: L, override val idx: Int, override val channel: String)
+		extends Identification.Impl() with PulledLoad[L]{
+		override def toString = s"PulledLoad(load: $load, channel: $channel, idx: $idx)"
+	}
+
 
 	trait End[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] extends Endpoint[SinkProfile] {
 		val sink: Sink[LOAD, SinkProfile]
@@ -81,6 +91,7 @@ object Channel {
 		def registerStart(source: Channel.Source[LOAD, SourceProfile]): Start[LOAD, SourceProfile] = {
 			val r = buildStart(source)
 			_start = Some(r)
+			log.debug(s"Registering Source: $source for channel ${r.channelName}")
 			r
 		}
 		private def buildStart(sourcePar: Channel.Source[LOAD, SourceProfile]): Start[LOAD, SourceProfile] = new Start[LOAD, SourceProfile] {
@@ -122,6 +133,7 @@ object Channel {
 		private var _end: Option[End[LOAD, SinkProfile]] = None
 		def registerEnd(sink: Sink[LOAD, SinkProfile]): End[LOAD, SinkProfile] = {
 			_end = Some(buildEnd(sink))
+			log.debug(s"Registering Sink: $sink for channel ${_end.head.channelName}")
 			_end.head
 		}
 		private def buildEnd(sinkParam: Sink[LOAD, SinkProfile]): End[LOAD, SinkProfile] = {
@@ -135,7 +147,10 @@ object Channel {
 
 				def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
 
-				def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
+				def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
+					log.debug(s"Trying to get $l from delivered $delivered")
+					delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
+				}
 
 				def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
 					var r = delivered.get(idx)
@@ -177,7 +192,8 @@ object Channel {
 								pending.enqueue((tr.load -> tr.resource))
 								sink.loadArrived(this, tr.load)
 							}
-						case tr: PulledLoad[LOAD] =>
+						case tr: PulledLoad[LOAD] if tr.channel == ch.name =>
+							log.debug(s"Processing PulledLoad with ${tr.load}")
 							acknowledgeLoad(tr.load)
 							sink.loadReleased(this, tr.load, Some(tr.idx))
 					}

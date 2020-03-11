@@ -16,6 +16,8 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
+
+import com.saldubatech.test.BaseSpec._
 import scala.concurrent.duration._
 
 
@@ -84,16 +86,22 @@ class ProcessorSpec
 		"A. Register Itself for configuration" should {
 			"A01. Send a registration message to the controller" in {
 				testController.expectMessage(RegisterProcessor(underTest))
+				globalClock ! Clock.RegisterMonitor(testController.ref)
+				testController.expectMessage(Clock.RegisteredClockMonitors(1))
 				testController.expectNoMessage(500 millis)
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
+				globalClock ! StartTime(0L)
+				testController.expectMessage(Clock.StartedOn(0L))
 				underTest ! ConfigurationCommand(mockProcessorSender.ref, 0L, DomainType("MockConfiguration"))
 				testActor.expectMessage("MockConfiguration")
-				testController.expectMessage(CompleteConfiguration(underTest))
+				testController.expectMessages(
+					Clock.NoMoreWork(0L),
+					Clock.NoMoreWork(0L),
+					CompleteConfiguration(underTest))
 				testController.expectNoMessage(500 millis)
 			}
 			"A03 Process runtime messages after being configured" in {
-				globalClock ! StartTime(0L)
 				underTest ! action1
 				receivedCmd = mockProcessorReceiver.expectMessage(action2)
 				testActor.expectMessage("MOCK PROCESS COMMAND")
@@ -107,6 +115,7 @@ class ProcessorSpec
 				globalClock ! CompleteAction(receivedCmd)
 				mockProcessorReceiver.expectMessage(ProcessCommand(underTest, 23L, DomainType("Answering: MOCK PROCESS COMMAND2")))
 				testActor.expectMessage("MOCK PROCESS COMMAND2")
+				testController.expectMessage(Clock.NotifyAdvance(0, 23))
 				testController.expectNoMessage(500 millis)
 				mockProcessorReceiver.expectNoMessage(500 millis)
 				testActor.expectNoMessage(500 millis)

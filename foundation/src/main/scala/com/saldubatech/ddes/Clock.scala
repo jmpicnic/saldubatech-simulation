@@ -24,7 +24,7 @@ object Clock {
 	sealed trait ClockCommand extends Command with ClockMessage
 
 	sealed trait ClockAction extends ClockCommand
-	case class Enqueue(to: ActorRef[ProcessorMessage], targetTick: Tick, act: ActionCommand) extends ClockAction
+	case class Enqueue(to: ActorRef[ProcessorMessage], act: ActionCommand) extends ClockAction
 	//case class ActNow(act: Action) extends ClockAction
 
 	sealed trait ClockTimeKeeping extends ClockCommand
@@ -66,8 +66,8 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		case startMsg: StartTime =>
 			start(startMsg.at)
 			run
-		case qAct @ Enqueue(to, tick, actCommand) =>
-			enqueue(tick, qAct)
+		case qAct @ Enqueue(to, actCommand) =>
+			enqueue(actCommand.at, qAct)
 			Behaviors.same
 	}
 	val monitoring: PartialFunction[ClockMessage, Behavior[ClockMessage]] = {
@@ -107,9 +107,9 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 	private def clkAct(ctx: ActorContext[ClockMessage], act: ClockAction): Behavior[ClockMessage] = {
 		log.debug(s"Clock Action Received: $act at $now")
 		act match {
-			case qAct @ Enqueue(to, tick, actCommand) =>
-				if(tick == now) sendNow(to, actCommand)
-				else enqueue(tick, qAct)
+			case qAct @ Enqueue(to, actCommand) =>
+				if(actCommand.at == now) sendNow(to, actCommand)
+				else enqueue(actCommand.at, qAct)
 				maybeAdvance
 		}
 		Behaviors.same[ClockMessage]
@@ -123,13 +123,12 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		maybeAdvance
 	}
 	private def sendNow(to: ActorRef[ProcessorMessage], cmd: ActionCommand): Unit = {
-		log.debug(s"Sending Now($now): To: $to($cmd)")
 		openAction(cmd)
+		log.debug(s"Sending Now($now): To: $to($cmd)")
 		to ! cmd
-		log.debug(s"Sent Now($now): To: $to($cmd)")
 	}
 	private def enqueue(tick: Tick, act: Enqueue): Behavior[ClockMessage] = {
-		log.debug(s"Enqueueing $act for $tick")
+		log.debug(s"Clock: Enqueueing $act for $tick")
 		if(tick >= now) {
 			actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += act)
 			Behaviors.same
@@ -157,7 +156,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 				Behaviors.same[ClockMessage]
 			}
 		} else {
-			log.debug(s"Epoch is not closed || active: $activatedEpoch, opemnActions: ${openActions.size}")
+			log.debug(s"Epoch at $now is not closed || active: $activatedEpoch, openActions: ${openActions.size}")
 			Behaviors.same[ClockMessage]
 		}
 

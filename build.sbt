@@ -18,19 +18,19 @@ lazy val foundation:Project = (project in file("foundation"))
 lazy val v1:Project = (project in file("v1"))
   .settings(
     name := "v1",
-  ).dependsOn(foundation)
+  ).dependsOn(foundation % "test -> test;compile->compile")
 
 lazy val equipment:Project = (project in file("equipment"))
   .settings(
     name := "dcf-equipment",
   )
-  .dependsOn(foundation, v1)
+  .dependsOn(foundation % "test -> test;compile->compile", v1)
 
 lazy val network: Project = (project in file("network"))
   .settings(
     name := "dcf-network",
   )
-  .dependsOn(foundation, v1)
+  .dependsOn(foundation % "test -> test;compile->compile", v1)
   .dependsOn(equipment)
 
 lazy val root = (project in file("."))

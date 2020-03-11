@@ -86,6 +86,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 			case Configure(loc) =>
 				currentLocation = loc
 				ctx.configureContext.reply(Shuttle.CompleteConfiguration(ctx.aCtx.self) )
+				ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")
 				idleEmpty
 			case other => throw new IllegalArgumentException(s"Unknown Signal; $other")
 		}
