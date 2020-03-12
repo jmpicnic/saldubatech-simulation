@@ -135,7 +135,7 @@ class Processor[DomainMessage](val processorName: String,
 						ctx.log.debug(s"Processing Command: ${cmd.dm} with $runner")
 						clock ! StartActionOnReceive(cmd)
 						val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)
-						ctx.log.debug(s"Done Processing Command: ${cmd.dm} with $runner")
+						ctx.log.debug(s"Done Processing Command: ${cmd.dm} at ${cmd.at} by ${ctx.self}")
 						clock ! CompleteAction(cmd)
 						next match {
 							case r: DomainRun.Same[DomainMessage] =>

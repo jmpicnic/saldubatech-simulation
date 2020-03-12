@@ -133,7 +133,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 			actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += act)
 			Behaviors.same
 		} else {
-			log.error(s"Received action for earlier: $tick when now is $now")
+			log.error(s"Received action($act) for earlier: $tick when now is $now")
 			Behaviors.stopped
 		}
 	}
