@@ -1,9 +1,10 @@
 *.class
 *.log
 out/**
-target/**
+**/target/**
 venv/**
 **/scratch/**
 project/target/**
-
+**/.DS_Store
+**/.idea/**
 
