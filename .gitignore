@@ -1,9 +1,11 @@
 *.class
 *.log
 out/**
-target/**
 venv/**
 **/scratch/**
-project/target/**
+.idea/**
+**/*.iml
+**/target/**
+**/.DS_Store
 
 

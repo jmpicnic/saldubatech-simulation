@@ -1,0 +1,45 @@
+@startuml
+hide empty description
+scale 350 width
+title Shuttle State Diagram.
+
+
+state configuring
+state idle
+state loading
+state unloading
+state running
+
+state idle {
+  configuring --> empty : NoConfigure
+  loading --> full : DoneLoading
+  unloading -up-> empty : DoneUnloading
+  empty -down-> loading : Load
+  full --> unloading : Unload
+  idle -down-> empty : [no load]
+  idle -right-> full : [loaded]
+  }
+
+[*] --> configuring
+idle -up-> running : GoTo
+running -down-> idle : Arrived
+idle -right-> [*]
+
+/'state NotShooting {
+  [*] --> Idle
+  Idle --> Configuring : EvConfig
+  Configuring --> Idle : EvConfig
+}
+
+state Configuring {
+  [*] --> NewValueSelection
+  NewValueSelection --> NewValuePreview : EvNewValue
+  NewValuePreview --> NewValueSelection : EvNewValueRejected
+  NewValuePreview --> NewValueSelection : EvNewValueSaved
+
+  state NewValuePreview {
+     State1 -> State2
+  }
+
+}'/
+@enduml
