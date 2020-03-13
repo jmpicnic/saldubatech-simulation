@@ -12,7 +12,8 @@ import com.saldubatech.ddes.Processor.ProcessorRef
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.shuttle.ShuttleLevel.ShuttleLevelMessage
+import com.saldubatech.units.carriage.Carriage
+import com.saldubatech.units.shuttle.ShuttleLevel.ShuttleLevelSignal
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -29,27 +30,27 @@ object ShuttleLevelLoopBackSpec {
 	case class TestProbeMessage(msg: String, load: MaterialLoad) extends UpstreamSignal
 
 	class InboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, ShuttleLevel.ShuttleLevelMessage](delay, cards, configuredOpenSlots, name) {
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ShuttleLevel.ShuttleLevelMessage
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, ShuttleLevel.ShuttleLevelSignal](delay, cards, configuredOpenSlots, name) {
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ShuttleLevel.ShuttleLevelSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ShuttleLevel.ShuttleLevelMessage
+		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ShuttleLevel.ShuttleLevelSignal
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
 	class OutboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ShuttleLevel.ShuttleLevelMessage, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+		extends Channel[MaterialLoad, ShuttleLevel.ShuttleLevelSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ShuttleLevel.ShuttleLevelMessage
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ShuttleLevel.ShuttleLevelSignal
 	}
 
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[ProcessorRef] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, ShuttleLevel.ShuttleLevelMessage])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, ShuttleLevel.ShuttleLevelSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: ProcessorRef = _ref.head
@@ -79,7 +80,7 @@ object ShuttleLevelLoopBackSpec {
 	}
 
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, ShuttleLevel.ShuttleLevelMessage, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture(ops: Channel.Ops[MaterialLoad, ShuttleLevel.ShuttleLevelSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: ProcessorRef = _ref.head
 
@@ -141,23 +142,23 @@ class ShuttleLevelLoopBackSpec
 	val testControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = testControllerProbe.ref
 
-	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, ShuttleLevelMessage)]
+	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, ShuttleLevelSignal)]
 	val shuttleLevelManagerRef = shuttleLevelManagerProbe.ref
 	val shuttleLevelManagerProcessor = new ProcessorSink(shuttleLevelManagerRef, globalClock)
 	val shuttleLevelManager = testKit.spawn(shuttleLevelManagerProcessor.init, "ShuttleLevelManager")
 
 
-	"A Shuttle Level" should {
+	"A Lift Level" should {
 
-		val physics = new Shuttle.ShuttleTravel(2, 6, 4, 8, 8)
-		val shuttleProcessor = Shuttle.buildProcessor("shuttle", physics, globalClock, simController)
+		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
+		val shuttleProcessor = Carriage.buildProcessor("shuttle", physics, globalClock, simController)
 
 
-		val initialInventory: Map[Shuttle.LevelLocator, MaterialLoad] = Map(
-			Shuttle.OnLeft(2) -> MaterialLoad("L2"),
-			Shuttle.OnRight(5) -> MaterialLoad("R5")
+		val initialInventory: Map[Carriage.SlotLocator, MaterialLoad] = Map(
+			Carriage.OnLeft(2) -> MaterialLoad("L2"),
+			Carriage.OnRight(5) -> MaterialLoad("R5")
 		)
-		val initial = ShuttleLevel.InitialState(Shuttle.OnRight(0), initialInventory)
+		val initial = ShuttleLevel.InitialState(Carriage.OnRight(0), initialInventory)
 
 
 		// Channels
@@ -202,7 +203,7 @@ class ShuttleLevelLoopBackSpec
 				actorsToRegister.isEmpty should be(true)
 				testControllerProbe.expectNoMessage(500 millis)
 			}
-			"A02. Register its Shuttle when it gets Configured" in {
+			"A02. Register its Lift when it gets Configured" in {
 				underTest ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleLevel.NoConfigure)
 				testControllerProbe.expectMessageType[Processor.RegisterProcessor] // SHuttle ref is not available here.
 				testControllerProbe.expectMessageType[Processor.CompleteConfiguration]

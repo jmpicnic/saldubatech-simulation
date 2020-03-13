@@ -11,6 +11,6 @@ object ChannelConnections {
 	trait DummySourceMessageType
 	trait DummySinkMessageType
 
-	trait ChannelSourceMessage extends DummySourceMessageType with ShuttleLevel.ShuttleLevelMessage
-	trait ChannelDestinationMessage extends DummySinkMessageType with ShuttleLevel.ShuttleLevelMessage
+	trait ChannelSourceMessage extends DummySourceMessageType with ShuttleLevel.ShuttleLevelSignal
+	trait ChannelDestinationMessage extends DummySinkMessageType with ShuttleLevel.ShuttleLevelSignal
 }
