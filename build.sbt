@@ -1,40 +1,49 @@
 /*resolvers ++= Seq(
   "Typesafe" at "http://repo.typesafe.com/typesafe/releases/"
 )*/
+import DependenciesSpecification._
 
 
-name := "simAkka"
+ThisBuild / organization := "com.saldubatech"
+ThisBuild / organizationName := "Salduba Technologies"
+ThisBuild / scalaVersion := configuredScalaVersion
+ThisBuild / version      := "0.1.0-SNAPSHOT"
+ThisBuild / libraryDependencies ++= Dependencies.all
 
-version := "0.1"
+lazy val foundation:Project = (project in file("foundation"))
+  .settings(
+    name := "foundation"
+  )
 
-scalaVersion := "2.12.10"
 
-lazy val akkaVersion = "2.6.0"
+lazy val v1:Project = (project in file("v1"))
+  .settings(
+    name := "v1",
+  ).dependsOn(foundation % "test -> test;compile->compile")
 
+lazy val equipment:Project = (project in file("equipment"))
+  .settings(
+    name := "dcf-equipment",
+  )
+  .dependsOn(foundation % "test -> test;compile->compile", v1)
 
-libraryDependencies ++= Seq(
-  // General Utilities
-  "org.apache.commons" % "commons-math3" % "3.5",
-  "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+lazy val network: Project = (project in file("network"))
+  .settings(
+    name := "dcf-network",
+  )
+  .dependsOn(foundation % "test -> test;compile->compile", v1)
+  .dependsOn(equipment)
+
+lazy val root = (project in file("."))
+  .settings(
+    name := "dcf-poc",
+  ).aggregate(foundation, v1, equipment, network)
+
+//name := "simAkka"
+//version := "0.1"
+//scalaVersion := "2.12.7"
+
+//libraryDependencies ++= _Dependencies.all
 
   // Postgress DB & ORM
-  "org.postgresql" % "postgresql" % "9.4-1206-jdbc42", // Postgres access
-  "com.zaxxer" % "HikariCP" % "3.3.0", // Connection Pool
-  "com.typesafe.slick" %% "slick-hikaricp" % "3.3.0",
-  "com.typesafe.slick" %% "slick" % "3.3.0", // Slick
-  "com.typesafe.slick" %% "slick-testkit" % "3.3.0" % "test",
-  "com.typesafe.akka" %% "akka-http"   % "10.1.7",
 
-// Logging
-  "org.slf4j" % "slf4j-api" % "1.7.25",
-  "org.slf4j" % "slf4j-log4j12" % "1.7.25",// % Test
-  //"ch.qos.logback" % "logback-classic" % "1.1.7",
-  "log4j" % "log4j" % "1.2.17",
-  //"org.slf4j" % "slf4j-simple" % "1.7.25",// % Test,
-  "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0",
-  // Actors
-  "com.typesafe.akka" %% "akka-actor" % akkaVersion,
-  "com.typesafe.akka" %% "akka-slf4j" % akkaVersion,
-  "com.typesafe.akka" %% "akka-testkit" % akkaVersion,
-  "com.typesafe.akka" %% "akka-stream" % akkaVersion
-)

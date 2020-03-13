@@ -4,7 +4,8 @@ out/**
 **/target/**
 venv/**
 **/scratch/**
-project/target/**
 **/.DS_Store
 **/.idea/**
+**/*.iml
+
 
