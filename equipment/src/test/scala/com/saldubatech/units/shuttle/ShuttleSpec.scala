@@ -118,7 +118,7 @@ class ShuttleSpec
 			"A08 Reject a command to unload again" in {
 				val unloadCommand = Shuttle.Unload(locAt10)
 				underTest ! ProcessCommand(shuttleHarness, 24L, unloadCommand)
-				harnessObserver.expectMessage(500 millis, (24L, Shuttle.UnacceptableCommand(unloadCommand,s"Command not applicable while at place")))
+				harnessObserver.expectMessage(500 millis, (24L, Shuttle.UnacceptableCommand(unloadCommand,s"Command not applicable while idleEmpty at place ShuttleLocation(OnRight(10)): Unload(ShuttleLocation(OnRight(10)))")))
 				harnessObserver.expectNoMessage(500 millis)
 			}
 		}

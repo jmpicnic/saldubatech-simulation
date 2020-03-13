@@ -148,7 +148,7 @@ class Shuttle(name: String, travelPhysics: Shuttle.ShuttleTravel) extends Identi
 					running
 				}
 			case other: ShuttleCommand =>
-				ctx.reply(UnacceptableCommand(other, s"Command not applicable while at place"))
+				ctx.reply(UnacceptableCommand(other, s"Command not applicable while idleEmpty at place $currentLocation: $other"))
 				idleEmpty
 		}
 	}

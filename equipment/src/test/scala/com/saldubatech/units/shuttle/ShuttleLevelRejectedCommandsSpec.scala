@@ -4,6 +4,7 @@
 
 package com.saldubatech.units.shuttle
 
+
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
@@ -11,15 +12,18 @@ import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor.ProcessorRef
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.test.BaseSpec
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.units.shuttle
 import com.saldubatech.units.shuttle.ShuttleLevel.ShuttleLevelMessage
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
+import com.saldubatech.test.BaseSpec._
 
-object ShuttleLevelHappyPathSpec {
+object ShuttleLevelRejectedCommandsSpec {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
 	case object DownstreamConfigure extends DownstreamSignal
@@ -116,7 +120,7 @@ object ShuttleLevelHappyPathSpec {
 
 }
 
-class ShuttleLevelHappyPathSpec
+class ShuttleLevelRejectedCommandsSpec
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
@@ -236,52 +240,49 @@ class ShuttleLevelHappyPathSpec
 				testControllerProbe.expectNoMessage(500 millis)
 			}
 		}
-		"B. Acknowledge receiving a load through an inbound channel" when {
-			"B01. it has just started" in {
+		"B. Reply with Error when trying to puaway into Full Locations" when {
+			"B01. Storing a Load" in {
 				val probeLoad = MaterialLoad("First Load")
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				shuttleLevelManagerProbe.expectMessage(12L -> ShuttleLevel.LoadArrival(chIb1.name, probeLoad))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
+				val storeCmd = ShuttleLevel.Store("Inbound1", Shuttle.OnLeft(2))
+				log.info(s"Queuing Store Command: $storeCmd")
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
+				shuttleLevelManagerProbe.expectMessage((100L -> ShuttleLevel.FailedEmpty(storeCmd, "Destination does not exist or is full")))
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
-			"B02. Signal a second load on the same channel, but do not acknowledge to sender" in {
-				val probeLoad = MaterialLoad("Second Load")
-				val probeLoadMessage = TestProbeMessage("Second Load", probeLoad)
-				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: Second Load")
-				shuttleLevelManagerProbe.expectMessage(12L -> ShuttleLevel.LoadArrival(chIb1.name, probeLoad))
+			"B02. Grooming a load" in {
+				val groomCmd = ShuttleLevel.Groom(Shuttle.OnLeft(2), Shuttle.OnRight(5))
+				log.info(s"Queuing Groom Command: $groomCmd")
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
+				shuttleLevelManagerProbe.expectMessage((130L -> ShuttleLevel.FailedEmpty(groomCmd, "Destination does not exist or is full")))
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
-		"C. Store the load in an location" when {
-			"C01. receiving a Store Command" in {
-				val storeCmd = ShuttleLevel.Store("Inbound1", Shuttle.OnRight(4))
-				log.info(s"Queuing Store Command: $storeCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
-				shuttleLevelManagerProbe.expectMessage((126L -> ShuttleLevel.CompletedCommand(storeCmd)))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
-			}
-			"C02. And then move it to a different location with a Groom Command" in {
-				val groomCmd = ShuttleLevel.Groom(Shuttle.OnRight(4), Shuttle.OnLeft(7))
-				log.info(s"Queuing Groom Command: $groomCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
-				shuttleLevelManagerProbe.expectMessage((151L -> ShuttleLevel.CompletedCommand(groomCmd)))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
-			}
-			"C03. And finally send it through an outbound channel with a Retrieve Command" in {
+		"C. Reply Error when retrieving from empty locations" when {
+			"C01. Retrieving a load" in {
 				val retrieveCmd = ShuttleLevel.Retrieve(Shuttle.OnLeft(7), "Outbound2")
 				log.info(s"Queuing Retrieve Command: $retrieveCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
-				shuttleLevelManagerProbe.expectMessage((180L -> ShuttleLevel.CompletedCommand(retrieveCmd)))
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
+				shuttleLevelManagerProbe.expectMessage((155L -> ShuttleLevel.NotAcceptedCommand(retrieveCmd, "Source or Destination ((None,Some(ShuttleLocation(OnRight(-2))))) are incompatible for Retrieve Command: Retrieve(OnLeft(7),Outbound2)")))
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
+			}
+			"C02. Grooming a Load" in {
+				val groomCmd = ShuttleLevel.Groom(Shuttle.OnRight(4), Shuttle.OnLeft(7))
+				log.info(s"Queuing Groom Command: $groomCmd")
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 160, groomCmd))
+				shuttleLevelManagerProbe.expectMessage((160L -> ShuttleLevel.FailedEmpty(groomCmd, "Origin does not exist or is empty")))
+				testMonitorProbe.expectNoMessage(500 millis)
+				shuttleLevelManagerProbe.expectNoMessage(500 millis)
+			}
+			"C03. Reject Groom when " in {
+
 			}
 		}
 	}

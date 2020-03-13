@@ -64,6 +64,7 @@ object Channel {
 	trait End[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] extends Endpoint[SinkProfile] {
 		val sink: Sink[LOAD, SinkProfile]
 		val receivingSlots: Int
+		def performReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int]
 		def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
@@ -148,7 +149,7 @@ object Channel {
 				def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
 
 				def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
-					log.debug(s"Trying to get $l from delivered $delivered")
+					log.debug(s"Channel: $channelName:: trying to get $l from delivered $delivered")
 					delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
 				}
 
@@ -178,20 +179,22 @@ object Channel {
 						delivered.remove(idx)
 					}
 				}
-
+				def performReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int] = {
+					log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}")
+					if (openSlots nonEmpty) {
+						val idx = openSlots.head
+						openSlots -= idx
+						delivered += idx -> (load, resource)
+						Some(idx)
+					} else {
+						pending.enqueue((load -> resource))
+						None
+					}
+				}
 				override def loadReceiver: Processor.DomainRun[SinkProfile] = {
 					implicit ctx: SignallingContext[SinkProfile] => {
 						case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
-							log.debug(s"Processing Transfer Load ${tr.load} on channel ${ch.name}")
-							if (openSlots nonEmpty) {
-								val idx = openSlots.head
-								openSlots -= idx
-								delivered += idx -> (tr.load, tr.resource)
-								sink.loadArrived(this, tr.load, Some(idx))
-							} else {
-								pending.enqueue((tr.load -> tr.resource))
-								sink.loadArrived(this, tr.load)
-							}
+							sink.loadArrived(this, tr.load, performReceiving(tr.load, tr.resource))
 						case tr: PulledLoad[LOAD] if tr.channel == ch.name =>
 							log.debug(s"Processing PulledLoad with ${tr.load}")
 							acknowledgeLoad(tr.load)

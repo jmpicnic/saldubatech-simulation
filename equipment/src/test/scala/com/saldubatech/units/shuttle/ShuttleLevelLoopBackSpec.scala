@@ -19,7 +19,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object ShuttleLevelHappyPathSpec {
+object ShuttleLevelLoopBackSpec {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
 	case object DownstreamConfigure extends DownstreamSignal
@@ -85,7 +85,7 @@ object ShuttleLevelHappyPathSpec {
 
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
-				testMonitor ! s"Load $load arrived via channel ${endpoint.channelName}"
+				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName}"
 				runner
 			}
 
@@ -116,7 +116,7 @@ object ShuttleLevelHappyPathSpec {
 
 }
 
-class ShuttleLevelHappyPathSpec
+class ShuttleLevelLoopBackSpec
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
@@ -236,8 +236,8 @@ class ShuttleLevelHappyPathSpec
 				testControllerProbe.expectNoMessage(500 millis)
 			}
 		}
-		"B. Acknowledge receiving a load through an inbound channel" when {
-			"B01. it has just started" in {
+		"B. Transfer a load from one channel to another" when {
+			"B01. it receives the load in one channel" in {
 				val probeLoad = MaterialLoad("First Load")
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
@@ -247,38 +247,29 @@ class ShuttleLevelHappyPathSpec
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
-			"B02. Signal a second load on the same channel, but do not acknowledge to sender" in {
-				val probeLoad = MaterialLoad("Second Load")
-				val probeLoadMessage = TestProbeMessage("Second Load", probeLoad)
-				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: Second Load")
-				shuttleLevelManagerProbe.expectMessage(12L -> ShuttleLevel.LoadArrival(chIb1.name, probeLoad))
+			"B02. and then received a Loopback command" in {
+				val loopbackCommand = ShuttleLevel.LoopBack(chIb1.name, "Outbound2")
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, loopbackCommand))
+				shuttleLevelManagerProbe.expectMessage((177L -> ShuttleLevel.CompletedCommand(loopbackCommand)))
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
-		"C. Store the load in an location" when {
-			"C01. receiving a Store Command" in {
-				val storeCmd = ShuttleLevel.Store("Inbound1", Shuttle.OnRight(4))
-				log.info(s"Queuing Store Command: $storeCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
-				shuttleLevelManagerProbe.expectMessage((126L -> ShuttleLevel.CompletedCommand(storeCmd)))
+		"C. Transfer a load from one channel to another" when {
+			val loopbackCommand = ShuttleLevel.LoopBack(chIb1.name, "Outbound2")
+			"C01. it receives the command first" in {
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 190L, loopbackCommand))
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
-			"C02. And then move it to a different location with a Groom Command" in {
-				val groomCmd = ShuttleLevel.Groom(Shuttle.OnRight(4), Shuttle.OnLeft(7))
-				log.info(s"Queuing Groom Command: $groomCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
-				shuttleLevelManagerProbe.expectMessage((151L -> ShuttleLevel.CompletedCommand(groomCmd)))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
-			}
-			"C03. And finally send it through an outbound channel with a Retrieve Command" in {
-				val retrieveCmd = ShuttleLevel.Retrieve(Shuttle.OnLeft(7), "Outbound2")
-				log.info(s"Queuing Retrieve Command: $retrieveCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
-				shuttleLevelManagerProbe.expectMessage((180L -> ShuttleLevel.CompletedCommand(retrieveCmd)))
+			"C02. and then receives the load in the origin channel" in {
+				val probeLoad = MaterialLoad("First Load")
+				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
+				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 240L, probeLoadMessage)
+				testMonitorProbe.expectMessage("FromSender: First Load")
+				shuttleLevelManagerProbe.expectMessage((269L -> ShuttleLevel.CompletedCommand(loopbackCommand)))
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)

@@ -123,7 +123,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 			override val ref: ProcessorRef = host
 			private lazy val slot = inboundSlots(chOps.ch.name)
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, ShuttleLevelMessage], load: MaterialLoad, at: Option[Distance])(implicit ctx: SignallingContext[ShuttleLevelMessage]): Processor.DomainRun[ShuttleLevelMessage] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, ShuttleLevelMessage], load: MaterialLoad, at: Option[Distance] = None)(implicit ctx: SignallingContext[ShuttleLevelMessage]): Processor.DomainRun[ShuttleLevelMessage] = {
 				log.debug(s"DefaultSink: Received load $load at channel ${endpoint.channelName}")
 				ctx.signal(manager, ShuttleLevel.LoadArrival(endpoint.channelName, load))
 				if (slot.isEmpty) {
@@ -200,7 +200,6 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 	}
 
 	type DelayedDomainRun = SignallingContext[ShuttleLevelMessage] => Processor.DomainRun[ShuttleLevelMessage]
-	private def delayedExecution(body: => Processor.DomainRun[ShuttleLevelMessage]): DelayedDomainRun = ctx => body
 
 	private lazy val idle: Processor.DomainRun[ShuttleLevelMessage] = inboundLoadListener orElse outboundLoadListener orElse {
 		ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
@@ -215,21 +214,25 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 								delivering(cmd)(afterDeliverCtx => {
 									afterDeliverCtx.signal(manager, ShuttleLevel.CompletedCommand(cmd))
 									idle
-								}, delayedExecution(errorLoaded))
+								}, _ => errorLoaded)
 							}
 						,
-							delayedExecution (
-								waitingForLoad(inboundChannels(fromCh), fromLoc)(
+							_ => waitingForLoad(inboundChannels(fromCh), fromLoc)(
 									(afterLoadingCtx: Processor.SignallingContext[ShuttleLevelMessage]) => {
 										afterLoadingCtx.signal(shuttle, Shuttle.GoTo(toLoc));
 										delivering(cmd)(afterDeliverCtx => {
 											afterDeliverCtx.signal(manager, ShuttleLevel.CompletedCommand(cmd))
 											idle
-										}, delayedExecution (errorLoaded))
+										}, _ =>  errorLoaded)
 									}
 								)
-							)
 						)
+					case (None, _) =>
+						ctx.reply(NotAcceptedCommand(cmd, s"Inbound Channel does not exist"))
+						idle
+					case (_, None) =>
+						ctx.reply(ShuttleLevel.FailedEmpty(cmd, "Destination does not exist or is full"))
+						idle
 					case other =>
 						ctx.reply(NotAcceptedCommand(cmd, s"From or To ($other) are incompatible for Store Command: $cmd"))
 						idle
@@ -238,96 +241,109 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 				(slots.get(fromLocator).filter(!_.isEmpty), outboundSlots.get(toChName).filter(_.isEmpty)) match {
 					case (Some(fromLoc), Some(toChLoc)) =>
 						ctx.signal(shuttle, Shuttle.GoTo(fromLoc))
-						fetching(cmd)(postFetchingCtx => {
-							postFetchingCtx.signal(shuttle, Shuttle.GoTo(toChLoc))
-							delivering(cmd)(postDeliveryCtx => {
-									if (toChLoc.retrieve.exists(outboundChannels(toChName).send(_)(postDeliveryCtx))) {
-										postDeliveryCtx.signal(manager, CompletedCommand(cmd))
-										idle
-									}
-									else waitingForSlot(outboundChannels(toChName), toChLoc)(_ => idle)
-								},
+						fetching(cmd)(successFetchingCtx => {
+							successFetchingCtx.signal(shuttle, Shuttle.GoTo(toChLoc))
+							delivering(cmd)(postDeliveryCtx => doSendOutbound(toChLoc, toChName, cmd)(postDeliveryCtx),
 								postDeliveryErrorCtx => {waitingForSlot(outboundChannels(toChName), toChLoc)(_ => idle)}
+							)
+						},
+							failedFetchingCtx => {
+								failedFetchingCtx.signal(manager,ShuttleLevel.FailedEmpty(cmd, s"Was not able to Fetch for $cmd"))
+								idle
+							}
+						)
+					case other =>
+						ctx.reply(NotAcceptedCommand(cmd, s"Source or Destination ($other) are incompatible for Retrieve Command: $cmd"))
+						idle
+				}
+			case cmd@Groom(fromLocator, toLocator) =>
+				val maybeFromLoc = slots.get(fromLocator).filter(!_.isEmpty)
+				val maybeToLoc = slots.get(toLocator).filter(_.isEmpty)
+				(maybeFromLoc, maybeToLoc) match {
+					case (Some(fromLoc), Some(toLoc)) =>
+						ctx.signal(shuttle, Shuttle.GoTo(fromLoc))
+						fetching(cmd)(afterFetchingCtx => {
+							afterFetchingCtx.signal(shuttle, Shuttle.GoTo(toLoc))
+							delivering(cmd)(afterDeliverCtx => {
+								afterDeliverCtx.signal(manager, CompletedCommand(cmd))
+								idle
+							},
+								_ => errorLoaded
 							)
 						},
 							_ => idle
 						)
-					case (None, _) | (_, None) =>
-						throw new IllegalArgumentException(s"One of the slots ${(fromLocator, toChName)} does not meet requirements. Contents: ${(slots.get(fromLocator).head.inspect, outboundSlots.get(toChName).head.inspect)} $outboundSlots, $slots")
-					case other =>
-						ctx.reply(NotAcceptedCommand(cmd, s"From or To ($other) are incompatible for Retrieve Command: $cmd"))
+					case (None, Some(toLoc)) =>
+						ctx.reply(ShuttleLevel.FailedEmpty(cmd, "Origin does not exist or is empty"))
+						idle
+					case (Some(fromLoc), None) =>
+						ctx.reply(ShuttleLevel.FailedEmpty(cmd, "Destination does not exist or is full"))
+						idle
+					case (None, None) =>
+						ctx.reply(ShuttleLevel.FailedEmpty(cmd, "Neither Origin or Destination match requirements"))
 						idle
 				}
-			case cmd@Groom(fromLocator, toLocator) =>
-				val fromLoc = slots(fromLocator)
-				val toLoc = slots(toLocator)
-				ctx.signal(shuttle, Shuttle.GoTo(fromLoc))
-				fetching(cmd)(afterFetchingCtx => {
-					afterFetchingCtx.signal(shuttle, Shuttle.GoTo(toLoc))
-					delivering(cmd)(afterDeliverCtx => {
-						afterDeliverCtx.signal(manager, CompletedCommand(cmd))
-						idle
-					},
-						delayedExecution (errorLoaded)
-					)
-				},
-					delayedExecution (idle)
-				)
 			case cmd@LoopBack(fromChName, toChName) =>
 				val fromChEp = inboundChannels(fromChName)
 				val fromChLoc = inboundSlots(fromChName)
 				val toChEp = outboundChannels(toChName)
 				val toChLoc = outboundSlots(toChName)
 				ctx.signal(shuttle, Shuttle.GoTo(fromChLoc))
-				fetching(cmd)(delayedExecution {
-					ctx.signal(shuttle, Shuttle.GoTo(toChLoc))
+				fetching(cmd)(afterFetchingCtx => {
+					afterFetchingCtx.signal(shuttle, Shuttle.GoTo(toChLoc))
 					delivering(cmd)(
-						postDeliveryCtx => {
-							if (toChLoc.retrieve.exists(outboundChannels(toChName).send(_)(postDeliveryCtx))) {
-								ctx.signal(manager, CompletedCommand(cmd))
-								idle
-							}
-							else waitingForSlot(outboundChannels(toChName), toChLoc)(delayedExecution (idle))
-						},
-						delayedExecution (waitingForSlot(toChEp, toChLoc)(delayedExecution (idle)))
+						postDeliveryCtx => doSendOutbound(toChLoc, toChName, cmd)(postDeliveryCtx),
+						_ => waitingForSlot(toChEp, toChLoc)(_ => idle)
 					)
 				},
-					delayedExecution (waitingForLoad(fromChEp, fromChLoc) (
-						delayedExecution {
-							ctx.signal(shuttle, Shuttle.GoTo(toChLoc));
-							delivering(cmd)(
-								delayedExecution {
-									ctx.signal(manager, ShuttleLevel.CompletedCommand(cmd))
-									idle
-								},
-								delayedExecution(errorLoaded)
+					_ => {
+						log.debug(s"Waiting for load on ${fromChEp.channelName} to Loopback to ${toChEp.channelName}")
+						waitingForLoad(fromChEp, fromChLoc)(
+							afterWaitingForLoadCtx => {
+								afterWaitingForLoadCtx.signal(shuttle, Shuttle.GoTo(toChLoc));
+								delivering(cmd)(
+									afterDeliveryCtx => doSendOutbound(toChLoc, toChName, cmd)(afterDeliveryCtx),
+									_ => errorLoaded
+								)
+							}
 						)
-					})
+					}
 				)
-				)
+			case cmd @ PutawayFromTray(to) =>
+				val toLoc = slots(to)
+				ctx.signal(shuttle, Shuttle.GoTo(toLoc))
+				delivering(cmd)(
+					afterDeliveryCtx => {
+						afterDeliveryCtx.signal(manager, CompletedCommand(cmd))
+						idle
+					},
+					_ => errorLoaded
+					)
 		}
 	}
 
+	private def doSendOutbound(toChLoc: ShuttleLocation, toChName: String, cmd: ExternalCommand)(ctx: SignallingContext[ShuttleLevelMessage]): Processor.DomainRun[ShuttleLevelMessage] = {
+		if (toChLoc.retrieve.exists(outboundChannels(toChName).send(_)(ctx))) {
+			ctx.signal(manager, CompletedCommand(cmd))
+			idle
+		}
+		else waitingForSlot(outboundChannels(toChName), toChLoc)(_ => idle)
+	}
 
 	private def errorLoaded: Processor.DomainRun[ShuttleLevelMessage] = inboundLoadListener orElse outboundLoadListener orElse {
-		implicit ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
+		ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
 			case cmd @ OutputFromTray(toChannelName) =>
 				val outLoc = outboundSlots(toChannelName)
-				val outChStart = outboundChannels(toChannelName)
 				ctx.signal(shuttle, Shuttle.GoTo(outLoc))
-				delivering(cmd)(delayedExecution
-					{
-						if(outLoc.retrieve.exists(outChStart.send(_))) idle
-						else waitingForSlot(outboundChannels(toChannelName), outboundSlots(toChannelName))(delayedExecution (idle))
-					},
-					delayedExecution (waitingForSlot(outboundChannels(toChannelName), outboundSlots(toChannelName))(delayedExecution (idle)))
+				delivering(cmd)(afterDeliveryCtx => doSendOutbound(outLoc, toChannelName, cmd)(afterDeliveryCtx),
+					_ => waitingForSlot(outboundChannels(toChannelName), outboundSlots(toChannelName))(_ => idle)
 				)
 			case cmd @ PutawayFromTray(toLoc) =>
-				delivering(cmd)(delayedExecution {
-					ctx.signal(manager, CompletedCommand(cmd))
+				delivering(cmd)(afterDeliveryCtx => {
+					afterDeliveryCtx.signal(manager, CompletedCommand(cmd))
 					idle
 				},
-					delayedExecution(errorLoaded)
+					_ => errorLoaded
 				)
 		}
 	}
@@ -336,12 +352,13 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 		success: DelayedDomainRun,
 		failure: DelayedDomainRun) =
 		inboundLoadListener orElse outboundLoadListener orElse {
-			implicit ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
+			ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
 				case Shuttle.Arrived(Shuttle.GoTo(destination)) if !destination.isEmpty =>
 					ctx.signal(shuttle, Shuttle.Load(destination))
 					loading(success)
+				case Shuttle.Arrived(Shuttle.GoTo(destination)) if destination.isEmpty =>
+					failure(ctx)
 				case other: Shuttle.ShuttleNotification =>
-					ctx.signal(manager,ShuttleLevel.FailedEmpty(cmd, s"Did not get to destination. Instead got: $other"))
 					failure(ctx)
 			}
 		}
@@ -381,11 +398,12 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 	private def waitingForLoad(from: Channel.End[MaterialLoad, ShuttleLevelMessage], fromLoc: => ShuttleLocation)(
 		continue: DelayedDomainRun): Processor.DomainRun[ShuttleLevelMessage] =
 		outboundLoadListener orElse {
-			implicit ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
+			ctx: Processor.SignallingContext[ShuttleLevelMessage] => {
 				case tr: Channel.TransferLoad[MaterialLoad] if tr.channel == from.channelName =>
+					from.performReceiving(tr.load, tr.resource)(ctx)
 					if (fromLoc isEmpty) {
+						from.get(tr.load)(ctx)
 						fromLoc store tr.load
-						from.get(tr.load)
 						ctx.signal(shuttle, Shuttle.Load(fromLoc))
 						loading(continue)
 					} else {
