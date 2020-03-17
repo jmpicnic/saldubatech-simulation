@@ -2,10 +2,12 @@ package com.saldubatech.ddes.testHarness
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
-import com.saldubatech.ddes.Clock
+import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.ddes.Clock.{CompleteAction, StartActionOnReceive}
 import com.saldubatech.ddes.Processor.{ConfigurationCommand, ProcessCommand, ProcessorMessage}
+object ProcessorSink {
 
+}
 class ProcessorSink[DomainMessage](observer: ActorRef[(Clock.Tick, DomainMessage)], clock: Clock.ClockRef) {
 	def init = Behaviors.setup[ProcessorMessage]{
 		implicit ctx => run
@@ -15,6 +17,7 @@ class ProcessorSink[DomainMessage](observer: ActorRef[(Clock.Tick, DomainMessage
 		(ctx, msg) => msg match {
 			case cmd: ProcessCommand[DomainMessage] =>
 				ctx.log.info(s"Processing Command: ${cmd.dm}")
+				ctx.log.debug(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: ${cmd.dm}")
 				clock ! StartActionOnReceive(cmd)
 				observer ! cmd.at -> cmd.dm
 				clock ! CompleteAction(cmd)

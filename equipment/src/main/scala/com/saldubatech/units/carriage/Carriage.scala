@@ -8,7 +8,7 @@ import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.{ClockMessage, Delay}
 import com.saldubatech.ddes.Processor
-import com.saldubatech.ddes.Processor.ProcessorRef
+import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.physics.Travel
 import com.saldubatech.physics.Travel.Speed
@@ -47,6 +47,7 @@ object Carriage {
 	}
 
 	sealed trait CarriageSignal
+	type Ref = Processor.Ref
 
 	sealed trait CarriageConfigure extends CarriageSignal
 	case class Configure(initialPosition: Slot) extends Identification.Impl() with CarriageConfigure
@@ -57,7 +58,7 @@ object Carriage {
 	case class Unload(loc: Slot) extends Identification.Impl() with CarriageCommand
 	case class GoTo(loc: Slot) extends Identification.Impl() with CarriageCommand
 
-	case class CompleteConfiguration(pr: Processor.ProcessorRef) extends Processor.BaseCompleteConfiguration(pr) with CarriageNotification
+	case class CompleteConfiguration(pr: Processor.Ref) extends Identification.Impl() with CarriageNotification
 	case class UnacceptableCommand(cmd: CarriageCommand, reason: String) extends Identification.Impl() with CarriageNotification
 	case class Loaded(cmd: Load) extends Identification.Impl() with CarriageNotification
 	case class Unloaded(cmd: Unload, load: MaterialLoad) extends Identification.Impl() with CarriageNotification
@@ -78,7 +79,7 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 	private var tray: Option[MaterialLoad] = None
 	private var currentLocation: Slot = _
 
-	private var currentClient: Option[ProcessorRef] = None
+	private var currentClient: Option[Ref] = None
 
 	def configurer: Processor.DomainConfigure[CarriageSignal] = new Processor.DomainConfigure[CarriageSignal] {
 		override def configure(config: CarriageSignal)(implicit ctx: Processor.SignallingContext[CarriageSignal]): Processor.DomainRun[CarriageSignal] = config match {
@@ -165,9 +166,9 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 						idleFull
 					}
 				} else {
-					ctx.signal(currentClient.head, UnacceptableCommand(cmd, s"Cannot load from empty Loaction $loc"))
+					ctx.signal(currentClient.head, UnacceptableCommand(cmd, s"Cannot load with a Full Tray"))
 					currentClient = None
-					idleEmpty
+					idleFull
 				}
 			case other =>
 				log.error(s"Unknown signal received loading $other")

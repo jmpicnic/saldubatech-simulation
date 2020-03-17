@@ -1,0 +1,64 @@
+@startuml
+actor FanInManager
+boundary u1
+underTest -> FanInManager: CompletedConfiguration(Actor[akka://FanInDelayedSlotReleaseSpec/user/underTest#-1156359413])
+u1 -> u1: TestProbeMessage(First Load,MaterialLoad(First Load))
+autonumber 12 0
+u1 -> underTest: TransferLoad(load: MaterialLoad(First Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> FanInManager: LoadArrival(Inbound1,MaterialLoad(First Load))
+underTest -> underTest: PulledLoad(load: MaterialLoad(First Load), channel: Inbound1, idx: 0)
+underTest -> u1: AcknowledgeLoad(load: MaterialLoad(First Load), channel: Inbound1, resource: Ib1_c1)
+autonumber 155 0
+FanInManager -> underTest: Transfer(Inbound1)
+underTest -> carriage: GoTo(Slot(OnLeft(0)))
+autonumber 158 0
+carriage -> carriage: Arriving(GoTo(Slot(OnLeft(0))),Slot(OnLeft(0)))
+carriage -> underTest: Arrived(GoTo(Slot(OnLeft(0))))
+underTest -> carriage: Load(Slot(OnLeft(0)))
+autonumber 166 0
+carriage -> carriage: DoneLoading(Load(Slot(OnLeft(0))))
+carriage -> underTest: Loaded(Load(Slot(OnLeft(0))))
+underTest -> carriage: GoTo(Slot(OnLeft(-1)))
+autonumber 169 0
+carriage -> carriage: Arriving(GoTo(Slot(OnLeft(-1))),Slot(OnLeft(-1)))
+carriage -> underTest: Arrived(GoTo(Slot(OnLeft(-1))))
+underTest -> carriage: Unload(Slot(OnLeft(-1)))
+autonumber 177 0
+carriage -> carriage: DoneUnloading(Unload(Slot(OnLeft(-1))))
+carriage -> underTest: Unloaded(Unload(Slot(OnLeft(-1))),MaterialLoad(First Load))
+underTest -> FanInManager: CompletedCommand(Transfer(Inbound1))
+autonumber 187 0
+underTest -> discharge: TransferLoad(load: MaterialLoad(First Load), channel: Discharge, resource: Ob1_c1)
+autonumber 190 0
+FanInManager -> underTest: Transfer(Inbound1)
+underTest -> carriage: GoTo(Slot(OnLeft(0)))
+autonumber 193 0
+carriage -> carriage: Arriving(GoTo(Slot(OnLeft(0))),Slot(OnLeft(0)))
+carriage -> underTest: Arrived(GoTo(Slot(OnLeft(0))))
+u1 -> u1: TestProbeMessage(Second Load,MaterialLoad(Second Load))
+autonumber 250 0
+u1 -> underTest: TransferLoad(load: MaterialLoad(Second Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> underTest: PulledLoad(load: MaterialLoad(Second Load), channel: Inbound1, idx: 0)
+underTest -> carriage: Load(Slot(OnLeft(0)))
+underTest -> u1: AcknowledgeLoad(load: MaterialLoad(Second Load), channel: Inbound1, resource: Ib1_c1)
+autonumber 258 0
+carriage -> carriage: DoneLoading(Load(Slot(OnLeft(0))))
+carriage -> underTest: Loaded(Load(Slot(OnLeft(0))))
+underTest -> carriage: GoTo(Slot(OnLeft(-1)))
+autonumber 261 0
+carriage -> carriage: Arriving(GoTo(Slot(OnLeft(-1))),Slot(OnLeft(-1)))
+carriage -> underTest: Arrived(GoTo(Slot(OnLeft(-1))))
+underTest -> carriage: Unload(Slot(OnLeft(-1)))
+autonumber 269 0
+carriage -> carriage: DoneUnloading(Unload(Slot(OnLeft(-1))))
+carriage -> underTest: Unloaded(Unload(Slot(OnLeft(-1))),MaterialLoad(Second Load))
+underTest -> FanInManager: CompletedCommand(Transfer(Inbound1))
+autonumber 280 0
+discharge -> discharge: ConsumeLoad
+discharge -> discharge: PulledLoad(load: MaterialLoad(First Load), channel: Discharge, idx: 0)
+discharge -> underTest: AcknowledgeLoad(load: MaterialLoad(First Load), channel: Discharge, resource: Ob1_c1)
+underTest -> underTest: SlotBecomesAvailable(Slot(OnLeft(-1)))
+autonumber 290 0
+underTest -> discharge: TransferLoad(load: MaterialLoad(Second Load), channel: Discharge, resource: Ob1_c1)
+
+@enduml

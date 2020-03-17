@@ -15,7 +15,7 @@ import com.saldubatech.util.LogEnabled
 object Processor {
 	trait ProcessorMessage
 	type ProcessorBehavior = Behavior[ProcessorMessage]
-	type ProcessorRef = ActorRef[ProcessorMessage/*[TargetDomainMessage]*/]
+	type Ref = ActorRef[ProcessorMessage/*[TargetDomainMessage]*/]
 
 	trait ProcessorCommand extends Command with ProcessorMessage
 	trait ProcessorControlCommand extends ProcessorCommand
@@ -27,23 +27,23 @@ object Processor {
 	trait ProcessorNotification extends Notification with Identification with ControllerMessage
 	case class RegisterProcessor(p: ActorRef[ProcessorMessage]) extends Identification.Impl() with ProcessorNotification
 	class BaseCompleteConfiguration(p: ActorRef[ProcessorMessage]) extends Identification.Impl() with ProcessorNotification
-	case class CompleteConfiguration(p: ProcessorRef) extends BaseCompleteConfiguration(p: ProcessorRef)
+	case class CompleteConfiguration(p: Ref) extends BaseCompleteConfiguration(p: Ref)
 	case class Run(at: Tick) extends Identification.Impl() with ProcessorNotification
 
 	trait SignallingContext[DomainMessage] {
-		val from: ProcessorRef
+		val from: Ref
 		val now: Tick
 		val aCtx: ActorContext[ProcessorMessage]
 		implicit protected val clock: ActorRef[ClockMessage]
 
 		protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand
 
-		private def doTell[TargetDomainMessage](to: ProcessorRef, msg: TargetDomainMessage, delay: Option[Delay]): Unit =
+		private def doTell[TargetDomainMessage](to: Ref, msg: TargetDomainMessage, delay: Option[Delay]): Unit =
 			clock ! Clock.Enqueue(to, wrap(aCtx.self, now + delay.getOrElse(0L), msg))
 
-		def signaller[TargetDomainMessage](to: ProcessorRef): (TargetDomainMessage, Option[Delay]) => Unit = (m, d) => doTell(to, m, d)
-		def signal[TargetDomainMessage](to: ProcessorRef, msg: TargetDomainMessage): Unit = doTell(to, msg, None)
-		def signal[TargetDomainMessage](to: ProcessorRef, msg: TargetDomainMessage, delay: Delay): Unit = doTell(to, msg, Some(delay))
+		def signaller[TargetDomainMessage](to: Ref): (TargetDomainMessage, Option[Delay]) => Unit = (m, d) => doTell(to, m, d)
+		def signal[TargetDomainMessage](to: Ref, msg: TargetDomainMessage): Unit = doTell(to, msg, None)
+		def signal[TargetDomainMessage](to: Ref, msg: TargetDomainMessage, delay: Delay): Unit = doTell(to, msg, Some(delay))
 		def signalSelf(msg: DomainMessage) = doTell(aCtx.self, msg, None)
 		def signalSelf(msg: DomainMessage, delay: Delay) = doTell(aCtx.self, msg, Some(delay))
 		def reply[TargetDomainMessage](msg: TargetDomainMessage, delay: Delay) = doTell(from, msg, Some(delay))
@@ -53,11 +53,11 @@ object Processor {
 		def commandContext = CommandContext(from, now, aCtx)
 	}
 
-	case class CommandContext[DomainMessage](override val from: ProcessorRef, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override protected val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
+	case class CommandContext[DomainMessage](override val from: Ref, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override protected val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
 		override protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand = ProcessCommand(aCtx.self, at, msg)
 	}
 
-	case class ConfigureContext[DomainMessage](override val from: ProcessorRef, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override protected val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
+	case class ConfigureContext[DomainMessage](override val from: Ref, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override protected val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
 		override protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand = ConfigurationCommand(aCtx.self, at, msg)
 	}
 
@@ -90,6 +90,9 @@ object Processor {
 		def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainMessageProcessor[DomainMessage]
 	}
 
+	type DelayedDomainRun[DomainSignal] = SignallingContext[DomainSignal] => Processor.DomainRun[DomainSignal]
+
+
 }
 
 class Processor[DomainMessage](val processorName: String,
@@ -99,8 +102,8 @@ class Processor[DomainMessage](val processorName: String,
                               ) extends LogEnabled {
 	import Processor._
 
-	lazy val ref: ProcessorRef = _ref.head
-	private var _ref: Option[ProcessorRef] = None
+	lazy val ref: Ref = _ref.head
+	private var _ref: Option[Ref] = None
 
 	def init = Behaviors.setup[ProcessorMessage]{
 		implicit ctx =>
@@ -132,6 +135,7 @@ class Processor[DomainMessage](val processorName: String,
 			(ctx, msg) =>
 				msg match {
 					case cmd: ProcessCommand[DomainMessage] =>
+						ctx.log.debug(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: ${cmd.dm}")
 						ctx.log.debug(s"Processing Command: ${cmd.dm} with $runner")
 						clock ! StartActionOnReceive(cmd)
 						val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)

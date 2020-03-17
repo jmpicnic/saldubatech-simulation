@@ -72,13 +72,13 @@ object Channel {
 	}
 
 	trait Sink[L <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] {
-		val ref: Processor.ProcessorRef
+		val ref: Processor.Ref
 		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
 		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
 	}
 
 	trait Source[L <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] {
-		val ref: Processor.ProcessorRef
+		val ref: Processor.Ref
 		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
 	}
 

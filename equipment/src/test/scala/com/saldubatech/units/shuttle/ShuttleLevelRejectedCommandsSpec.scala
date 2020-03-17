@@ -9,7 +9,7 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Processor.ProcessorRef
+import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
@@ -48,13 +48,13 @@ object ShuttleLevelRejectedCommandsSpec {
 	}
 
 	trait Fixture[DomainMessage] extends LogEnabled {
-		var _ref: Option[ProcessorRef] = None
+		var _ref: Option[Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, ShuttleLevel.ShuttleLevelSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
-			override lazy val ref: ProcessorRef = _ref.head
+			override lazy val ref: Ref = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType]): Processor.DomainRun[ChannelConnections.DummySourceMessageType] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -83,7 +83,7 @@ object ShuttleLevelRejectedCommandsSpec {
 
 	class SinkFixture(ops: Channel.Ops[MaterialLoad, ShuttleLevel.ShuttleLevelSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
-			override lazy val ref: ProcessorRef = _ref.head
+			override lazy val ref: Ref = _ref.head
 
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
@@ -143,7 +143,7 @@ class ShuttleLevelRejectedCommandsSpec
 	val testControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = testControllerProbe.ref
 
-	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, ShuttleLevelSignal)]
+	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, ShuttleLevel.ShuttleLevelNotification)]
 	val shuttleLevelManagerRef = shuttleLevelManagerProbe.ref
 	val shuttleLevelManagerProcessor = new ProcessorSink(shuttleLevelManagerRef, globalClock)
 	val shuttleLevelManager = testKit.spawn(shuttleLevelManagerProcessor.init, "ShuttleLevelManager")
