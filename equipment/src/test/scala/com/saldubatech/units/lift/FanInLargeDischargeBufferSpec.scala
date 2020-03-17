@@ -19,7 +19,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object FanInDelayedSlotReleaseSpec {
+object FanInLargeDischargeBufferSpec {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
 	case object DownstreamConfigure extends DownstreamSignal
@@ -122,7 +122,7 @@ object FanInDelayedSlotReleaseSpec {
 
 }
 
-class FanInDelayedSlotReleaseSpec
+class FanInLargeDischargeBufferSpec
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
@@ -169,7 +169,7 @@ class FanInDelayedSlotReleaseSpec
 		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
 		val ib = Seq(Carriage.Slot(Carriage.OnLeft(0)) -> chIb1, Carriage.Slot(Carriage.OnLeft(1)) -> chIb2)
 
-		val discharge = Carriage.Slot(Carriage.OnLeft(-1)) -> new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1"), 1, "Discharge")
+		val discharge = Carriage.Slot(Carriage.OnLeft(-1)) -> new OutboundChannelImpl(() => Some(10L), Set("Discharge_c1", "Discharge_c2"), 1, "Discharge")
 
 		val carriage: Processor.Ref = testKit.spawn(carriageProcessor.init, "carriage")
 
@@ -262,6 +262,7 @@ class FanInDelayedSlotReleaseSpec
 		}
 		"C. Transfer a second load from one collector to the discharge" when {
 			val secondTransferCommand = FanIn.Transfer(chIb1.name)
+			val thirdTransferCommand = FanIn.Transfer(chIb1.name)
 			"C01. it receives the command first" in {
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(fanInManager, 190L, secondTransferCommand))
 				testMonitorProbe.expectNoMessage(500 millis)
@@ -273,23 +274,36 @@ class FanInDelayedSlotReleaseSpec
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
-//				fanInManagerProbe.expectMessage(269L -> FanIn.CompletedCommand(secondTransferCommand))
+				fanInManagerProbe.expectMessage(269L -> FanIn.CompletedCommand(secondTransferCommand))
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
 				testMonitorProbe.expectNoMessage(500 millis)// Load is not received.
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
-			"C03. and then the discharge consumes load, second load is sent" in {
-				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 280L, ConsumeLoad))
-				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c1))")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
-				fanInManagerProbe.expectMessage(280L -> FanIn.CompletedCommand(secondTransferCommand))
-				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
+			"C03. One more load to force the shuttle to error out and the FanIn to waitforslot" in {
+				val thirdLoad = MaterialLoad("Third Load")
+				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
+				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)
+				testMonitorProbe.expectMessage("FromSender: Third Load")
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Third Load)")
+				fanInManagerProbe.expectMessage(285L -> FanIn.LoadArrival("Inbound1", thirdLoad))
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(fanInManager, 288L, thirdTransferCommand))
+//				fanInManagerProbe.expectMessage(288L -> FanIn.FailedBusy(thirdTransferCommand, "Command cannot be processed. Processor is Busy"))
 				testMonitorProbe.expectNoMessage(500 millis)
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
-			"C04. And signal an Acknowledge Load after releasing the second laod" in {
-				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 300L, ConsumeLoad))
-				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
+			"C04. and then the discharge consumes load, second load is sent and third command is complete" in {
+				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 310L, ConsumeLoad))
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
+				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Discharge_c1))")
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
+				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 330L, ConsumeLoad))
+				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Discharge_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
+				fanInManagerProbe.expectMessage(330L -> FanIn.CompletedCommand(thirdTransferCommand))
+				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) arrived to Sink via channel Discharge")
+				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 365L, ConsumeLoad))
+				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Discharge_c2))")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) released on channel Discharge")
 				testMonitorProbe.expectNoMessage(500 millis)
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}

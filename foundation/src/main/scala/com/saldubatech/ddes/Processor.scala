@@ -30,7 +30,7 @@ object Processor {
 	case class CompleteConfiguration(p: Ref) extends BaseCompleteConfiguration(p: Ref)
 	case class Run(at: Tick) extends Identification.Impl() with ProcessorNotification
 
-	trait SignallingContext[DomainMessage] {
+	trait SignallingContext[DomainMessage] extends LogEnabled {
 		val from: Ref
 		val now: Tick
 		val aCtx: ActorContext[ProcessorMessage]
@@ -38,8 +38,10 @@ object Processor {
 
 		protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand
 
-		private def doTell[TargetDomainMessage](to: Ref, msg: TargetDomainMessage, delay: Option[Delay]): Unit =
+		private def doTell[TargetDomainMessage](to: Ref, msg: TargetDomainMessage, delay: Option[Delay]): Unit = {
+//			log.info(s"MSC: ${from.path.name} -> ${to.path.name}: [${now}::${now+delay.getOrElse(0L)}] ${msg}")
 			clock ! Clock.Enqueue(to, wrap(aCtx.self, now + delay.getOrElse(0L), msg))
+		}
 
 		def signaller[TargetDomainMessage](to: Ref): (TargetDomainMessage, Option[Delay]) => Unit = (m, d) => doTell(to, m, d)
 		def signal[TargetDomainMessage](to: Ref, msg: TargetDomainMessage): Unit = doTell(to, msg, None)
@@ -135,15 +137,15 @@ class Processor[DomainMessage](val processorName: String,
 			(ctx, msg) =>
 				msg match {
 					case cmd: ProcessCommand[DomainMessage] =>
-						ctx.log.debug(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: ${cmd.dm}")
-						ctx.log.debug(s"Processing Command: ${cmd.dm} with $runner")
+//						ctx.log.info(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: [${cmd.at}] ${cmd.dm}")
+						ctx.log.debug(s"Processing Command: ${cmd.dm} at ${cmd.at}")
 						clock ! StartActionOnReceive(cmd)
 						val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)
-						ctx.log.debug(s"Done Processing Command: ${cmd.dm} at ${cmd.at} by ${ctx.self}")
+//						ctx.log.debug(s"Done Processing Command: ${cmd.dm} at ${cmd.at} by ${ctx.self}")
 						clock ! CompleteAction(cmd)
 						next match {
 							case r: DomainRun.Same[DomainMessage] =>
-								log.debug(s"Repeating DomainRun")
+//								log.debug(s"Repeating DomainRun")
 								behaviorizeRunner(runner)
 							case other => behaviorizeRunner(next)
 						}

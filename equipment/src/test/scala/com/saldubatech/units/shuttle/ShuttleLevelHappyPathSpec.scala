@@ -142,7 +142,7 @@ class ShuttleLevelHappyPathSpec
 	val testControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = testControllerProbe.ref
 
-	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, ShuttleLevel.ShuttleLevelNotification)]
+	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, ShuttleLevel.Notification)]
 	val shuttleLevelManagerRef = shuttleLevelManagerProbe.ref
 	val shuttleLevelManagerProcessor = new ProcessorSink(shuttleLevelManagerRef, globalClock)
 	val shuttleLevelManager = testKit.spawn(shuttleLevelManagerProcessor.init, "ShuttleLevelManager")

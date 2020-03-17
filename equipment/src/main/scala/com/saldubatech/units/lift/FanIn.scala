@@ -16,18 +16,16 @@ object FanIn {
 	type CTX = Processor.SignallingContext[LiftAssemblySignal]
 	type RUNNER = Processor.DomainRun[LiftAssemblySignal]
 
-	sealed abstract class ShuttleLevelConfigurationCommand extends Identification.Impl() with LiftAssemblySignal
-	case object NoConfigure extends ShuttleLevelConfigurationCommand
+	sealed abstract class ConfigurationCommand extends Identification.Impl() with LiftAssemblySignal
+	case object NoConfigure extends ConfigurationCommand
 
-	sealed abstract class FanInCommand extends Identification.Impl() with LiftAssemblySignal
-	case class Transfer(fromCh: String) extends FanInCommand
-	case object OutputFromTray extends FanInCommand
+	sealed abstract class ExternalCommand extends Identification.Impl() with LiftAssemblySignal
+	case class Transfer(fromCh: String) extends ExternalCommand
 
 	sealed abstract class Notification extends Identification.Impl() with LiftAssemblySignal
-	case class CompletedCommand(cmd: FanInCommand) extends Notification
-	case class FailedBusy(cmd: FanInCommand, msg: String) extends Notification
+	case class CompletedCommand(cmd: ExternalCommand) extends Notification
+	case class FailedBusy(cmd: ExternalCommand, msg: String) extends Notification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Notification
-//	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Notification
 	case class CompletedConfiguration(self: Processor.Ref) extends Notification
 
 	sealed abstract class InternalSignal extends Identification.Impl() with LiftAssemblySignal
@@ -66,7 +64,6 @@ object FanIn {
 				ctx.aCtx.log.debug(s"Finishing Load Released at Sink for ${endpoint.channelName}")
 				Processor.DomainRun.same[LiftAssemblySignal]
 			}
-
 			val end = chOps.registerEnd(this)
 		}).end
 
@@ -77,7 +74,7 @@ object FanIn {
 			val start = chOps.registerStart(this)
 
 			override def loadAcknowledged(endpoint: Channel.Start[MaterialLoad, LiftAssemblySignal], load: MaterialLoad)(implicit ctx: CTX): RUNNER = {
-				if (slot.retrieve nonEmpty) ctx.signalSelf(SlotBecomesAvailable(slot))
+				if (slot.inspect nonEmpty) ctx.signalSelf(SlotBecomesAvailable(slot))
 				Processor.DomainRun.same[LiftAssemblySignal]
 			}
 		}).start
@@ -92,10 +89,10 @@ object FanIn {
 		new Processor[FanIn.LiftAssemblySignal](name, clockRef, simController, domain.configurer)
 	}
 
-	private val ignoreSlotAvailable: Processor.DomainRun[LiftAssemblySignal] = Processor.DomainRun {
+	private val ignoreSlotAvailable: FanIn.RUNNER = Processor.DomainRun {
 		case SlotBecomesAvailable(_) =>	Processor.DomainRun.same[LiftAssemblySignal]
 	}
-	private val rejectTransferCommand: Processor.DomainRun[LiftAssemblySignal] = (ctx: FanIn.CTX) => {
+	private val rejectTransferCommand: FanIn.RUNNER = (ctx: FanIn.CTX) => {
 		case cmd @ Transfer(fromCh) =>
 			ctx.reply(FanIn.FailedBusy(cmd, "Command cannot be processed. Processor is Busy"))
 			Processor.DomainRun.same
@@ -164,7 +161,7 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 	}
 
 	private def fetching(success: DelayedDomainRun[LiftAssemblySignal],
-	                     fail: DelayedDomainRun[LiftAssemblySignal])(implicit cmd: FanInCommand, requester: Processor.Ref): FanIn.RUNNER =
+	                     fail: DelayedDomainRun[LiftAssemblySignal])(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
 		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
 			ctx: FanIn.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
@@ -178,7 +175,7 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 	}
 
 	private def delivering(success: DelayedDomainRun[LiftAssemblySignal],
-	                     fail: DelayedDomainRun[LiftAssemblySignal])(implicit cmd: FanInCommand, requester: Processor.Ref): FanIn.RUNNER =
+	                     fail: DelayedDomainRun[LiftAssemblySignal])(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
 		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
 			implicit ctx: FanIn.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
@@ -192,23 +189,32 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 			}
 	}
 
-	private def doDischarge(ctx: FanIn.CTX)(implicit cmd: FanInCommand, requester: Processor.Ref): FanIn.RUNNER = {
+	private def doDischarge(ctx: FanIn.CTX)(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER = {
 		log.info(s"Discharging $dischargeSlot with ${dischargeSlot.inspect} to ${dischargeChannel.channelName}")
-		if (dischargeChannel.send(dischargeSlot.inspect.head)(ctx)) {
+		if(dischargeSlot.inspect.isEmpty) throw new IllegalStateException(s"Unexpected Empty Discharge slot while executing $cmd for $requester")
+		else if (dischargeSlot.inspect.exists(dischargeChannel.send(_)(ctx))) {
+			dischargeSlot.retrieve
 			ctx.signal(requester, CompletedCommand(cmd))
 			idle
 		} else waitingForSlot
 	}
-/*
-ctx.signal(manager, FanIn.LoadAcknowledged(endpoint.channelName, load))
-				else
- */
-	private def waitingForSlot(implicit cmd: FanInCommand, requester: Processor.Ref): FanIn.RUNNER =
+
+	private def waitingForSlot(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
 		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse {
 			ctx: FanIn.CTX => {
 					case signal@SlotBecomesAvailable(slot) if slot == dischargeSlot =>
-						ctx.signal(configuration.carriage, Carriage.Unload(slot))
-						unloading(afterUnloadingCtx => doDischarge(afterUnloadingCtx))
+						if(slot.isEmpty) {
+							log.info(s"DISCHARGE SLOT: EMPTY")
+							idle
+						}
+						/*{
+							ctx.signal(configuration.carriage, Carriage.Unload(slot))
+							unloading(afterUnloadingCtx => doDischarge(afterUnloadingCtx))
+						}*/
+						else {
+							log.info(s"DISCHARGE SLOT: FULL ${dischargeSlot.inspect}")
+							doDischarge(ctx)
+						}
 				}
 		}
 
@@ -244,17 +250,6 @@ ctx.signal(manager, FanIn.LoadAcknowledged(endpoint.channelName, load))
 		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
 			implicit ctx: FanIn.CTX => {
 				case Carriage.Loaded(Carriage.Load(loc)) => continue(ctx)
-			}
-		}
-
-	private def errorLoaded(implicit sourceCmd: FanInCommand, requester: Processor.Ref): FanIn.RUNNER =
-		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
-			ctx: FanIn.CTX => {
-				case cmd @ OutputFromTray=>
-					ctx.signal(configuration.carriage, Carriage.GoTo(dischargeSlot))
-					delivering(afterDeliveryCtx => doDischarge(afterDeliveryCtx),
-						_ => waitingForSlot
-					)
 			}
 		}
 

@@ -16,8 +16,8 @@ class ProcessorSink[DomainMessage](observer: ActorRef[(Clock.Tick, DomainMessage
 	def run: Behavior[ProcessorMessage] = Behaviors.receive[ProcessorMessage]{
 		(ctx, msg) => msg match {
 			case cmd: ProcessCommand[DomainMessage] =>
-				ctx.log.info(s"Processing Command: ${cmd.dm}")
-				ctx.log.debug(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: ${cmd.dm}")
+				ctx.log.debug(s"Processing Command: ${cmd.dm}")
+//				ctx.log.info(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: [${cmd.at}] ${cmd.dm}")
 				clock ! StartActionOnReceive(cmd)
 				observer ! cmd.at -> cmd.dm
 				clock ! CompleteAction(cmd)

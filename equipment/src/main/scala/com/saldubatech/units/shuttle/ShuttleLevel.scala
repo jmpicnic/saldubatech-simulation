@@ -6,10 +6,8 @@ package com.saldubatech.units.shuttle
 
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.{Identification, Types}
-import com.saldubatech.ddes.Clock.{ClockMessage, Delay}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.ddes.Processor.{DelayedDomainRun, Ref, SignallingContext}
-import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.physics.Travel.{Distance, Speed}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.{Carriage, CarriageNotification}
@@ -19,14 +17,10 @@ import com.saldubatech.util.LogEnabled
 import scala.collection.mutable
 
 object ShuttleLevel {
-
-
-
-
-	private def inboundLocator(idx: Int): SlotLocator = OnLeft(idx)
-	private def outboundLocator(idx: Int): SlotLocator = OnRight(idx)
-
 	trait ShuttleLevelSignal extends Identification
+
+	type CTX = Processor.SignallingContext[ShuttleLevelSignal]
+	type RUNNER = Processor.DomainRun[ShuttleLevelSignal]
 
 	sealed abstract class ShuttleLevelConfigurationCommand extends Identification.Impl() with ShuttleLevelSignal
 	case object NoConfigure extends ShuttleLevelConfigurationCommand
@@ -45,14 +39,14 @@ object ShuttleLevel {
 	case class Groom(from: SlotLocator, to: SlotLocator) extends ExternalCommand
 	case class PutawayFromTray(to: SlotLocator) extends ExternalCommand
 
-	sealed abstract class ShuttleLevelNotification extends Identification.Impl
-	case class FailedEmpty(cmd: ExternalCommand, reason: String) extends ShuttleLevelNotification
-	case class FailedFull(cmd: ExternalCommand, reason: String) extends ShuttleLevelNotification
-	case class NotAcceptedCommand(cmd: ExternalCommand, reason: String) extends ShuttleLevelNotification
-	case class CompletedCommand(cmd: ExternalCommand) extends ShuttleLevelNotification
-	case class LoadArrival(fromCh: String, load: MaterialLoad) extends ShuttleLevelNotification
-	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends ShuttleLevelNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends ShuttleLevelNotification
+	sealed abstract class Notification extends Identification.Impl with ShuttleLevelSignal
+	case class FailedEmpty(cmd: ExternalCommand, reason: String) extends Notification
+	case class FailedFull(cmd: ExternalCommand, reason: String) extends Notification
+	case class NotAcceptedCommand(cmd: ExternalCommand, reason: String) extends Notification
+	case class CompletedCommand(cmd: ExternalCommand) extends Notification
+	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Notification
+	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Notification
+	case class CompletedConfiguration(self: Processor.Ref) extends Notification
 
 	case class Configuration[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
 	(depth: Int,
@@ -89,11 +83,11 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 
 	private val inboundSlots: mutable.Map[String, Slot] = mutable.Map.empty
 	private val inboundChannels: mutable.Map[String, Channel.End[MaterialLoad, ShuttleLevelSignal]] = mutable.Map.empty
-	private var inboundLoadListener: Processor.DomainRun[ShuttleLevelSignal] = null
+	private var inboundLoadListener: ShuttleLevel.RUNNER = null
 
 	private val outboundSlots: mutable.Map[String, Slot] = mutable.Map.empty
 	private val outboundChannels: mutable.Map[String, Channel.Start[MaterialLoad, ShuttleLevelSignal]] = mutable.Map.empty
-	private var outboundLoadListener: Processor.DomainRun[ShuttleLevelSignal] = null
+	private var outboundLoadListener: ShuttleLevel.RUNNER = null
 
 	private var _carriage: ActorRef[Processor.ProcessorMessage] = null
 
@@ -104,7 +98,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 			override val ref: Ref = host
 			private lazy val slot = inboundSlots(chOps.ch.name)
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, ShuttleLevelSignal], load: MaterialLoad, at: Option[Distance] = None)(implicit ctx: SignallingContext[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, ShuttleLevelSignal], load: MaterialLoad, at: Option[Distance] = None)(implicit ctx: SignallingContext[ShuttleLevelSignal]): ShuttleLevel.RUNNER = {
 				log.debug(s"DefaultSink: Received load $load at channel ${endpoint.channelName}")
 				ctx.signal(manager, ShuttleLevel.LoadArrival(endpoint.channelName, load))
 				if (slot.isEmpty) {
@@ -117,7 +111,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 				Processor.DomainRun.same[ShuttleLevelSignal]
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, ShuttleLevelSignal], load: MaterialLoad, at: Option[Distance])(implicit ctx: SignallingContext[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, ShuttleLevelSignal], load: MaterialLoad, at: Option[Distance])(implicit ctx: SignallingContext[ShuttleLevelSignal]): ShuttleLevel.RUNNER = {
 				if (slot.isEmpty) endpoint.getNext.foreach(t => slot.store(t._1))
 				log.debug(s"Finishing Load Released at Sink for ${endpoint.channelName}")
 				Processor.DomainRun.same[ShuttleLevelSignal]
@@ -132,7 +126,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 			override val ref: Ref = host
 			private lazy val slot = outboundSlots(chOps.ch.name)
 
-			override def loadAcknowledged(endpoint: Channel.Start[MaterialLoad, ShuttleLevelSignal], load: MaterialLoad)(implicit ctx: SignallingContext[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] = {
+			override def loadAcknowledged(endpoint: Channel.Start[MaterialLoad, ShuttleLevelSignal], load: MaterialLoad)(implicit ctx: SignallingContext[ShuttleLevelSignal]): ShuttleLevel.RUNNER = {
 				ctx.signal(manager, ShuttleLevel.LoadAcknowledged(endpoint.channelName, load))
 				if (slot.inspect.exists(start.send(_))) slot.retrieve
 				log.debug(s"Finishing Load Acknowledge at Source for ${endpoint.channelName}")
@@ -180,14 +174,14 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 		}
 	}
 
-	private lazy val idle: Processor.DomainRun[ShuttleLevelSignal] = inboundLoadListener orElse outboundLoadListener orElse {
-		ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+	private lazy val idle: ShuttleLevel.RUNNER = inboundLoadListener orElse outboundLoadListener orElse {
+		ctx: ShuttleLevel.CTX => {
 			case cmd@Store(fromCh, toLocator) =>
 				(inboundSlots.get(fromCh), slots.get(toLocator).filter(_.isEmpty)) match {
 					case (Some(fromLoc), Some(toLoc)) =>
 						ctx.signal(_carriage, Carriage.GoTo(fromLoc))
 						fetching(cmd)(
-							(afterFetchingCtx: Processor.SignallingContext[ShuttleLevelSignal]) => {
+							(afterFetchingCtx: ShuttleLevel.CTX) => {
 								log.debug(s"After successful fetch, going to $toLoc")
 								afterFetchingCtx.signal(_carriage, Carriage.GoTo(toLoc))
 								delivering(cmd)(afterDeliverCtx => {
@@ -197,7 +191,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 							}
 						,
 							_ => waitingForLoad(inboundChannels(fromCh), fromLoc)(
-									(afterLoadingCtx: Processor.SignallingContext[ShuttleLevelSignal]) => {
+									(afterLoadingCtx: ShuttleLevel.CTX) => {
 										afterLoadingCtx.signal(_carriage, Carriage.GoTo(toLoc));
 										delivering(cmd)(afterDeliverCtx => {
 											afterDeliverCtx.signal(manager, ShuttleLevel.CompletedCommand(cmd))
@@ -301,7 +295,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 		}
 	}
 
-	private def doSendOutbound(toChLoc: Slot, toChName: String, cmd: ExternalCommand)(ctx: SignallingContext[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] = {
+	private def doSendOutbound(toChLoc: Slot, toChName: String, cmd: ExternalCommand)(ctx: SignallingContext[ShuttleLevelSignal]): ShuttleLevel.RUNNER = {
 		if (toChLoc.retrieve.exists(outboundChannels(toChName).send(_)(ctx))) {
 			ctx.signal(manager, CompletedCommand(cmd))
 			idle
@@ -311,8 +305,8 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 
 
 	/* THIS IS PROBABLY WRONG. NEED TO FIX AFTER TESTING SIMILAR IN LIFT ASSEMBLY */
-	private def errorLoaded: Processor.DomainRun[ShuttleLevelSignal] = inboundLoadListener orElse outboundLoadListener orElse {
-		ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+	private def errorLoaded: ShuttleLevel.RUNNER = inboundLoadListener orElse outboundLoadListener orElse {
+		ctx: ShuttleLevel.CTX => {
 			case cmd @ OutputFromTray(toChannelName) =>
 				val outLoc = outboundSlots(toChannelName)
 				ctx.signal(_carriage, Carriage.GoTo(outLoc))
@@ -333,7 +327,7 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 		success: DelayedDomainRun[ShuttleLevelSignal],
 		failure: DelayedDomainRun[ShuttleLevelSignal]) =
 		inboundLoadListener orElse outboundLoadListener orElse {
-			ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+			ctx: ShuttleLevel.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
 					ctx.signal(_carriage, Carriage.Load(destination))
 					loading(success)
@@ -344,9 +338,9 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 			}
 		}
 
-	private def loading(continue: DelayedDomainRun[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] =
+	private def loading(continue: DelayedDomainRun[ShuttleLevelSignal]): ShuttleLevel.RUNNER =
 		inboundLoadListener orElse outboundLoadListener orElse {
-			implicit ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+			implicit ctx: ShuttleLevel.CTX => {
 				case Carriage.Loaded(Carriage.Load(loc)) =>
 					log.debug(s"Finished Loading in $loc")
 					continue(ctx)
@@ -356,9 +350,9 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 
 	private def delivering(cmd: ShuttleLevel.ExternalCommand)(
 		success: DelayedDomainRun[ShuttleLevelSignal],
-		failure: DelayedDomainRun[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] =
+		failure: DelayedDomainRun[ShuttleLevelSignal]): ShuttleLevel.RUNNER =
 		inboundLoadListener orElse outboundLoadListener orElse {
-		implicit ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+		implicit ctx: ShuttleLevel.CTX => {
 			case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
 				ctx.signal(_carriage, Carriage.Unload(destination))
 				unloading(success)
@@ -368,18 +362,18 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 		}
 	}
 
-	private def unloading(continue: DelayedDomainRun[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] =
+	private def unloading(continue: DelayedDomainRun[ShuttleLevelSignal]): ShuttleLevel.RUNNER =
 		inboundLoadListener orElse outboundLoadListener orElse {
-			implicit ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+			implicit ctx: ShuttleLevel.CTX => {
 				case Carriage.Unloaded(Carriage.Unload(loc), load) =>
 					continue(ctx)
 			}
 		}
 
 	private def waitingForLoad(from: Channel.End[MaterialLoad, ShuttleLevelSignal], fromLoc: => Slot)(
-		continue: DelayedDomainRun[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] =
+		continue: DelayedDomainRun[ShuttleLevelSignal]): ShuttleLevel.RUNNER =
 		outboundLoadListener orElse {
-			ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+			ctx: ShuttleLevel.CTX => {
 				case tr: Channel.TransferLoad[MaterialLoad] if tr.channel == from.channelName =>
 					from.performReceiving(tr.load, tr.resource)(ctx)
 					if (fromLoc isEmpty) {
@@ -397,9 +391,9 @@ class ShuttleLevel[UpstreamMessageType >: ChannelConnections.ChannelSourceMessag
 
 	/* THIS IS PROBABLY WRONG. NEED TO FIX AFTER TESTING SIMILAR IN LIFT ASSEMBLY */
 	private def waitingForSlot(to: Channel.Start[MaterialLoad, ShuttleLevelSignal], toLoc: Slot)(
-		continue: DelayedDomainRun[ShuttleLevelSignal]): Processor.DomainRun[ShuttleLevelSignal] =
+		continue: DelayedDomainRun[ShuttleLevelSignal]): ShuttleLevel.RUNNER =
 		inboundLoadListener orElse {
-			implicit ctx: Processor.SignallingContext[ShuttleLevelSignal] => {
+			implicit ctx: ShuttleLevel.CTX => {
 				case tr: Channel.AcknowledgeLoad[MaterialLoad] if tr.channel == to.channelName =>
 					ctx.signal(_carriage, Carriage.Unload(toLoc))
 					unloading {
