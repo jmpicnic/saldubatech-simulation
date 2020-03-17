@@ -144,7 +144,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 				val (tick, actionList) = actionQueue.head
 				val past = now
 				log.debug(s"Advancing from $past to $tick")
-				log.debug(s"MSC: autonumber [$tick] 0")
+				log.debug(s"MSC: autonumber $tick 0")
 				now = tick
 				actionQueue -= tick
 				activatedEpoch = false

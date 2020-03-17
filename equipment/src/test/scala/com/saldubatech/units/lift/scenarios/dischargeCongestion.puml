@@ -2,7 +2,7 @@
 actor FanInManager
 boundary u1
 
-underTest -> FanInManager: CompletedConfiguration(Actor[akka://FanInWaitingForSlotSpec/user/underTest#1455941407])
+underTest -> FanInManager: CompletedConfiguration(Actor[akka://FanInWaitingForSlotSpec/user/underTest#-526225981])
 u1 -> u1: TestProbeMessage(First Load,MaterialLoad(First Load))
 autonumber 12 0
 u1 -> underTest: TransferLoad(load: MaterialLoad(First Load), channel: Inbound1, resource: Ib1_c1)
@@ -49,11 +49,6 @@ underTest -> carriage: GoTo(Slot(OnLeft(-1)))
 autonumber 261 0
 carriage -> carriage: Arriving(GoTo(Slot(OnLeft(-1))),Slot(OnLeft(-1)))
 carriage -> underTest: Arrived(GoTo(Slot(OnLeft(-1))))
-underTest -> carriage: Unload(Slot(OnLeft(-1)))
-autonumber 269 0
-carriage -> carriage: DoneUnloading(Unload(Slot(OnLeft(-1))))
-carriage -> underTest: Unloaded(Unload(Slot(OnLeft(-1))),MaterialLoad(Second Load))
-underTest -> FanInManager: CompletedCommand(Transfer(Inbound1))
 u1 -> u1: TestProbeMessage(Third Load,MaterialLoad(Third Load))
 autonumber 285 0
 u1 -> underTest: TransferLoad(load: MaterialLoad(Third Load), channel: Inbound1, resource: Ib1_c1)
@@ -62,18 +57,7 @@ underTest -> underTest: PulledLoad(load: MaterialLoad(Third Load), channel: Inbo
 underTest -> u1: AcknowledgeLoad(load: MaterialLoad(Third Load), channel: Inbound1, resource: Ib1_c1)
 autonumber 288 0
 FanInManager -> underTest: Transfer(Inbound1)
-underTest -> carriage: GoTo(Slot(OnLeft(0)))
-autonumber 291 0
-carriage -> carriage: Arriving(GoTo(Slot(OnLeft(0))),Slot(OnLeft(0)))
-carriage -> underTest: Arrived(GoTo(Slot(OnLeft(0))))
-underTest -> carriage: Load(Slot(OnLeft(0)))
-autonumber 299 0
-carriage -> carriage: DoneLoading(Load(Slot(OnLeft(0))))
-carriage -> underTest: Loaded(Load(Slot(OnLeft(0))))
-underTest -> carriage: GoTo(Slot(OnLeft(-1)))
-autonumber 302 0
-carriage -> carriage: Arriving(GoTo(Slot(OnLeft(-1))),Slot(OnLeft(-1)))
-carriage -> underTest: Arrived(GoTo(Slot(OnLeft(-1))))
+underTest -> FanInManager: FailedBusy(Transfer(Inbound1),Command cannot be processed. Processor is Busy)
 autonumber 305 0
 discharge -> discharge: ConsumeLoad
 discharge -> discharge: PulledLoad(load: MaterialLoad(First Load), channel: Discharge, idx: 0)
@@ -82,19 +66,39 @@ underTest -> underTest: SlotBecomesAvailable(Slot(OnLeft(-1)))
 underTest -> carriage: Unload(Slot(OnLeft(-1)))
 autonumber 313 0
 carriage -> carriage: DoneUnloading(Unload(Slot(OnLeft(-1))))
-carriage -> underTest: Unloaded(Unload(Slot(OnLeft(-1))),MaterialLoad(Third Load))
+carriage -> underTest: Unloaded(Unload(Slot(OnLeft(-1))),MaterialLoad(Second Load))
 underTest -> FanInManager: CompletedCommand(Transfer(Inbound1))
-autonumber 315 0
+autonumber 323 0
 underTest -> discharge: TransferLoad(load: MaterialLoad(Second Load), channel: Discharge, resource: Ob1_c1)
+autonumber 325 0
 discharge -> discharge: ConsumeLoad
 discharge -> discharge: PulledLoad(load: MaterialLoad(Second Load), channel: Discharge, idx: 0)
 discharge -> underTest: AcknowledgeLoad(load: MaterialLoad(Second Load), channel: Discharge, resource: Ob1_c1)
 underTest -> underTest: SlotBecomesAvailable(Slot(OnLeft(-1)))
-autonumber 325 0
-underTest -> discharge: TransferLoad(load: MaterialLoad(Third Load), channel: Discharge, resource: Ob1_c1)
 autonumber 330 0
+FanInManager -> underTest: Transfer(Inbound1)
+underTest -> carriage: GoTo(Slot(OnLeft(0)))
+autonumber 333 0
+carriage -> carriage: Arriving(GoTo(Slot(OnLeft(0))),Slot(OnLeft(0)))
+carriage -> underTest: Arrived(GoTo(Slot(OnLeft(0))))
+underTest -> carriage: Load(Slot(OnLeft(0)))
+autonumber 341 0
+carriage -> carriage: DoneLoading(Load(Slot(OnLeft(0))))
+carriage -> underTest: Loaded(Load(Slot(OnLeft(0))))
+underTest -> carriage: GoTo(Slot(OnLeft(-1)))
+autonumber 344 0
+carriage -> carriage: Arriving(GoTo(Slot(OnLeft(-1))),Slot(OnLeft(-1)))
+carriage -> underTest: Arrived(GoTo(Slot(OnLeft(-1))))
+underTest -> carriage: Unload(Slot(OnLeft(-1)))
+autonumber 352 0
+carriage -> carriage: DoneUnloading(Unload(Slot(OnLeft(-1))))
+carriage -> underTest: Unloaded(Unload(Slot(OnLeft(-1))),MaterialLoad(Third Load))
+underTest -> FanInManager: CompletedCommand(Transfer(Inbound1))
+autonumber 362 0
+underTest -> discharge: TransferLoad(load: MaterialLoad(Third Load), channel: Discharge, resource: Ob1_c1)
+autonumber 365 0
 discharge -> discharge: ConsumeLoad
 discharge -> discharge: PulledLoad(load: MaterialLoad(Third Load), channel: Discharge, idx: 0)
 discharge -> underTest: AcknowledgeLoad(load: MaterialLoad(Third Load), channel: Discharge, resource: Ob1_c1)
-underTest -> FanInManager: LoadAcknowledged(Discharge,MaterialLoad(Third Load))
+underTest -> underTest: SlotBecomesAvailable(Slot(OnLeft(-1)))
 @enduml

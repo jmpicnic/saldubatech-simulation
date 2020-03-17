@@ -273,7 +273,7 @@ class FanInDelayedSlotReleaseSpec
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
-				fanInManagerProbe.expectMessage(269L -> FanIn.CompletedCommand(secondTransferCommand))
+//				fanInManagerProbe.expectMessage(269L -> FanIn.CompletedCommand(secondTransferCommand))
 				testMonitorProbe.expectNoMessage(500 millis)// Load is not received.
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
@@ -281,7 +281,15 @@ class FanInDelayedSlotReleaseSpec
 				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 280L, ConsumeLoad))
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
+				fanInManagerProbe.expectMessage(288L -> FanIn.CompletedCommand(secondTransferCommand))
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
+				testMonitorProbe.expectNoMessage(500 millis)
+				fanInManagerProbe.expectNoMessage(500 millis)
+			}
+			"C04. And signal an Acknowledge Load after releasing the second laod" in {
+				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 300L, ConsumeLoad))
+				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
 				testMonitorProbe.expectNoMessage(500 millis)
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
