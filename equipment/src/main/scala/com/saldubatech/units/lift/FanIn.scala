@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2020. Salduba Technologies LLC, all right reserved
+ */
+
 package com.saldubatech.units.lift
 
 import com.saldubatech.base.Identification
@@ -62,7 +66,7 @@ object FanIn {
 			override def loadReleased(endpoint: Channel.End[MaterialLoad, LiftAssemblySignal], load: MaterialLoad, at: Option[Distance])(implicit ctx: CTX): RUNNER = {
 				if (assignedSlot.isEmpty) endpoint.getNext.foreach(t => assignedSlot.store(t._1))
 				ctx.aCtx.log.debug(s"Finishing Load Released at Sink for ${endpoint.channelName}")
-				Processor.DomainRun.same[LiftAssemblySignal]
+				Processor.DomainRun.same
 			}
 			val end = chOps.registerEnd(this)
 		}).end
@@ -75,7 +79,7 @@ object FanIn {
 
 			override def loadAcknowledged(endpoint: Channel.Start[MaterialLoad, LiftAssemblySignal], load: MaterialLoad)(implicit ctx: CTX): RUNNER = {
 				if (slot.inspect nonEmpty) ctx.signalSelf(SlotBecomesAvailable(slot))
-				Processor.DomainRun.same[LiftAssemblySignal]
+				Processor.DomainRun.same
 			}
 		}).start
 
@@ -89,12 +93,12 @@ object FanIn {
 		new Processor[FanIn.LiftAssemblySignal](name, clockRef, simController, domain.configurer)
 	}
 
-	private val ignoreSlotAvailable: FanIn.RUNNER = Processor.DomainRun {
-		case SlotBecomesAvailable(_) =>	Processor.DomainRun.same[LiftAssemblySignal]
+	private val ignoreSlotAvailable: RUNNER = Processor.DomainRun {
+		case SlotBecomesAvailable(_) =>	Processor.DomainRun.same
 	}
-	private val rejectTransferCommand: FanIn.RUNNER = (ctx: FanIn.CTX) => {
-		case cmd @ Transfer(fromCh) =>
-			ctx.reply(FanIn.FailedBusy(cmd, "Command cannot be processed. Processor is Busy"))
+	private val rejectExternalCommand: RUNNER = (ctx: CTX) => {
+		case cmd: ExternalCommand =>
+			ctx.reply(FailedBusy(cmd, "Command cannot be processed. Processor is Busy"))
 			Processor.DomainRun.same
 	}
 }
@@ -141,7 +145,7 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 				implicit val r =  ctx.from
 				val fromChEp = collectorChannels(from)
 				val fromChLoc = collectorSlots(from)
-				ctx.signal(configuration.carriage, Carriage.GoTo(collectorSlots(from)))
+				ctx.signal(configuration.carriage, Carriage.GoTo(fromChLoc))
 				fetching(fetchSuccessCtx => {
 					fetchSuccessCtx.signal(configuration.carriage, Carriage.GoTo(dischargeSlot))
 					delivering(
@@ -152,7 +156,7 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 						loadReceivedCtx => {
 							loadReceivedCtx.signal(configuration.carriage, Carriage.GoTo(dischargeSlot));
 							delivering(
-								deliveringSuccesCtx => doDischarge(deliveringSuccesCtx),
+								deliveringSuccessCtx => doDischarge(deliveringSuccessCtx),
 								_ => waitingForSlot
 							)
 						}
@@ -160,9 +164,17 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 		}
 	}
 
+	private def doDischarge(ctx: FanIn.CTX)(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
+		if(dischargeSlot.inspect.isEmpty) throw new IllegalStateException(s"Unexpected Empty Discharge slot while executing $cmd for $requester")
+		else if (dischargeSlot.inspect.exists(dischargeChannel.send(_)(ctx))) {
+			dischargeSlot.retrieve
+			ctx.signal(requester, CompletedCommand(cmd))
+			idle
+		} else waitingForSlot
+
 	private def fetching(success: DelayedDomainRun[LiftAssemblySignal],
 	                     fail: DelayedDomainRun[LiftAssemblySignal])(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
-		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
+		rejectExternalCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
 			ctx: FanIn.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
 					ctx.signal(configuration.carriage, Carriage.Load(destination))
@@ -176,7 +188,7 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 
 	private def delivering(success: DelayedDomainRun[LiftAssemblySignal],
 	                     fail: DelayedDomainRun[LiftAssemblySignal])(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
-		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
+		rejectExternalCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
 			implicit ctx: FanIn.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
 					ctx.signal(configuration.carriage, Carriage.Unload(destination))
@@ -184,52 +196,13 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
 					fail(ctx)
 				case other: CarriageNotification =>
-					//ctx.signal(requester,FanIn.FailedFull(cmd, s"Could not unload tray: $other"))
 					fail(ctx)
 			}
 	}
 
-	private def doDischarge(ctx: FanIn.CTX)(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER = {
-		log.info(s"Discharging $dischargeSlot with ${dischargeSlot.inspect} to ${dischargeChannel.channelName}")
-		if(dischargeSlot.inspect.isEmpty) throw new IllegalStateException(s"Unexpected Empty Discharge slot while executing $cmd for $requester")
-		else if (dischargeSlot.inspect.exists(dischargeChannel.send(_)(ctx))) {
-			dischargeSlot.retrieve
-			ctx.signal(requester, CompletedCommand(cmd))
-			idle
-		} else waitingForSlot
-	}
-
-	private def waitingForSlot(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
-		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse {
-			ctx: FanIn.CTX => {
-					case signal@SlotBecomesAvailable(slot) if slot == dischargeSlot =>
-						if(slot.isEmpty) {
-							log.info(s"DISCHARGE SLOT: EMPTY")
-							idle
-						}
-						/*{
-							ctx.signal(configuration.carriage, Carriage.Unload(slot))
-							unloading(afterUnloadingCtx => doDischarge(afterUnloadingCtx))
-						}*/
-						else {
-							log.info(s"DISCHARGE SLOT: FULL ${dischargeSlot.inspect}")
-							doDischarge(ctx)
-						}
-				}
-		}
-
-	private def unloading(continue: DelayedDomainRun[LiftAssemblySignal]): FanIn.RUNNER =
-		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
-			implicit ctx: FanIn.CTX => {
-				case Carriage.Unloaded(Carriage.Unload(loc), load) =>
-					continue(ctx)
-			}
-		}
-
-
 	private def waitingForLoad(from: Channel.End[MaterialLoad, LiftAssemblySignal], fromLoc: => Carriage.Slot)(
 		continue: DelayedDomainRun[LiftAssemblySignal]): FanIn.RUNNER =
-		rejectTransferCommand orElse dischargeChannelListener orElse {
+		rejectExternalCommand orElse dischargeChannelListener orElse {
 			ctx: FanIn.CTX => {
 				case tr: Channel.TransferLoad[MaterialLoad] if tr.channel == from.channelName =>
 					from.performReceiving(tr.load, tr.resource)(ctx)
@@ -247,9 +220,31 @@ class FanIn[CollectorMessage >: ChannelConnections.ChannelSourceMessage, Dischar
 		} orElse collectorChannelListeners orElse ignoreSlotAvailable
 
 	private def loading(continue: DelayedDomainRun[LiftAssemblySignal]): FanIn.RUNNER =
-		rejectTransferCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
+		rejectExternalCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
 			implicit ctx: FanIn.CTX => {
 				case Carriage.Loaded(Carriage.Load(loc)) => continue(ctx)
+			}
+		}
+
+	private def waitingForSlot(implicit cmd: ExternalCommand, requester: Processor.Ref): FanIn.RUNNER =
+		rejectExternalCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse {
+			ctx: FanIn.CTX => {
+				case signal@SlotBecomesAvailable(slot) if slot == dischargeSlot =>
+					if(slot.isEmpty) {
+						log.info(s"DISCHARGE SLOT: EMPTY")
+						idle
+					}
+					else {
+						log.info(s"DISCHARGE SLOT: FULL ${dischargeSlot.inspect}")
+						doDischarge(ctx)
+					}
+			}
+		}
+
+	private def unloading(continue: DelayedDomainRun[LiftAssemblySignal]): FanIn.RUNNER =
+		rejectExternalCommand orElse collectorChannelListeners orElse dischargeChannelListener orElse ignoreSlotAvailable orElse {
+			implicit ctx: FanIn.CTX => {
+				case Carriage.Unloaded(Carriage.Unload(loc), load) => continue(ctx)
 			}
 		}
 

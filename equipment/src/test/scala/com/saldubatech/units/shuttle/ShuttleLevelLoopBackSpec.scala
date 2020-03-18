@@ -251,7 +251,7 @@ class ShuttleLevelLoopBackSpec
 			"B02. and then received a Loopback command" in {
 				val loopbackCommand = ShuttleLevel.LoopBack(chIb1.name, "Outbound2")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, loopbackCommand))
-				shuttleLevelManagerProbe.expectMessage((177L -> ShuttleLevel.CompletedCommand(loopbackCommand)))
+				shuttleLevelManagerProbe.expectMessage((178L -> ShuttleLevel.CompletedCommand(loopbackCommand)))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)

@@ -170,9 +170,9 @@ class ShuttleLevelRejectedCommandsSpec
 		val chOb1 = new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Outbound1")
 		val chOb2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Outbound2")
 		val ob = Seq(chOb1, chOb2)
+		println(s"${ob.map(_.name)}")
 
 		val config = ShuttleLevel.Configuration(20, ib, ob)
-
 		// Sources & sinks
 		val sources = config.inboundOps.map(ibOps => new ShuttleLevelRejectedCommandsSpec.SourceFixture(ibOps)(testMonitor, this))
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
@@ -267,7 +267,7 @@ class ShuttleLevelRejectedCommandsSpec
 				val retrieveCmd = ShuttleLevel.Retrieve(Carriage.OnLeft(7), "Outbound2")
 				log.info(s"Queuing Retrieve Command: $retrieveCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
-				shuttleLevelManagerProbe.expectMessage((155L -> ShuttleLevel.NotAcceptedCommand(retrieveCmd, "Source or Destination ((None,Some(Slot(OnRight(-2))))) are incompatible for Retrieve Command: Retrieve(OnLeft(7),Outbound2)")))
+				shuttleLevelManagerProbe.expectMessage((155L -> ShuttleLevel.NotAcceptedCommand(retrieveCmd, "Source or Destination ((None,Some(Slot(OnRight(-1))))) are incompatible for Retrieve Command: Retrieve(OnLeft(7),Outbound2)")))
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}

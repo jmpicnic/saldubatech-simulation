@@ -263,7 +263,7 @@ class ShuttleLevelHappyPathSpec
 				val storeCmd = ShuttleLevel.Store("Inbound1", Carriage.OnRight(4))
 				log.info(s"Queuing Store Command: $storeCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
-				shuttleLevelManagerProbe.expectMessage((126L -> ShuttleLevel.CompletedCommand(storeCmd)))
+				shuttleLevelManagerProbe.expectMessage((128L -> ShuttleLevel.CompletedCommand(storeCmd)))
 				testMonitorProbe.expectNoMessage(500 millis)
 				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
