@@ -122,15 +122,17 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		notifyObservers(StartedOn(now))
 		maybeAdvance
 	}
+
 	private def sendNow(to: ActorRef[ProcessorMessage], cmd: ActionCommand): Unit = {
 		openAction(cmd)
 		cmd match {
 			case pcmd: ProcessCommand[_] => log.info(s"MSC: ${cmd.from.path.name} -> ${to.path.name}: [$now] ${pcmd.dm}")
-			case other => ()
+			case other => log.info(s"Sending Non Process Command: $other")
 		}
 		log.debug(s"Sending Now($now): To: $to($cmd)")
 		to ! cmd
 	}
+
 	private def enqueue(tick: Tick, eq: Enqueue): Behavior[ClockMessage] = {
 		log.debug(s"Clock: Enqueueing $eq for $tick")
 		if(tick >= now) {

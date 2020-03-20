@@ -72,7 +72,7 @@ class CarriageSpec
 				testController.expectNoMessage(500 millis)
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
-				underTest ! ConfigurationCommand(shuttleHarness, 0L, Carriage.Configure(locAt0))
+				underTest ! ConfigurationCommand(shuttleHarness, 0L, locAt0.at.idx)
 				globalClock ! StartTime(0L)
 				testController.expectMessage(CompleteConfiguration(underTest))
 				harnessObserver.expectMessage((0L, Carriage.CompleteConfiguration(underTest)))

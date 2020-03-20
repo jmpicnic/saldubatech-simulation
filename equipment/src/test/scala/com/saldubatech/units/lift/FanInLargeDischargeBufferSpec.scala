@@ -207,7 +207,7 @@ class FanInLargeDischargeBufferSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				globalClock ! Clock.Enqueue(carriage, Processor.ConfigurationCommand(carriageManager, 0L, Carriage.Configure(discharge._1)))
+				globalClock ! Clock.Enqueue(carriage, Processor.ConfigurationCommand(carriageManager, 0L, Carriage.Configure(discharge._1.at.idx)))
 				carriageMonitorProbe.expectMessage(0L -> Carriage.CompleteConfiguration(carriage))
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(carriage))
 				underTest ! Processor.ConfigurationCommand(fanInManager, 0L, FanIn.NoConfigure)
@@ -279,7 +279,7 @@ class FanInLargeDischargeBufferSpec
 				testMonitorProbe.expectNoMessage(500 millis)// Load is not received.
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
-			"C03. One more load to force the shuttle to error out and the FanIn to waitforslot" in {
+			"C03. One more load to force the shuttle to error out and the Lift to waitforslot" in {
 				val thirdLoad = MaterialLoad("Third Load")
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)

@@ -50,7 +50,7 @@ object Carriage {
 	type Ref = Processor.Ref
 
 	sealed trait CarriageConfigure extends CarriageSignal
-	case class Configure(initialPosition: Slot) extends Identification.Impl() with CarriageConfigure
+	case class Configure(initialPosition: Int) extends Identification.Impl() with CarriageConfigure
 
 
 	sealed trait CarriageCommand extends CarriageSignal
@@ -77,7 +77,7 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 	import Carriage._
 
 	private var tray: Option[MaterialLoad] = None
-	private var currentLocation: Slot = _
+	private var currentLocation: Int = 0
 
 	private var currentClient: Option[Ref] = None
 
@@ -95,7 +95,7 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 	def idleFull: Processor.DomainRun[CarriageSignal] = {
 		implicit ctx: Processor.SignallingContext[CarriageSignal] => {
 			case cmd@Unload(loc) =>
-				if (loc == currentLocation) {
+				if (loc.at.idx == currentLocation) {
 					ctx.signalSelf(DoneUnloading(cmd), travelPhysics.releaseTime)
 					currentClient = Some(ctx.from)
 					unloading
@@ -105,11 +105,11 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 					idleFull
 				}
 			case cmd@GoTo(loc) =>
-				if (loc == currentLocation) {
+				if (loc.at.idx == currentLocation) {
 					ctx.reply(Arrived(cmd)); idleFull
 				}
 				else {
-					ctx.signalSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation.at.idx, loc.at.idx))
+					ctx.signalSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation, loc.at.idx))
 					currentClient = Some(ctx.from)
 					running
 				}
@@ -124,7 +124,7 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 	def idleEmpty: Processor.DomainRun[CarriageSignal] = {
 		implicit ctx: Processor.SignallingContext[CarriageSignal] => {
 			case cmd@Load(loc) =>
-				if (currentLocation == loc) {
+				if (currentLocation == loc.at.idx) {
 					println(s"Loading to be complete by now(${ctx.now}) + Acquire Time: ${travelPhysics.acquireTime}")
 					ctx.signalSelf(DoneLoading(cmd), travelPhysics.acquireTime)
 					currentClient = Some(ctx.from)
@@ -135,11 +135,11 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 					idleEmpty
 				}
 			case cmd@GoTo(loc) =>
-				if (loc == currentLocation) {
+				if (loc.at.idx == currentLocation) {
 					ctx.reply(Arrived(cmd)); idleEmpty
 				}
 				else {
-					ctx.signalSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation.at.idx, loc.at.idx))
+					ctx.signalSelf(Arriving(cmd, loc), travelPhysics.travelTime(currentLocation, loc.at.idx))
 					currentClient = Some(ctx.from)
 					running
 				}
@@ -206,7 +206,7 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 	private def running: Processor.DomainRun[CarriageSignal] = {
 		implicit ctx: Processor.SignallingContext[CarriageSignal] => {
 			case Arriving(cmd, toLocation) =>
-				currentLocation = toLocation
+				currentLocation = toLocation.at.idx
 				ctx.signal(currentClient.head, Arrived(cmd))
 				currentClient = None
 				if (tray isEmpty) idleEmpty else idleFull

@@ -153,7 +153,7 @@ class FanInSpec
 	val fanInManager = testKit.spawn(fanInManagerProcessor.init, "FanInManager")
 
 
-	"A Lift Level" should {
+	"A FanIn" should {
 
 		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
 		val carriageProcessor = Carriage.buildProcessor("carriage", physics, globalClock, simController)
@@ -163,7 +163,7 @@ class FanInSpec
 		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
 		val ib = Seq(Carriage.Slot(Carriage.OnLeft(0)) -> chIb1, Carriage.Slot(Carriage.OnLeft(1)) -> chIb2)
 
-		val discharge = Carriage.Slot(Carriage.OnLeft(-1)) -> new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1"), 1, "Discharge")
+		val discharge = Carriage.Slot(Carriage.OnLeft(-1)) -> new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge")
 
 		val carriage: Processor.Ref = testKit.spawn(carriageProcessor.init, "carriage")
 
@@ -201,7 +201,7 @@ class FanInSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				globalClock ! Clock.Enqueue(carriage, Processor.ConfigurationCommand(carriageManager, 0L, Carriage.Configure(discharge._1)))
+				globalClock ! Clock.Enqueue(carriage, Processor.ConfigurationCommand(carriageManager, 0L, Carriage.Configure(discharge._1.at.idx)))
 				carriageMonitorProbe.expectMessage(0L -> Carriage.CompleteConfiguration(carriage))
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(carriage))
 				underTest ! Processor.ConfigurationCommand(fanInManager, 0L, FanIn.NoConfigure)
@@ -246,18 +246,18 @@ class FanInSpec
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
 			"B02. and then it receives a Transfer command" in {
-				val loopbackCommand = FanIn.Transfer(chIb1.name)
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(fanInManager, 155, loopbackCommand))
-				fanInManagerProbe.expectMessage(177L -> FanIn.CompletedCommand(loopbackCommand))
+				val transferCmd = FanIn.Transfer(chIb1.name)
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(fanInManager, 155, transferCmd))
+				fanInManagerProbe.expectMessage(177L -> FanIn.CompletedCommand(transferCmd))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
 				testMonitorProbe.expectNoMessage(500 millis)
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"C. Transfer a load from one collector to the discharge" when {
-			val loopbackCommand = FanIn.Transfer(chIb1.name)
+			val transferCmd = FanIn.Transfer(chIb1.name)
 			"C01. it receives the command first" in {
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(fanInManager, 190L, loopbackCommand))
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(fanInManager, 190L, transferCmd))
 				testMonitorProbe.expectNoMessage(500 millis)
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}
@@ -266,9 +266,9 @@ class FanInSpec
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				fanInManagerProbe.expectMessage(269L -> FanIn.CompletedCommand(loopbackCommand))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
+				fanInManagerProbe.expectMessage(269L -> FanIn.CompletedCommand(transferCmd))
 				testMonitorProbe.expectNoMessage(500 millis)
 				fanInManagerProbe.expectNoMessage(500 millis)
 			}

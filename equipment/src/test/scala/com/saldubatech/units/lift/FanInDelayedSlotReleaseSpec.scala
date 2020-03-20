@@ -207,7 +207,7 @@ class FanInDelayedSlotReleaseSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				globalClock ! Clock.Enqueue(carriage, Processor.ConfigurationCommand(carriageManager, 0L, Carriage.Configure(discharge._1)))
+				globalClock ! Clock.Enqueue(carriage, Processor.ConfigurationCommand(carriageManager, 0L, Carriage.Configure(discharge._1.at.idx)))
 				carriageMonitorProbe.expectMessage(0L -> Carriage.CompleteConfiguration(carriage))
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(carriage))
 				underTest ! Processor.ConfigurationCommand(fanInManager, 0L, FanIn.NoConfigure)
