@@ -69,21 +69,17 @@ class CarriageSpec
 
 			"A01. Send a registration message to the controller" in {
 				testController.expectMessage(RegisterProcessor(underTest))
-				testController.expectNoMessage(500 millis)
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
-				underTest ! ConfigurationCommand(shuttleHarness, 0L, locAt0.at.idx)
+				underTest ! ConfigurationCommand(shuttleHarness, 0L, Carriage.Configure(locAt0.at.idx))
 				globalClock ! StartTime(0L)
 				testController.expectMessage(CompleteConfiguration(underTest))
 				harnessObserver.expectMessage((0L, Carriage.CompleteConfiguration(underTest)))
-				testController.expectNoMessage(500 millis)
-				harnessObserver.expectNoMessage(500 millis)
 			}
 			"A03 Load the tray when empty with the acquire delay" in {
 				val loadCommand = Carriage.Load(locAt0)
 				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
 				harnessObserver.expectMessage(500 millis, (10L, Carriage.Loaded(loadCommand)))
-				harnessObserver.expectNoMessage(500 millis)
 				locAt0.isEmpty should be (true)
 			}
 			"A04 Reject a command to load again" in {
@@ -91,19 +87,17 @@ class CarriageSpec
 				log.info(s"Sender is: ${shuttleHarness}")
 				underTest ! ProcessCommand(shuttleHarness, 11L, loadCommand)
 				harnessObserver.expectMessage(500 millis,
-					(11L, Carriage.UnacceptableCommand(loadCommand,s"Command not applicable when Tray loaded with ${Some(loadProbe)} at $locAt0")))
-				harnessObserver.expectNoMessage(500 millis)
+					(11L, Carriage.UnacceptableCommand(loadCommand,s"Command not applicable when Tray loaded with ${Some(loadProbe)} at ${locAt0.at.idx}")))
  			}
 			"A05 Go To a given position in the travel time" in {
 				val moveCommand = Carriage.GoTo(locAt10)
 				underTest ! ProcessCommand(shuttleHarness, 2L, moveCommand)
 				harnessObserver.expectMessage(500 millis, (12L, Carriage.Arrived(moveCommand)))
-				harnessObserver.expectNoMessage(500 millis)
 			}
 			"A06 Reject an unload request for the wrong location"  in {
 				val unloadCommand = Carriage.Unload(locAt7)
 				underTest ! ProcessCommand(shuttleHarness, 14L, unloadCommand)
-				harnessObserver.expectMessage(500 millis, (14L, Carriage.UnacceptableCommand(unloadCommand,s"Current Location $locAt10 incompatible with $locAt7")))
+				harnessObserver.expectMessage(500 millis, (14L, Carriage.UnacceptableCommand(unloadCommand,s"Current Location ${locAt10.at.idx} incompatible with $locAt7")))
 				harnessObserver.expectNoMessage(500 millis)
 				locAt7.inspect should be (None)
 			}
@@ -117,8 +111,7 @@ class CarriageSpec
 			"A08 Reject a command to unload again" in {
 				val unloadCommand = Carriage.Unload(locAt10)
 				underTest ! ProcessCommand(shuttleHarness, 24L, unloadCommand)
-				harnessObserver.expectMessage(500 millis, (24L, Carriage.UnacceptableCommand(unloadCommand,s"Command not applicable while idleEmpty at place Slot(OnRight(10)): Unload(Slot(OnRight(10)))")))
-				harnessObserver.expectNoMessage(500 millis)
+				harnessObserver.expectMessage(500 millis, (24L, Carriage.UnacceptableCommand(unloadCommand,s"Command not applicable while idleEmpty at place 10: Unload(Slot(OnRight(10)))")))
 			}
 		}
 	}

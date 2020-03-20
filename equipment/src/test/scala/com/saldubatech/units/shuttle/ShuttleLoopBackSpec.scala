@@ -201,7 +201,6 @@ class ShuttleLoopBackSpec
 						}
 				}
 				actorsToRegister.isEmpty should be(true)
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				underTest ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, Shuttle.NoConfigure)
@@ -210,7 +209,6 @@ class ShuttleLoopBackSpec
 				testControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
 				val msg = shuttleLevelManagerProbe.receiveMessage()
 				msg should be(0L -> Shuttle.CompletedConfiguration(underTest))
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.UpstreamConfigure))
@@ -219,7 +217,6 @@ class ShuttleLoopBackSpec
 				sinkActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
 				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
-				testMonitorProbe.expectNoMessage(500 millis)
 				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
@@ -234,7 +231,6 @@ class ShuttleLoopBackSpec
 						}
 				}
 				actorsToConfigure.isEmpty should be(true)
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"B. Transfer a load from one channel to another" when {
@@ -245,24 +241,18 @@ class ShuttleLoopBackSpec
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"B02. and then received a Loopback command" in {
 				val loopbackCommand = Shuttle.LoopBack(chIb1.name, "Outbound2")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, loopbackCommand))
 				shuttleLevelManagerProbe.expectMessage((178L -> Shuttle.CompletedCommand(loopbackCommand)))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"C. Transfer a load from one channel to another" when {
 			val loopbackCommand = Shuttle.LoopBack(chIb1.name, "Outbound2")
 			"C01. it receives the command first" in {
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 190L, loopbackCommand))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"C02. and then receives the load in the origin channel" in {
 				val probeLoad = MaterialLoad("First Load")
@@ -272,8 +262,6 @@ class ShuttleLoopBackSpec
 				shuttleLevelManagerProbe.expectMessage((269L -> Shuttle.CompletedCommand(loopbackCommand)))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 	}

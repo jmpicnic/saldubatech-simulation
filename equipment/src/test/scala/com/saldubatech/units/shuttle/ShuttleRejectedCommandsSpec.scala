@@ -211,7 +211,6 @@ class ShuttleRejectedCommandsSpec
 				testControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
 				val msg = shuttleLevelManagerProbe.receiveMessage()
 				msg should be(0L -> Shuttle.CompletedConfiguration(underTest))
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.UpstreamConfigure))
@@ -220,7 +219,6 @@ class ShuttleRejectedCommandsSpec
 				sinkActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
 				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
-				testMonitorProbe.expectNoMessage(500 millis)
 				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
@@ -235,7 +233,6 @@ class ShuttleRejectedCommandsSpec
 						}
 				}
 				actorsToConfigure.isEmpty should be(true)
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"B. Reply with Error when trying to puaway into Full Locations" when {
@@ -250,16 +247,12 @@ class ShuttleRejectedCommandsSpec
 				log.info(s"Queuing Store Command: $storeCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
 				shuttleLevelManagerProbe.expectMessage((100L -> Shuttle.FailedEmpty(storeCmd, "Destination does not exist or is full")))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"B02. Grooming a load" in {
 				val groomCmd = Shuttle.Groom(Carriage.OnLeft(2), Carriage.OnRight(5))
 				log.info(s"Queuing Groom Command: $groomCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
 				shuttleLevelManagerProbe.expectMessage((130L -> Shuttle.FailedEmpty(groomCmd, "Destination does not exist or is full")))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"C. Reply Error when retrieving from empty locations" when {
@@ -268,16 +261,12 @@ class ShuttleRejectedCommandsSpec
 				log.info(s"Queuing Retrieve Command: $retrieveCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
 				shuttleLevelManagerProbe.expectMessage((155L -> Shuttle.NotAcceptedCommand(retrieveCmd, "Source or Destination ((None,Some(Slot(OnRight(-1))))) are incompatible for Retrieve Command: Retrieve(OnLeft(7),Outbound2)")))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"C02. Grooming a Load" in {
 				val groomCmd = Shuttle.Groom(Carriage.OnRight(4), Carriage.OnLeft(7))
 				log.info(s"Queuing Groom Command: $groomCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 160, groomCmd))
 				shuttleLevelManagerProbe.expectMessage((160L -> Shuttle.FailedEmpty(groomCmd, "Origin does not exist or is empty")))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 	}

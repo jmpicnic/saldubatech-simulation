@@ -5,7 +5,7 @@
 package com.saldubatech.transport
 
 import com.saldubatech.units.shuttle.Shuttle
-import com.saldubatech.units.lift.{FanIn, BidirectionalCrossSwitch}
+import com.saldubatech.units.lift.BidirectionalCrossSwitch
 
 object ChannelConnections {
 	// Registration of consumers of the messages to allow the typing of Actors to work O.K.
@@ -15,10 +15,8 @@ object ChannelConnections {
 	trait ChannelSourceMessage extends DummySourceMessageType
 		with Shuttle.ShuttleLevelSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
-		with FanIn.LiftAssemblySignal
 	trait ChannelDestinationMessage extends DummySinkMessageType
 		with Shuttle.ShuttleLevelSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
-		with FanIn.LiftAssemblySignal
 
 }

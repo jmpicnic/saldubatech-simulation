@@ -201,7 +201,6 @@ class ShuttleHappyPathSpec
 						}
 				}
 				actorsToRegister.isEmpty should be(true)
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				underTest ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, Shuttle.NoConfigure)
@@ -210,7 +209,6 @@ class ShuttleHappyPathSpec
 				testControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
 				val msg = shuttleLevelManagerProbe.receiveMessage()
 				msg should be(0L -> Shuttle.CompletedConfiguration(underTest))
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.UpstreamConfigure))
@@ -219,7 +217,6 @@ class ShuttleHappyPathSpec
 				sinkActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
 				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
-				testMonitorProbe.expectNoMessage(500 millis)
 				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
@@ -234,7 +231,6 @@ class ShuttleHappyPathSpec
 						}
 				}
 				actorsToConfigure.isEmpty should be(true)
-				testControllerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"B. Acknowledge receiving a load through an inbound channel" when {
@@ -245,8 +241,6 @@ class ShuttleHappyPathSpec
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"B02. Signal a second load on the same channel, but do not acknowledge to sender" in {
 				val probeLoad = MaterialLoad("Second Load")
@@ -254,8 +248,6 @@ class ShuttleHappyPathSpec
 				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"C. Store the load in an location" when {
@@ -264,16 +256,12 @@ class ShuttleHappyPathSpec
 				log.info(s"Queuing Store Command: $storeCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
 				shuttleLevelManagerProbe.expectMessage((128L -> Shuttle.CompletedCommand(storeCmd)))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"C02. And then move it to a different location with a Groom Command" in {
 				val groomCmd = Shuttle.Groom(Carriage.OnRight(4), Carriage.OnLeft(7))
 				log.info(s"Queuing Groom Command: $groomCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
 				shuttleLevelManagerProbe.expectMessage((151L -> Shuttle.CompletedCommand(groomCmd)))
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 			"C03. And finally send it through an outbound channel with a Retrieve Command" in {
 				val retrieveCmd = Shuttle.Retrieve(Carriage.OnLeft(7), "Outbound2")
@@ -281,8 +269,6 @@ class ShuttleHappyPathSpec
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
 				shuttleLevelManagerProbe.expectMessage((180L -> Shuttle.CompletedCommand(retrieveCmd)))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
-				testMonitorProbe.expectNoMessage(500 millis)
-				shuttleLevelManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 	}
