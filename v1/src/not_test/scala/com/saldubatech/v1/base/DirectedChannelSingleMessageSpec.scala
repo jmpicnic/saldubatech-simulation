@@ -25,7 +25,7 @@ import scala.languageFeature.postfixOps
 
 class DirectedChannelSingleMessageSpec extends BaseActorSpec(ActorSystem("MaterialChannelUnidirectionalSpec")) {
 
-	"A Directed Channel" when {
+/*	"A Directed Channel" when {
 
 		val underTest = new DirectedChannel[Material](1, "underTest") {
 			override def registerStart(owner: DirectedChannel.Source[Material]): DirectedChannel.Start[Material] = {
@@ -115,4 +115,6 @@ class DirectedChannelSingleMessageSpec extends BaseActorSpec(ActorSystem("Materi
 			}
 		}
 	}
+
+ */
 }
