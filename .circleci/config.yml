@@ -42,5 +42,7 @@ jobs:
 
       # run tests!
       - run: cat /dev/null | sbt clean coverage test coverageReport
+      - store_test_results:
+            path: ~/repo/target/test-reports
       - codecov/upload:
-          file: {{ coverage_report_filepath }}
+          file: ~/repo/target/test-reports
