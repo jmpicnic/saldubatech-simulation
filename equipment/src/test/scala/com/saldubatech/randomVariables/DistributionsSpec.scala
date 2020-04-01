@@ -5,7 +5,7 @@
 package com.saldubatech.randomVariables
 
 import com.saldubatech.randomvariables.Distributions._
-import com.saldubatech.test.utils.BaseSpec
+import com.saldubatech.test.BaseSpec
 
 
 class DistributionsSpec extends BaseSpec {
@@ -19,7 +19,7 @@ class DistributionsSpec extends BaseSpec {
 			for (i <- 1 to 100000) {acc += exp(); count += 1}
 			val avg = acc / count.toDouble
 			"get an average that approximates the mean" in {
-				specLogger.debug(s"Obtained Avg: $avg, Count: $count")
+				log.debug(s"Obtained Avg: $avg, Count: $count")
 				avg shouldBe(mean +- allowedError)
 			}
 		}
@@ -35,7 +35,7 @@ class DistributionsSpec extends BaseSpec {
 			val avg = acc.toDouble / count.toDouble
 			val std = Math.sqrt(acc2.toDouble/count.toDouble - avg*avg)
 			"get an average that approximates the mean" in {
-				specLogger.debug(s"Obtained Avg: $avg, Count: $count")
+				log.debug(s"Obtained Avg: $avg, Count: $count")
 				avg shouldBe(mean +- allowedError)
 				std shouldBe(mean +- allowedError)
 			}
