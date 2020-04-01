@@ -53,44 +53,44 @@ class GatewaySpec(_system: ActorSystem)
 		var aref2: ActorRef = null
 		"be able to create a SimActor" when {
 			"A configured Props object is provided" in {
-				EventFilter.debug(message = "Received new Actor: MockActor, pending: 1, advised: 0", occurrences = 1) intercept {
+				//EventFilter.debug(message = "Received new Actor: MockActor, pending: 1, advised: 0", occurrences = 1) intercept {
 					aref = underTest.simActorOf(Props(new MockActor(underTest)), "MockActor")
 					aref ! "probeMsg"
 					expectMsg("probeMsg")
-				}
+				//}
 			}
 		}
 		"be able to inject messages" when {
 			"it stays in configuring state until all actors are configured" in {
-				EventFilter.debug(message = "Received new Actor: MockActor2, pending: 2, advised: 0", occurrences = 1) intercept {
+				//EventFilter.debug(message = "Received new Actor: MockActor2, pending: 2, advised: 0", occurrences = 1) intercept {
 					aref2 = underTest.simActorOf(Props(new MockActor(underTest)), "MockActor2")
-				}
+				//}
 
 				Await.result(underTest.isConfigurationComplete, 500 millis) shouldBe Gateway.SimulationState.CONFIGURING
 
-				EventFilter.debug(message = "Received configuration confirmation from MockActor2, pending: 1, advised: 0", occurrences = 1) intercept {
+				//EventFilter.debug(message = "Received configuration confirmation from MockActor2, pending: 1, advised: 0", occurrences = 1) intercept {
 					underTest.configure(aref2, "ConfigMessage Second")
 					expectMsg("ConfigMessage Second")
-				}
+				//}
 
 				Await.result(underTest.isConfigurationComplete, 500 millis) shouldBe Gateway.SimulationState.CONFIGURING
 
 			}
 			"the simulation has not started" in {
-				EventFilter.debug(message = "GlobalClock now: 0 : Enqueuing An initial message at 0 while stopped", occurrences = 1) intercept {
+				//EventFilter.debug(message = "GlobalClock now: 0 : Enqueuing An initial message at 0 while stopped", occurrences = 1) intercept {
 					underTest.injectInitialAction(aref, "An initial message")
-				}
+				//}
 				expectNoMessage(500 millis)
-				EventFilter.debug(message = "GlobalClock now: 0 : Enqueuing A second initial message at 10 while stopped", occurrences = 1) intercept {
+				//EventFilter.debug(message = "GlobalClock now: 0 : Enqueuing A second initial message at 10 while stopped", occurrences = 1) intercept {
 					underTest.injectInitialAction(aref2, "A second initial message", 10)
-				}
+				//}
 				expectNoMessage(500 millis)
 			}
 			"And be configured once it is sent a Configure message to the actor with the provided payload" in {
-				EventFilter.debug(message = "Received configuration confirmation from MockActor, pending: 0, advised: 0", occurrences = 1) intercept {
+				//EventFilter.debug(message = "Received configuration confirmation from MockActor, pending: 0, advised: 0", occurrences = 1) intercept {
 					underTest.configure(aref, "ConfigurePayload")
 					expectMsg("ConfigurePayload")
-				}
+				//}
 				Await.result(underTest.isConfigurationComplete, 500 millis) shouldBe Gateway.SimulationState.READY
 
 			}

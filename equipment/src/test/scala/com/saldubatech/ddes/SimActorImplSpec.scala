@@ -68,15 +68,15 @@ class SimActorImplSpec(_system: ActorSystem)
     "Be registered for configuration" when {
       "created by the gateway" should {
         "register itself to be configured" in {
-          EventFilter.debug(message = "Received new Actor: underTest, pending: 1, advised: 0", occurrences = 1) intercept {
+          //EventFilter.debug(message = "Received new Actor: underTest, pending: 1, advised: 0", occurrences = 1) intercept {
             underTest = gw.simActorOf(MockSimActor.props("underTest", gw, testActor), "underTest")
-          }
+          //}
         }
         "acknowledge configuration to the gateway when configured" in {
-          EventFilter.debug(message = "Configure action: ConfigMessage", occurrences = 1) intercept {
+          //EventFilter.debug(message = "Configure action: ConfigMessage", occurrences = 1) intercept {
             gw.configure(underTest, "ConfigMessage")
             expectMsg("ConfigMessage")
-          }
+          //}
         }
       }
     }

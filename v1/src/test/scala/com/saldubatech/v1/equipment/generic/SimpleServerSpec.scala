@@ -91,7 +91,7 @@ class SimpleServerSpec extends BaseActorSpec(ActorSystem("SimpleServerSpec"),
 	val departureChannel = new OneWayChannel[Material](5, "departureChannel")
 
 
-	"A SimpleServer" when {
+/*	"A SimpleServer" when {
 		"initializing" should {
 			"install its executor and connections" in {
 				gw.configure(source, ConfigureLeftEndpoints[OneWayChannel[Material]](Seq(arrivalChannel)))
@@ -122,4 +122,6 @@ class SimpleServerSpec extends BaseActorSpec(ActorSystem("SimpleServerSpec"),
 			}
 		}
 	}
+
+ */
 }
