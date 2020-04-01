@@ -151,11 +151,11 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 			case CompleteTask(cmd, inputs, outputs) if from == lift =>  // Lift is done. Could be ready to accept another job...?
 			case ReceiveLoad(via, material) if from == shuttle =>
 			case StartTask(cmd, materials) if from == shuttle =>
-			case StageLoad(cmd, load) if from == shuttle => 	// Shuttle picked up from lift
+			case StageLoad(cmd, load) if from == shuttle => 	// Lift picked up from lift
 			case DeliverResult(cmd, via, result) if from == shuttle =>
 				DeliverResult(pendingCommands.head.uid, via, result)
 			case CompleteTask(cmd, inputs, outputs) if outputs.isIdle && from == shuttle =>
-				// Shuttle is done, Inbound Complete.
+				// Lift is done, Inbound Complete.
 				CompleteTask(pendingCommands.head.uid, inputs, Seq()) ~> owner now at
 				dequeueCommand
 		}
@@ -170,10 +170,10 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 			case StartTask(cmd, materials) if from == shuttle =>
 				StartTask(pendingCommands.head.uid, materials) ~> owner now at
 			case StageLoad(cmd, load) if from == shuttle =>
-				// Shuttle picked up from slot, done Aisle Staging
+				// Lift picked up from slot, done Aisle Staging
 				StageLoad(pendingCommands.head.uid, load) ~> owner now at
 			case DeliverResult(cmd, via, result) if from == shuttle =>
-			case CompleteTask(cmd, inputs, outputs) if inputs.isIdle && from == shuttle =>  // Shuttle is done.
+			case CompleteTask(cmd, inputs, outputs) if inputs.isIdle && from == shuttle =>  // Lift is done.
 			case ReceiveLoad(via, load) if from == lift =>
 			case StartTask(cmd, materials) if from == lift =>
 			case StageLoad(cmd, load) if from == lift => // Lift picked up from shuttle
@@ -201,7 +201,7 @@ abstract class ShuttleBasedSortedStorageModule(name: String,
 			case StartTask(cmd, materials) if from == fromShuttle =>
 				StartTask(pendingCommands.head.uid, materials) ~> owner now at
 			case StageLoad(cmd, load) if from == fromShuttle =>
-				// Shuttle picked up from slot, done Aisle Staging
+				// Lift picked up from slot, done Aisle Staging
 				log.debug("Grooming -- Retrieve Staging")
 				StageLoad(pendingCommands.head.uid, load) ~> owner now at
 			case DeliverResult(cmd, via, result) if from == fromShuttle =>

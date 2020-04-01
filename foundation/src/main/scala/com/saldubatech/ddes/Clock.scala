@@ -8,7 +8,7 @@ import akka.actor.typed.Behavior
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import com.saldubatech.base.Monitored
-import com.saldubatech.ddes.Processor.{ActionCommand, ProcessorMessage}
+import com.saldubatech.ddes.Processor.{ActionCommand, ProcessCommand, ProcessorMessage}
 import com.saldubatech.ddes.Simulation.{Command, Notification}
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.util.Logging
@@ -122,18 +122,24 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		notifyObservers(StartedOn(now))
 		maybeAdvance
 	}
+
 	private def sendNow(to: ActorRef[ProcessorMessage], cmd: ActionCommand): Unit = {
 		openAction(cmd)
+		cmd match {
+			case pcmd: ProcessCommand[_] => log.info(s"MSC: ${cmd.from.path.name} -> ${to.path.name}: [$now] ${pcmd.dm}")
+			case other => log.info(s"Sending Non Process Command: $other")
+		}
 		log.debug(s"Sending Now($now): To: $to($cmd)")
 		to ! cmd
 	}
-	private def enqueue(tick: Tick, act: Enqueue): Behavior[ClockMessage] = {
-		log.debug(s"Clock: Enqueueing $act for $tick")
+
+	private def enqueue(tick: Tick, eq: Enqueue): Behavior[ClockMessage] = {
+		log.debug(s"Clock: Enqueueing $eq for $tick")
 		if(tick >= now) {
-			actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += act)
+			actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += eq)
 			Behaviors.same
 		} else {
-			log.error(s"Received action($act) for earlier: $tick when now is $now")
+			log.error(s"Received action($eq) for earlier: $tick when now is $now")
 			Behaviors.stopped
 		}
 	}
@@ -143,7 +149,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 			if(actionQueue.nonEmpty) {
 				val (tick, actionList) = actionQueue.head
 				val past = now
-				log.debug(s"Advancing from $past to $tick")
+				log.info(s"Advancing from $past to $tick")
 				now = tick
 				actionQueue -= tick
 				activatedEpoch = false

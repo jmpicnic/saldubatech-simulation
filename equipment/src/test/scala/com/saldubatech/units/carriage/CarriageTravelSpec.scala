@@ -6,21 +6,13 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.units.shuttle
+package com.saldubatech.units.carriage
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.Clock
-import com.saldubatech.ddes.Clock._
-import com.saldubatech.ddes.Processor._
-import com.saldubatech.ddes.SimulationController.ControllerMessage
-import com.saldubatech.transport.MaterialLoad
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
-import scala.concurrent.duration._
 
-
-class ShuttleTravelSpec
+class CarriageTravelSpec
 	extends WordSpec
 		with Matchers
     with WordSpecLike
@@ -34,8 +26,8 @@ class ShuttleTravelSpec
   override def afterAll: Unit = {
   }
 
-	"A Shuttle Travel" when {
-		val underTest = Shuttle.ShuttleTravel(2,10, 6,7, 5)
+	"A Lift Travel" when {
+		val underTest = Carriage.CarriageTravel(2,10, 6,7, 5)
 		"A. Keep its configuration" should {
 			"A01. acquire value" in {
 				underTest.acquireTime should be(7L)

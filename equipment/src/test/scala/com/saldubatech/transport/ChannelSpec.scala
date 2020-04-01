@@ -71,7 +71,7 @@ class ChannelSpec extends WordSpec
 	}
 	implicit object channelOps extends Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType](underTest)
 
-	def source(host: Processor.ProcessorRef):Channel.Source[ProbeLoad, DummySourceMessageType] = new Channel.Source[ProbeLoad, DummySourceMessageType]{
+	def source(host: Processor.Ref):Channel.Source[ProbeLoad, DummySourceMessageType] = new Channel.Source[ProbeLoad, DummySourceMessageType]{
 		override lazy val ref = host
 		override def loadAcknowledged(chStart: Channel.Start[ProbeLoad, DummySourceMessageType], load: ProbeLoad)(implicit ctx: SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] = {
 			testActor.ref ! s"${load.lid}-Acknowledged"
@@ -79,7 +79,7 @@ class ChannelSpec extends WordSpec
 		}
 	}
 
-	def sink(host: Processor.ProcessorRef) = new Channel.Sink[ProbeLoad, DummySinkMessageType] {
+	def sink(host: Processor.Ref) = new Channel.Sink[ProbeLoad, DummySinkMessageType] {
 		override lazy val ref = host
 		override def loadArrived(endpoint: Channel.End[ProbeLoad, DummySinkMessageType], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] = {
 			log.info(s"Called loadArrived with $load")

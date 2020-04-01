@@ -22,7 +22,7 @@ object GTP {
 		* @param layout
 		* @param storeEndpointNames: Map from External Endpoint Name (used by layout) and intrinsic naming
 		*                              in the ShuttleStore. If not present, the Layout needs to use the intrinsic
-		*                              names of the Shuttle Store.
+		*                              names of the Lift Store.
 		*/
 	case class SortedStore(id: String,
 	                       store: ShuttleStore,
