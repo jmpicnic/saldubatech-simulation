@@ -47,3 +47,17 @@ jobs:
             path: ~/repo/target/test-reports
       - codecov/upload:
           file: ~/repo/target/test-reports
+
+#---------------------------------------------------------------------------
+# WORKFLOWS
+#---------------------------------------------------------------------------
+workflows:
+  master-build:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - master
+
+
