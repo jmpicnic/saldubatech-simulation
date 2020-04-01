@@ -59,5 +59,6 @@ workflows:
             branches:
               only:
                 - master
+                - clean_tests
 
 
