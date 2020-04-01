@@ -100,7 +100,7 @@ class MaterialChannelUnidirectionalSpec extends BaseActorSpec(ActorSystem("Mater
 	}), "destination")
 
 
-	"A Material Channel" when {
+/*	"A Material Channel" when {
 		"created" must {
 
 			object underTest extends OneWayChannel[Material](3, "underTest Channel") {
@@ -160,4 +160,6 @@ class MaterialChannelUnidirectionalSpec extends BaseActorSpec(ActorSystem("Mater
 			}
 		}
 	}
+
+ */
 }

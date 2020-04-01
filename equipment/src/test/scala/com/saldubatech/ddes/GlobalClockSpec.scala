@@ -46,7 +46,7 @@ class GlobalClockSpec(_system: ActorSystem)
 				underTest ! DeregisterTimeMonitor(secondProbe.testActor)
 				secondProbe.expectMsg(Deregistered(1))
 			}
-			"enqueue all Actions that are sent to it" in {
+/*			"enqueue all Actions that are sent to it" in {
 				EventFilter.debug(message = "GlobalClock now: 0 : Enqueuing An initial message at 0 while stopped", occurrences = 1) intercept {
 					underTest ! Enqueue(ActionRequest(testActor, secondProbe.testActor, "An initial message", 0))
 				}
@@ -77,6 +77,6 @@ class GlobalClockSpec(_system: ActorSystem)
 					secondProbe.expectMsg(Action(testActor, secondProbe.testActor, "A second initial message", 10))
 				}
 			}
-		}
+*/		}
 	}
 }

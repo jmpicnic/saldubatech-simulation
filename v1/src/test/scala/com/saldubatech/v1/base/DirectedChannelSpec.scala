@@ -111,7 +111,7 @@ class DirectedChannelSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 		override def restoreChannelCapacity(via: DirectedChannel.Start[Material], tick: Long): Unit = {}
 	}
 
-	"A Material Channel" when {
+/*	"A Material Channel" when {
 		"created" must {
 			"1. allow registering Origin and Destination" in {
 				val origin: ActorRef = gw.simActorOf(Props(new MockSource()), "origin")
@@ -155,4 +155,6 @@ class DirectedChannelSpec(_system: ActorSystem) extends BaseActorSpec(_system) {
 			}
 		}
 	}
+
+ */
 }
