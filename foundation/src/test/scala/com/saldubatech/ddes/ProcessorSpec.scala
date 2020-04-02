@@ -111,7 +111,7 @@ class ProcessorSpec
 			}
 			"A04 Process runtime messages at a delayed time" in {
 				underTest ! action3
-				log.debug("Sent two commands, now in A04")
+				testController.expectNoMessage(200 millis)
 				globalClock ! CompleteAction(receivedCmd)
 				mockProcessorReceiver.expectMessage(ProcessCommand(underTest, 23L, DomainType("Answering: MOCK PROCESS COMMAND2")))
 				testActor.expectMessage("MOCK PROCESS COMMAND2")
