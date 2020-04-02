@@ -5,7 +5,7 @@
 package com.saldubatech.units.shuttle
 
 import akka.actor.typed.ActorRef
-import com.saldubatech.base.{Identification, Types}
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.ddes.Processor.DelayedDomainRun
 import com.saldubatech.physics.Travel.{Distance, Speed}
