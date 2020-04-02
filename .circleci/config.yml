@@ -41,7 +41,7 @@ jobs:
           key: v1-dependencies--{{ checksum "build.sbt" }}
 
       # run tests!
-      - run: cat /dev/null | sbt "clean;coverage;test;coverageReport"
+      - run: cat /dev/null | sbt "coverage;test;coverageReport"
       - run: bash <(curl -s https://codecov.io/bash) -t 181a3344-d4e7-41d2-97cc-85443cca4e4e
       - store_test_results:
             path: ~/repo/target/test-reports

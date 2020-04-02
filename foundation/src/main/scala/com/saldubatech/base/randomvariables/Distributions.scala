@@ -6,7 +6,7 @@
  * Copyright (c) 2019. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.randomvariables
+package com.saldubatech.base.randomvariables
 
 import org.apache.commons.math3.distribution.{ExponentialDistribution, GeometricDistribution}
 
