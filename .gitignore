@@ -1,12 +1,11 @@
 *.class
 *.log
 out/**
-target/**
+**/target/**
 venv/**
 **/scratch/**
-project/target/**
-.idea/GrepConsole.xml
-.idea/workspace.xml
-
+**/.DS_Store
+**/.idea/**
+**/*.iml
 
 
