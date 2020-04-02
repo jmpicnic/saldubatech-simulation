@@ -11,10 +11,14 @@ import com.saldubatech.test.BaseSpec
 
 class DistributionsSpec extends BaseSpec {
 	val allowedError = 3.0
+	"Zeros are true zeros" in {
+		Distributions.zeroDouble() should be (0.0)
+		Distributions.zeroLong() should be (0L)
+	}
 	"An Exponential Distribution" when {
 		val mean = 200.00
 		val exp: DoubleRVar= exponential(mean)
-		"sampled 10000 times" must {
+		"sampled 10000 times" should {
 			var acc: Double = 0
 			var count: Int = 0
 			for (i <- 1 to 100000) {acc += exp(); count += 1}
@@ -76,7 +80,7 @@ class DistributionsSpec extends BaseSpec {
 				var acc: Long = 0
 				var acc2: Long = 0
 				var count: Int = 0
-				for (i <- 1 to 100000) {
+				for (i <- 1 to 500000) {
 					val v = dExp(); acc += v; acc2 += v * v; count += 1
 				}
 				val avg = acc.toDouble / count.toDouble
