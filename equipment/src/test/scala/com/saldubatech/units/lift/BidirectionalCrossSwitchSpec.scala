@@ -45,7 +45,7 @@ class BidirectionalCrossSwitchSpec
 
 	implicit val globalClock = testKit.spawn(Clock())
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
-	implicit val simController = simControllerProbe.ref
+	implicit val simController: SimulationController.Ref = simControllerProbe.ref
 
 	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, BidirectionalCrossSwitch.Notification)]
 	val xcManagerRef = xcManagerProbe.ref
@@ -56,16 +56,15 @@ class BidirectionalCrossSwitchSpec
 	"A Lift Level" should {
 
 		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
-		val carriageProcessor = Carriage.buildProcessor("carriage", physics, globalClock, simController)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1: Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, BidirectionalCrossSwitch.CrossSwitchSignal] = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2: InboundChannelImpl = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
 		val obInduct = Seq(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
 		val obDischarge = Seq((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
 
-		val config = BidirectionalCrossSwitch.Configuration(carriageProcessor, Seq.empty, Seq.empty, obInduct, obDischarge, 0)
+		val config = BidirectionalCrossSwitch.Configuration("underTest", physics, Seq.empty, Seq.empty, obInduct, obDischarge, 0)
 
 
 		// Sources & sinks
@@ -77,7 +76,7 @@ class BidirectionalCrossSwitchSpec
 		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", globalClock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
-		val underTestProcessor = BidirectionalCrossSwitch.buildProcessor("underTest", config)
+		val underTestProcessor = BidirectionalCrossSwitch.buildProcessor(config)
 		val underTest = testKit.spawn(underTestProcessor.init, "underTest")
 
 

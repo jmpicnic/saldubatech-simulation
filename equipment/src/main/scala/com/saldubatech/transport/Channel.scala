@@ -68,6 +68,9 @@ object Channel {
 		def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
+		def peekNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
+		def peek(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
+		def peek(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def loadReceiver: Processor.DomainRun[SinkProfile]
 	}
 
@@ -82,7 +85,10 @@ object Channel {
 		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
 	}
 
-
+	object Ops {
+		def apply[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage,
+			SinkProfile >: ChannelConnections.ChannelDestinationMessage](ch: Channel[LOAD, SourceProfile, SinkProfile]) = new Ops(ch)
+	}
 	class Ops[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage,
 		SinkProfile >: ChannelConnections.ChannelDestinationMessage](val ch: Channel[LOAD, SourceProfile, SinkProfile])
 		extends LogEnabled {
@@ -146,14 +152,9 @@ object Channel {
 				private val delivered: mutable.SortedMap[Int, (LOAD, String)] = mutable.SortedMap.empty
 				private val pending: mutable.Queue[(LOAD, String)] = mutable.Queue.empty
 
-				def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
-
-				def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
-					log.debug(s"Channel: $channelName:: trying to get $l from delivered $delivered")
-					delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
-				}
-
-				def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
+				override def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
+				override def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
+				override def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
 					var r = delivered.get(idx)
 					if (r nonEmpty) {
 						if (pending nonEmpty) {
@@ -167,6 +168,10 @@ object Channel {
 					}
 					r
 				}
+
+				override def peekNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => peek(e._1) }
+				override def peek(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => peek(e._1))
+				override def peek(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.get(idx)
 
 				private def acknowledgeLoad(load: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Unit = {
 					log.debug(s"Start Acknowledge Load $load with endpoint ${_start}, from $delivered")
@@ -201,6 +206,7 @@ object Channel {
 							sink.loadReleased(this, tr.load, Some(tr.idx))
 					}
 				}
+
 			}
 		}
 		/*	def simpleDelayChannel[L <: Identification, SourceProfile, SinkProfile](name: String, delay: Delay, capacity: Int, boundedLookup: Option[Int] = None) =
@@ -213,13 +219,13 @@ object Channel {
 abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage, SinkProfile >: ChannelConnections.ChannelDestinationMessage]
 (val delay: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, val name:String = java.util.UUID.randomUUID().toString)
 	extends Identification.Impl(name) {
-	type TransferSignal = Channel.TransferLoad[LOAD] with SinkProfile
-	type PullSignal = Channel.PulledLoad[LOAD] with SinkProfile
+	type TransferSignal <: Channel.TransferLoad[LOAD]
+	type PullSignal <: Channel.PulledLoad[LOAD]
 
 	def transferBuilder(channel: String, load: LOAD, resource: String): TransferSignal
 	def loadPullBuilder(ld: LOAD, idx: Int): PullSignal
 
-	type AckSignal = SourceProfile with Channel.AcknowledgeLoad[LOAD]
+	type AckSignal <: Channel.AcknowledgeLoad[LOAD]
 
 	def acknowledgeBuilder(channel: String, load: LOAD, resource: String): AckSignal
 

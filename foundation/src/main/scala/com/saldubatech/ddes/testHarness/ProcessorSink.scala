@@ -8,7 +8,7 @@ import com.saldubatech.ddes.Processor.{ConfigurationCommand, ProcessCommand, Pro
 object ProcessorSink {
 
 }
-class ProcessorSink[DomainMessage](observer: ActorRef[(Clock.Tick, DomainMessage)], clock: Clock.ClockRef) {
+class ProcessorSink[DomainMessage](observer: ActorRef[(Clock.Tick, DomainMessage)], clock: Clock.Ref) {
 	def init = Behaviors.setup[ProcessorMessage]{
 		implicit ctx => run
 	}

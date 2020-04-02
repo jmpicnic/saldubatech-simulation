@@ -9,7 +9,7 @@ import java.util.Comparator
 
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.dispatch.Envelope
-import com.saldubatech.ddes.Clock.{ClockAction, ClockMessage, ClockRef, Enqueue, Tick}
+import com.saldubatech.ddes.Clock.{ClockAction, ClockMessage, Ref, Enqueue, Tick}
 import com.saldubatech.ddes.Processor.{ProcessorBehavior, ProcessorMessage, Ref}
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.util.Lang.TBD
