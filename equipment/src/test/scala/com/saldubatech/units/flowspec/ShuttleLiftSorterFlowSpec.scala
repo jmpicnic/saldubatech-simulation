@@ -323,10 +323,10 @@ class ShuttleLiftSorterFlowSpec
 				globalClock ! Clock.Enqueue(aisleA._2.head._2, Processor.ProcessCommand(systemManager, 64L, shuttleCommand))
 				systemManagerProbe.expectNoMessage(500 millis)
 			}
-			"B02. The Load is sent to the sortere" in  {
+			"B02. The Load is sent to the sorter" in  {
 				val probeLoadMessage = TestProbeMessage("FirstLoad", probeLoad)
 				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 100000L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: First Load")
+				testMonitorProbe.expectMessage("FromSender: FirstLoad")
 //				systemManagerProbe.expectMessage(65L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
 				systemManagerProbe.expectMessage(134000L -> UnitSorter.CompletedCommand(sorterCommand))
 				systemManagerProbe.expectMessage(143000L -> BidirectionalCrossSwitch.CompletedCommand(liftCommand))

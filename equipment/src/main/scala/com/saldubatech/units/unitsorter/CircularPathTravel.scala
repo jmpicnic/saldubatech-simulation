@@ -17,18 +17,23 @@ object CircularPathTravel {
 
 }
 
-class CircularPathTravel(nSlots: Int,
+class CircularPathTravel(val nSlots: Int,
                           speed: Int, // length Units/tick
                           trayLength: Int) {
 
 	private val slotSpeed = speed.toDouble/trayLength.toDouble
+	val oneTurnTime: Delay = Math.ceil(nSlots.toDouble/slotSpeed).toLong
 
-	def zeroPosition(at: Tick): Int = (at % (oneTurnTime)).toInt
+	class Position(at: Tick) {
+		val zeroIndex = Math.floor(at.toDouble * slotSpeed).toInt % nSlots
+		val slotAtZero = nSlots - zeroIndex
+		def slotAtIndex(index: Int) = (index + nSlots - zeroIndex) % nSlots
 
-	val oneTurnTime: Delay = Math.round(nSlots.toDouble*trayLength.toDouble/speed.toDouble)
+		def indexForSlot(index: Int) = (index + zeroIndex) % nSlots
+	}
 
 	def travelTime(from: Int, to: Int): Delay = {
 		val distance = (to + nSlots - from) % nSlots
-		Math.round(distance.toDouble/slotSpeed)
+		Math.ceil(distance.toDouble/slotSpeed).toLong
 	}
 }
