@@ -17,7 +17,7 @@ import com.saldubatech.units.lift.BidirectionalCrossSwitch
 import com.saldubatech.units.shuttle.Shuttle
 import com.saldubatech.units.UnitsFixture.{DownstreamConfigure, SinkFixture, SourceFixture, TestProbeMessage, UpstreamConfigure, configurer}
 import com.saldubatech.units.`abstract`.EquipmentManager
-import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
+import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter2, UnitSorterSignal2}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -51,11 +51,11 @@ object ShuttleLiftSorterFlowSpec {
 	}
 
 	object UnitSorterBuilder {
-		import com.saldubatech.units.unitsorter.UnitSorter
-		def build(config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): Processor.Ref =
-			actorCreator.spawn(UnitSorter.buildProcessor(config).init, config.name)
+		import com.saldubatech.units.unitsorter.UnitSorter2
+		def build(config: UnitSorter2.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): Processor.Ref =
+			actorCreator.spawn(UnitSorter2.buildProcessor(config).init, config.name)
 
-		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter.NoConfigure)
+		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter2.NoConfigure)
 	}
 
 	class LiftShuttleChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
@@ -74,10 +74,10 @@ object ShuttleLiftSorterFlowSpec {
 	}
 
 	class SorterLiftChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, UnitSorterSignal, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
+		extends Channel[MaterialLoad, UnitSorterSignal2, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
 		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
 		override type PullSignal = Channel.PulledLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
+		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal2
 
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
@@ -86,19 +86,19 @@ object ShuttleLiftSorterFlowSpec {
 			new Channel.PulledLoadImpl(ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
+			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal2
 	}
 
 	class LiftSorterChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
+		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, UnitSorterSignal2](delay, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal2
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal2
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
+			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal2
 
 		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with UnitSorterSignal
+			new Channel.PulledLoadImpl(ld, idx, this.name) with UnitSorterSignal2
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
@@ -122,28 +122,28 @@ object ShuttleLiftSorterFlowSpec {
 
 
 	class InboundInductChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal2](delay, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal2
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal2
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
 
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal2
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with UnitSorterSignal
+		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with UnitSorterSignal2
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
 	class OutboundDischargeChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+		extends Channel[MaterialLoad, UnitSorterSignal2, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal2
 
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal2
 	}
 
 
@@ -208,31 +208,31 @@ class ShuttleLiftSorterFlowSpec
 
 		val aisleA = buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2,5), 0)
 		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2,5), 0)
-		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(45 -> aisleASorter, 0 -> aisleBSorter)
-		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
+		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal2]] = Map(45 -> aisleASorter, 0 -> aisleBSorter)
+		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal2, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
 
 		val chIb1 = new InboundInductChannel(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
 		val chIb2 = new InboundInductChannel(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
-		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
+		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal2]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
 
 		val chDis1 = new OutboundDischargeChannel(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_1")
 		val chDis2 = new OutboundDischargeChannel(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
-		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
+		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal2, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
 
-		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = inboundInducts ++ aisleInducts
-		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
+		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal2]] = inboundInducts ++ aisleInducts
+		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal2, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
-		val sorterConfig = UnitSorter.Configuration("sorter", 40, 30, sorterInducts, sorterDischarges, sorterPhysics)
+		val sorterConfig = UnitSorter2.Configuration("sorter", 40, sorterInducts, sorterDischarges, sorterPhysics)
 		val sorter: Processor.Ref = UnitSorterBuilder.build(sorterConfig)
 
 		val sources = inboundInducts.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
+			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal2] => new SourceFixture(chOps)(testMonitor, this)}
 		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceRefs: Seq[Processor.Ref] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
 
 		val destinations =  outboundDischarges.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)
+			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal2, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)
 		}
 		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", globalClock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs: Seq[Processor.Ref] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
@@ -258,8 +258,8 @@ class ShuttleLiftSorterFlowSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Process the configuration of its elements" in {
-				sorter ! Processor.ConfigurationCommand(systemManager, 0L, UnitSorter.NoConfigure)
-				systemManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(sorter))
+				sorter ! Processor.ConfigurationCommand(systemManager, 0L, UnitSorter2.NoConfigure)
+				systemManagerProbe.expectMessage(0L -> UnitSorter2.CompletedConfiguration(sorter))
 				val systemManagerProbeExt = new TestProbeExt(systemManagerProbe)
 				aisleA._1 ! Processor.ConfigurationCommand(systemManager, 6L, BidirectionalCrossSwitch.NoConfigure)
 				aisleB._1 ! Processor.ConfigurationCommand(systemManager, 6L, BidirectionalCrossSwitch.NoConfigure)
@@ -314,7 +314,7 @@ class ShuttleLiftSorterFlowSpec
 		}
 		"B. Transfer a load from one of its inbound sources" when {
 			val probeLoad = MaterialLoad("FirstLoad")
-			val sorterCommand = UnitSorter.Sort(probeLoad, sorterAisleA.ch.name)
+			val sorterCommand = UnitSorter2.Sort(probeLoad, sorterAisleA.ch.name)
 			val liftCommand = BidirectionalCrossSwitch.Transfer(sorterAisleA.ch.name, "shuttle_AisleA_2_in")
 			val shuttleCommand = Shuttle.Store("shuttle_AisleA_2_in", Carriage.OnLeft(7))
 			"B01. Receives commands in advance of the load" in {
@@ -327,8 +327,8 @@ class ShuttleLiftSorterFlowSpec
 				val probeLoadMessage = TestProbeMessage("FirstLoad", probeLoad)
 				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 100000L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: FirstLoad")
-//				systemManagerProbe.expectMessage(65L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
-				systemManagerProbe.expectMessage(134000L -> UnitSorter.CompletedCommand(sorterCommand))
+//				systemManagerProbe.expectMessage(65L -> UnitSorter2.LoadArrival(probeLoad, chIb1.name))
+				systemManagerProbe.expectMessage(134000L -> UnitSorter2.CompletedCommand(sorterCommand))
 				systemManagerProbe.expectMessage(143000L -> BidirectionalCrossSwitch.CompletedCommand(liftCommand))
 				systemManagerProbe.expectMessage(152000L -> Shuttle.CompletedCommand(shuttleCommand))
 				systemManagerProbe.expectNoMessage(500 millis)
@@ -341,13 +341,13 @@ class ShuttleLiftSorterFlowSpec
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 55L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(65L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
+				xcManagerProbe.expectMessage(65L -> UnitSorter2.LoadArrival(probeLoad, chIb1.name))
 			}
 			"B02. and then it receives a Transfer command" in {
-				val transferCmd = UnitSorter.Sort(probeLoad, chDis1.name)
+				val transferCmd = UnitSorter2.Sort(probeLoad, chDis1.name)
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 155, transferCmd))
 				testMonitorProbe.expectMessage("Received Load Acknowledgement through Channel: Inbound1 with MaterialLoad(First Load) at 156")
-				xcManagerProbe.expectMessage(216L -> UnitSorter.CompletedCommand(transferCmd))
+				xcManagerProbe.expectMessage(216L -> UnitSorter2.CompletedCommand(transferCmd))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge_1 at 226")
 				destinationRefs.head ! Processor.ProcessCommand(destinationRefs.head, 500, ConsumeLoad)
 				testMonitorProbe.expectMessage("Got load Some((MaterialLoad(First Load),Ob1_c2))")
