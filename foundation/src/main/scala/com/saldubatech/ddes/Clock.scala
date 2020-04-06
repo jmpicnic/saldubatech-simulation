@@ -19,7 +19,7 @@ object Clock {
 	type Tick = Long
 	type Delay = Long
 	trait ClockMessage
-	type ClockRef = ActorRef[ClockMessage]
+	type Ref = ActorRef[ClockMessage]
 
 	sealed trait ClockCommand extends Command with ClockMessage
 

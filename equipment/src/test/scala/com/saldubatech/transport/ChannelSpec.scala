@@ -10,8 +10,7 @@ import com.saldubatech.ddes
 import com.saldubatech.ddes.Processor.SignallingContext
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.{Clock, Processor}
-import com.saldubatech.test.BaseSpec
-import com.saldubatech.transport.ChannelConnections._
+import com.saldubatech.transport.ChannelConnections.{DummySinkMessageType, DummySourceMessageType}
 import com.saldubatech.util.LogEnabled
 import org.apache.commons.math3.ode.sampling.DummyStepHandler
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -57,6 +56,8 @@ class ChannelSpec extends WordSpec
 	val globalClock = testKit.spawn(Clock())
 	val testController = testKit.createTestProbe[ControllerMessage]
 	val underTest = new Channel[ProbeLoad, DummySourceMessageType, DummySinkMessageType](() => Some(7), Set("card1", "card2"), 1, "underTest"){
+		override type TransferSignal = Channel.TransferLoad[ProbeLoad] with DummySinkMessageType
+		override type PullSignal = Channel.PulledLoad[ProbeLoad] with DummySinkMessageType
 		override def transferBuilder(channel: String, load: ProbeLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[ProbeLoad](channel, load, resource) with DummySinkMessageType {
 			override def toString = s"Receiver.TransferLoad(ch: $channel, ld: $load, rs: $resource)"
 		}
@@ -65,6 +66,7 @@ class ChannelSpec extends WordSpec
 			override def toString = s"Receiver.PulledLoad(load: $ld, idx: $idx)"
 		}
 
+		override type AckSignal = Channel.AcknowledgeLoad[ProbeLoad] with DummySourceMessageType
 		override def acknowledgeBuilder(channel: String, load: ProbeLoad, resource: String): AckSignal = new Channel.AckLoadImpl[ProbeLoad](channel, load, resource)  with DummySourceMessageType {
 			override def toString = s"Sender.AcknowledgeLoad(ch: $channel, ld: $load, rs: $resource)"
 		}

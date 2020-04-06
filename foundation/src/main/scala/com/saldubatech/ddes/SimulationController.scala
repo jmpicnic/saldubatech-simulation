@@ -17,7 +17,7 @@ import scala.concurrent.Await
 object SimulationController {
 	trait ControllerMessage extends ProcessorMessage
 
-	type ControllerRef = ActorRef[ControllerMessage]
+	type Ref = ActorRef[ControllerMessage]
 
 	sealed trait ControllerCommand extends Command with ControllerMessage
 	case object SimulationShutdown extends ControllerCommand

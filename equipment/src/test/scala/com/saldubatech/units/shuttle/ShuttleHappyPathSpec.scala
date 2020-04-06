@@ -7,13 +7,13 @@ package com.saldubatech.units.shuttle
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.Carriage
-import com.saldubatech.units.shuttle.Shuttle.ShuttleLevelSignal
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -23,34 +23,40 @@ import scala.concurrent.duration._
 object ShuttleHappyPathSpec {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
-	case object DownstreamConfigure extends DownstreamSignal
+	case object DownstreamConfigure extends Identification.Impl() with DownstreamSignal
 
 	trait UpstreamSignal extends ChannelConnections.DummySourceMessageType
 	case object UpstreamConfigure extends UpstreamSignal
 	case class TestProbeMessage(msg: String, load: MaterialLoad) extends UpstreamSignal
 
 	class InboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleLevelSignal](delay, cards, configuredOpenSlots, name) {
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleLevelSignal
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleSignal](delay, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with Shuttle.ShuttleSignal
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with Shuttle.ShuttleSignal
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): Channel.TransferLoad[MaterialLoad] = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with Shuttle.ShuttleLevelSignal
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
+		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with Shuttle.ShuttleSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): Channel.AcknowledgeLoad[MaterialLoad] = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
 	class OutboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, Shuttle.ShuttleLevelSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle.ShuttleSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleLevelSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 	}
 
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleLevelSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: Ref = _ref.head
@@ -80,7 +86,7 @@ object ShuttleHappyPathSpec {
 	}
 
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, Shuttle.ShuttleLevelSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture(ops: Channel.Ops[MaterialLoad, Shuttle.ShuttleSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: Ref = _ref.head
 
@@ -164,24 +170,24 @@ class ShuttleHappyPathSpec
 		// Channels
 		val chIb1 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1", "Ib1_c2"), 1, "Inbound1")
 		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1", "Ib1_c2"), 1, "Inbound2")
-		val ib = Seq(chIb1, chIb2)
+		val ib = Seq(chIb1, chIb2).map(Channel.Ops(_))
 
 		val chOb1 = new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Outbound1")
 		val chOb2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Outbound2")
-		val ob = Seq(chOb1, chOb2)
+		val ob = Seq(chOb1, chOb2).map(Channel.Ops(_))
 
-		val config = Shuttle.Configuration(20, ib, ob)
+		val config = Shuttle.Configuration("underTest", 20, physics, ib, ob)
 
 		// Sources & sinks
-		val sources = config.inboundOps.map(ibOps => new ShuttleRejectedCommandsSpec.SourceFixture(ibOps)(testMonitor, this))
+		val sources = config.inbound.map(ibOps => new ShuttleRejectedCommandsSpec.SourceFixture(ibOps)(testMonitor, this))
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val sinks = config.outboundOps.map(obOps => new ShuttleRejectedCommandsSpec.SinkFixture(obOps)(testMonitor, this))
+		val sinks = config.outbound.map(obOps => new ShuttleRejectedCommandsSpec.SinkFixture(obOps)(testMonitor, this))
 		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sinkActors = sinkProcessors.zip(Seq("d1", "d2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val shuttleLevelProcessor = Shuttle.buildProcessor("underTest", shuttleProcessor, config, initial)
+		val shuttleLevelProcessor = Shuttle.buildProcessor(config, initial)
 		val underTest = testKit.spawn(shuttleLevelProcessor.init, "underTest")
 
 

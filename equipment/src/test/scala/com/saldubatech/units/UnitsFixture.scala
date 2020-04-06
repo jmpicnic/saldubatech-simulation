@@ -1,4 +1,4 @@
-package com.saldubatech.units.lift
+package com.saldubatech.units
 
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
@@ -6,11 +6,10 @@ import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.Carriage.Ref
-import com.saldubatech.units.lift
 import com.saldubatech.util.LogEnabled
 import org.scalatest.WordSpec
 
-object BidirectionalXSFixtures {
+object UnitsFixture {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
 	case object DownstreamConfigure extends Identification.Impl() with DownstreamSignal
@@ -21,41 +20,18 @@ object BidirectionalXSFixtures {
 
 	case object ConsumeLoad extends Identification.Impl() with ChannelConnections.DummySinkMessageType
 
-	class InboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
-	}
-
-	class OutboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
-
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
-	}
-
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, BidirectionalCrossSwitch.CrossSwitchSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture[DestinationSignal >: ChannelConnections.ChannelDestinationMessage](ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: Ref = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType]): Processor.DomainRun[ChannelConnections.DummySourceMessageType] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
-				testMonitor ! s"Received Load Acknoledgement at Channel: ${chStart.channelName} with $load"
+				testMonitor ! s"Received Load Acknowledgement through Channel: ${chStart.channelName} with $load at ${ctx.now}"
 				runner
 			}
 		}
@@ -77,12 +53,12 @@ object BidirectionalXSFixtures {
 			}
 	}
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture[SourceSignal >: ChannelConnections.ChannelSourceMessage](ops: Channel.Ops[MaterialLoad, SourceSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: Ref = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
-				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName}"
+				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName} at ${ctx.now}"
 				runner
 			}
 
@@ -107,7 +83,7 @@ object BidirectionalXSFixtures {
 				}
 			}
 	}
-
+	
 	def configurer[DomainMessage](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
 		new Processor.DomainConfigure[DomainMessage] {
 			override def configure(config: DomainMessage)(implicit ctx: Processor.SignallingContext[DomainMessage]): Processor.DomainRun[DomainMessage] = {

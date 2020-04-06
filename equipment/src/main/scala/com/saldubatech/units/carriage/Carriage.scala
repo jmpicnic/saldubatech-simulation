@@ -114,7 +114,6 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 					running
 				}
 			case other: CarriageCommand =>
-				println(s"Responding with Unacceptable Command: $other to ${ctx.from}")
 				ctx.reply(UnacceptableCommand(other, s"Command not applicable when Tray loaded with $tray at $currentLocation"))
 				idleFull
 		}
@@ -125,10 +124,8 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 		implicit ctx: Processor.SignallingContext[CarriageSignal] => {
 			case cmd@Load(loc) =>
 				if (currentLocation == loc.at.idx) {
-					println(s"Loading to be complete by now(${ctx.now}) + Acquire Time: ${travelPhysics.acquireTime}")
 					ctx.signalSelf(DoneLoading(cmd), travelPhysics.acquireTime)
 					currentClient = Some(ctx.from)
-					println(s"SelfSent DoneLoading")
 					loading
 				} else {
 					ctx.reply(UnacceptableCommand(cmd, s"Current Location $currentLocation incompatible with $loc or Tray not empty $tray"))
@@ -160,7 +157,6 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 						idleEmpty
 					} else {
 						tray = loc.retrieve
-						println(s"Loaded Tray with ${tray.head} at ${ctx.now}")
 						ctx.signal(currentClient.head, Loaded(cmd))
 						currentClient = None
 						idleFull

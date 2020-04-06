@@ -16,6 +16,7 @@ object Processor {
 	trait ProcessorMessage
 	type ProcessorBehavior = Behavior[ProcessorMessage]
 	type Ref = ActorRef[ProcessorMessage/*[TargetDomainMessage]*/]
+	type ProcessorCreator = {def spawn[T](behavior: Behavior[T], name: String): ActorRef[T]}
 
 	trait ProcessorCommand extends Command with ProcessorMessage
 	trait ProcessorControlCommand extends ProcessorCommand

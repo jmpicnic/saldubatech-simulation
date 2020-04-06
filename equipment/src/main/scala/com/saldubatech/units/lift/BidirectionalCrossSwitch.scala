@@ -9,6 +9,7 @@ import com.saldubatech.ddes.Processor.DelayedDomainRun
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.units.`abstract`.EquipmentManager
 import com.saldubatech.units.carriage.{Carriage, CarriageNotification}
 import com.saldubatech.units.lift
 import com.saldubatech.util.LogEnabled
@@ -26,7 +27,7 @@ object BidirectionalCrossSwitch {
 	sealed abstract class ExternalCommand extends Identification.Impl() with CrossSwitchSignal
 	case class Transfer(fromCh: String, toCh: String) extends ExternalCommand
 
-	sealed abstract class Notification extends Identification.Impl() with CrossSwitchSignal
+	sealed abstract class Notification extends Identification.Impl() with EquipmentManager.Notification
 	case class CompletedCommand(cmd: ExternalCommand) extends Notification
 	case class FailedBusy(cmd: ExternalCommand, msg: String) extends Notification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Notification
@@ -38,7 +39,8 @@ object BidirectionalCrossSwitch {
 
 	case class Configuration[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
 		OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
-	(carriage: Processor[Carriage.CarriageSignal],
+	(name: String,
+	 physics: Carriage.CarriageTravel,
 	 inboundInduction: Seq[(Int, Channel.Ops[MaterialLoad, InboundInductSignal, CrossSwitchSignal])],
 	 inboundDischarge: Seq[(Int, Channel.Ops[MaterialLoad, CrossSwitchSignal, InboundDischargeSignal])],
 	 outboundInduction: Seq[(Int, Channel.Ops[MaterialLoad, OutboundInductSignal, CrossSwitchSignal])],
@@ -87,12 +89,10 @@ object BidirectionalCrossSwitch {
 
 	def buildProcessor[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
 		OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
-	(
-		name: String,
-		configuration: Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
-	(implicit clockRef: Clock.ClockRef, simController: SimulationController.ControllerRef) = {
-		val domain = new BidirectionalCrossSwitch(name, configuration)
-		new Processor[BidirectionalCrossSwitch.CrossSwitchSignal](name, clockRef, simController, domain.configurer)
+	(configuration: Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
+	(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
+		val carriage = Carriage.buildProcessor(s"${configuration.name}_carriage", configuration.physics, clockRef,simController)
+		new Processor[BidirectionalCrossSwitch.CrossSwitchSignal](configuration.name, clockRef, simController, new BidirectionalCrossSwitch(configuration, carriage).configurer)
 	}
 
 	/*
@@ -113,7 +113,7 @@ object BidirectionalCrossSwitch {
 		case n: Any if false => Processor.DomainRun.same
 	}
 
-	private class DischargeConfig[DESTINATION_SIGNAL >: ChannelConnections.ChannelDestinationMessage](discharges: Seq[(Int, Channel.Ops[MaterialLoad, CrossSwitchSignal, DESTINATION_SIGNAL])],
+	private class DischargeConfig[DESTINATION_SIGNAL >: ChannelConnections.ChannelDestinationMessage](discharges: Seq[(Int, Channel.Ops[MaterialLoad, CrossSwitchSignal, _])],
 	                                                                                                  manager: Processor.Ref, locatorFactory: Int => Carriage.SlotLocator)(implicit ctx: BidirectionalCrossSwitch.CTX) {
 		val slots = discharges.map{ case (idx, ops) => ops.ch.name -> Carriage.Slot(locatorFactory(idx))}.toMap
 		val destinations = discharges.map(_._2).map(ops => ops.ch.name -> outboundSource(slots(ops.ch.name),manager,ops,ctx.aCtx.self)).toMap
@@ -150,7 +150,7 @@ object BidirectionalCrossSwitch {
 
 class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
 	OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
-(name: String, configuration: BidirectionalCrossSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal]) extends LogEnabled {
+(configuration: BidirectionalCrossSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal], carriage: Processor[Carriage.CarriageSignal]) extends LogEnabled {
 	import BidirectionalCrossSwitch._
 	private var manager: Processor.Ref = _
 
@@ -161,18 +161,15 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 
 	private var endpointListener: BidirectionalCrossSwitch.RUNNER = _
 
-	private var _carriage: Processor.Ref = _
-
-	lazy val carriage = _carriage
+	private var carriageRef: Processor.Ref = _
 
 	private def configurer: Processor.DomainConfigure[CrossSwitchSignal] = {
-		log.debug(s"Setting up initial Configuration for Lift Level: $name")
 		new Processor.DomainConfigure[CrossSwitchSignal] {
 			override def configure(config: CrossSwitchSignal)(implicit ctx: BidirectionalCrossSwitch.CTX): Processor.DomainMessageProcessor[CrossSwitchSignal] = {
 				config match {
 					case BidirectionalCrossSwitch.NoConfigure =>
 						manager = ctx.from
-						_carriage = ctx.aCtx.spawn(configuration.carriage.init, name+"_carriage")
+						carriageRef = ctx.aCtx.spawn(carriage.init, carriage.processorName)
 						outboundInductConfiguration = new InductConfiguration(configuration.outboundInduction, manager, Carriage.OnLeft)
 						outboundDischargeConfiguration = new DischargeConfig(configuration.outboundDischarge, manager, Carriage.OnLeft)
 
@@ -182,7 +179,7 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 						endpointListener =
 							Seq(outboundInductConfiguration.listener, outboundDischargeConfiguration.listener, inboundInductConfiguration.listener, inboundDischargeConfiguration.listener).reduce((l, r) => l orElse r)
 
-						ctx.configureContext.signal(_carriage, Carriage.Configure(configuration.initialAlignment))
+						ctx.configureContext.signal(carriageRef, Carriage.Configure(configuration.initialAlignment))
 						//ctx.reply(BidirectionalCrossSwitch.CompletedConfiguration(ctx.aCtx.self))
 						WAITING_FOR_CARRIAGE_CONFIGURATION
 				}
@@ -191,11 +188,11 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 	}
 
 	def WAITING_FOR_CARRIAGE_CONFIGURATION(implicit ctx: lift.BidirectionalCrossSwitch.CTX) = {
-		log.debug(s"Setting up waitingForCarriage Configuration for Lift Level: $name")
+		log.debug(s"Setting up waitingForCarriage Configuration for Lift Level: ${configuration.name}")
 		new Processor.DomainConfigure[CrossSwitchSignal] {
 			override def configure(config: CrossSwitchSignal)(implicit ctx: lift.BidirectionalCrossSwitch.CTX): Processor.DomainMessageProcessor[CrossSwitchSignal] = {
 				config match {
-					case cmd@Carriage.CompleteConfiguration(pr) if pr == _carriage =>
+					case Carriage.CompleteConfiguration(pr) if pr == carriageRef =>
 						// This is be needed in the future to signal the manager
 						log.debug(s"Completing CarriageLevel Configuration")
 						ctx.configureContext.signal(manager, BidirectionalCrossSwitch.CompletedConfiguration(ctx.aCtx.self))
@@ -228,16 +225,16 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 	}
 	private def doTransfer(fromEp: Induct, toEp: Discharge) (implicit cmd: ExternalCommand, ctx: BidirectionalCrossSwitch.CTX): BidirectionalCrossSwitch.RUNNER = {
 		implicit val requester = ctx.from
-		ctx.signal(carriage, Carriage.GoTo(fromEp.slot))
+		ctx.signal(carriageRef, Carriage.GoTo(fromEp.slot))
 		FETCHING(fetchSuccessCtx => {
-			fetchSuccessCtx.signal(carriage, Carriage.GoTo(toEp.slot))
+			fetchSuccessCtx.signal(carriageRef, Carriage.GoTo(toEp.slot))
 			DELIVERING(
 				deliverSuccessCtx => doDischarge(toEp)(deliverSuccessCtx),
 				_ => WAITING_FOR_SLOT(toEp))
 		},
 			_ => WAITING_FOR_LOAD(fromEp)(
 				loadReceivedCtx => {
-					loadReceivedCtx.signal(carriage, Carriage.GoTo(toEp.slot))
+					loadReceivedCtx.signal(carriageRef, Carriage.GoTo(toEp.slot))
 					DELIVERING(
 						deliveringSuccessCtx => doDischarge(toEp)(deliveringSuccessCtx),
 						_ => WAITING_FOR_SLOT(toEp)
@@ -261,7 +258,7 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 		endpointListener orElse ignoreSlotAvailable orElse {
 			ctx: BidirectionalCrossSwitch.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
-					ctx.signal(carriage, Carriage.Load(destination))
+					ctx.signal(carriageRef, Carriage.Load(destination))
 					LOADING(success)
 				case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
 					fail(ctx)
@@ -275,7 +272,7 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 		rejectExternalCommand orElse endpointListener orElse ignoreSlotAvailable orElse {
 			implicit ctx: BidirectionalCrossSwitch.CTX => {
 				case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
-					ctx.signal(carriage, Carriage.Unload(destination))
+					ctx.signal(carriageRef, Carriage.Unload(destination))
 					UNLOADING(success)
 				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
 					fail(ctx)
@@ -293,7 +290,7 @@ class BidirectionalCrossSwitch[InboundInductSignal >: ChannelConnections.Channel
 					if (from.slot isEmpty) {
 						from.source.get(tr.load)(ctx)
 						from.slot store tr.load
-						ctx.signal(carriage, Carriage.Load(from.slot))
+						ctx.signal(carriageRef, Carriage.Load(from.slot))
 						LOADING(continue)
 					} else {
 						throw new IllegalStateException(s"Location ${from.slot} is not empty to receive load ${tr.load} from channel ${from.source.channelName}")
