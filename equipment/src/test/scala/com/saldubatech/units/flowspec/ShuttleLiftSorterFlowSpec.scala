@@ -325,35 +325,14 @@ class ShuttleLiftSorterFlowSpec
 			}
 			"B02. The Load is sent to the sorter" in  {
 				val probeLoadMessage = TestProbeMessage("FirstLoad", probeLoad)
-				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 100000L, probeLoadMessage)
+				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 70L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: FirstLoad")
-//				systemManagerProbe.expectMessage(65L -> UnitSorter2.LoadArrival(probeLoad, chIb1.name))
-				systemManagerProbe.expectMessage(134000L -> UnitSorter2.CompletedCommand(sorterCommand))
-				systemManagerProbe.expectMessage(143000L -> BidirectionalCrossSwitch.CompletedCommand(liftCommand))
-				systemManagerProbe.expectMessage(152000L -> Shuttle.CompletedCommand(shuttleCommand))
+				systemManagerProbe.expectMessage(80L -> UnitSorter2.LoadArrival(probeLoad, chIb1.name))
+				systemManagerProbe.expectMessage(100L -> UnitSorter2.CompletedCommand(sorterCommand))
+				systemManagerProbe.expectMessage(140L -> BidirectionalCrossSwitch.CompletedCommand(liftCommand))
+				systemManagerProbe.expectMessage(170L -> Shuttle.CompletedCommand(shuttleCommand))
 				systemManagerProbe.expectNoMessage(500 millis)
 			}
 		}
-		/*
-		"B. Transfer a load from one collector to the discharge" when {
-			val probeLoad = MaterialLoad("First Load")
-			"B01. it receives the load in one induct" in {
-				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
-				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 55L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(65L -> UnitSorter2.LoadArrival(probeLoad, chIb1.name))
-			}
-			"B02. and then it receives a Transfer command" in {
-				val transferCmd = UnitSorter2.Sort(probeLoad, chDis1.name)
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 155, transferCmd))
-				testMonitorProbe.expectMessage("Received Load Acknowledgement through Channel: Inbound1 with MaterialLoad(First Load) at 156")
-				xcManagerProbe.expectMessage(216L -> UnitSorter2.CompletedCommand(transferCmd))
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge_1 at 226")
-				destinationRefs.head ! Processor.ProcessCommand(destinationRefs.head, 500, ConsumeLoad)
-				testMonitorProbe.expectMessage("Got load Some((MaterialLoad(First Load),Ob1_c2))")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge_1")
-			}
-
- */
 	}
 }

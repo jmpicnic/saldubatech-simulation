@@ -87,7 +87,6 @@ class UnitSorter2(configuration: UnitSorter2.Configuration) extends LogEnabled {
 			override def loadReleased(endpoint: Channel.End[MaterialLoad, UnitSorterSignal2], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal2]): RUNNER = {
 				Processor.DomainRun.same
 			}
-
 		}.end
 
 	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UnitSorterSignal2, _], host: Processor.Ref) =
@@ -194,7 +193,6 @@ class UnitSorter2(configuration: UnitSorter2.Configuration) extends LogEnabled {
 		}
 	}
 
-	var count = 0
 	lazy val RUNNING: RUNNER = endpointListener orElse {
 		implicit ctx: CTX => {
 			case sortCmd@Sort(load, destination) =>
@@ -205,10 +203,7 @@ class UnitSorter2(configuration: UnitSorter2.Configuration) extends LogEnabled {
 				cycleAndSignalNext
 				RUNNING
 			case Arrive =>
-				if(count < 1) {
-					count += 1
-					cycleAndSignalNext
-				}
+				cycleAndSignalNext
 				RUNNING
 		}
 	}
