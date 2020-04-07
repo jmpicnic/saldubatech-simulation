@@ -17,42 +17,42 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object UnitSorter2Spec {
+object UnitSorterSpec {
 
 
 	class InboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal2](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal2
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal2
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal2
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with UnitSorterSignal2
+		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with UnitSorterSignal
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
 	class OutboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, UnitSorterSignal2, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+		extends Channel[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal2
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal2
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 	}
 
 
 }
 
-class UnitSorter2Spec
+class UnitSorterSpec
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-	import UnitSorter2Spec._
+	import UnitSorterSpec._
 
 	val testKit = ActorTestKit()
 
@@ -68,7 +68,7 @@ class UnitSorter2Spec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, UnitSorter2.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, UnitSorter.Notification)]
 	val xcManagerProcessor = new ProcessorSink(xcManagerProbe.ref, globalClock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "XCManager")
 
@@ -86,21 +86,21 @@ class UnitSorter2Spec
 		val chDis2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
 		val discharges = Map(15 -> new Channel.Ops(chDis1), 45 -> new Channel.Ops(chDis2))
 
-		val config = UnitSorter2.Configuration("underTest", 40, inducts, discharges, physics)
+		val config = UnitSorter.Configuration("underTest", 40, inducts, discharges, physics)
 
 
 		// Sources & sinks
 		val sources = config.inducts.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal2] => new SourceFixture(chOps)(testMonitor, this)}
+			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
 		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceRefs = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
 
-		val destinations: Seq[SinkFixture[UnitSorterSignal2]] =  config.discharges.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal2, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)}
+		val destinations: Seq[SinkFixture[UnitSorterSignal]] =  config.discharges.values.toSeq.map{
+			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)}
 		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", globalClock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 
-		val underTestProcessor = UnitSorter2.buildProcessor(config)(globalClock, simController)
+		val underTestProcessor = UnitSorter.buildProcessor(config)(globalClock, simController)
 		val underTest = testKit.spawn(underTestProcessor.init, underTestProcessor.processorName)
 
 
@@ -122,9 +122,9 @@ class UnitSorter2Spec
 				actorsToRegister.isEmpty should be(true)
 			}
 			"A02. Process its configuration" in {
-				underTest ! Processor.ConfigurationCommand(xcManager, 0L, UnitSorter2.NoConfigure)
+				underTest ! Processor.ConfigurationCommand(xcManager, 0L, UnitSorter.NoConfigure)
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
-				xcManagerProbe.expectMessage(0L -> UnitSorter2.CompletedConfiguration(underTest))
+				xcManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceRefs.foreach(act => act ! Processor.ConfigurationCommand(xcManager, 0L, UpstreamConfigure))
@@ -153,14 +153,14 @@ class UnitSorter2Spec
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 55L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(65L -> UnitSorter2.LoadArrival(probeLoad, chIb1.name))
+				xcManagerProbe.expectMessage(65L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
 			}
 			"B02. and then it receives a Transfer command" in {
-				val transferCmd = UnitSorter2.Sort(probeLoad, chDis1.name)
+				val transferCmd = UnitSorter.Sort(probeLoad, chDis1.name)
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 130, transferCmd))
 				testMonitorProbe.expectMessage("Received Load Acknowledgement through Channel: Inbound1 with MaterialLoad(First Load) at 130")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge_1 at 200")
-				xcManagerProbe.expectMessage(190L -> UnitSorter2.CompletedCommand(transferCmd))
+				xcManagerProbe.expectMessage(190L -> UnitSorter.CompletedCommand(transferCmd))
 				destinationRefs.head ! Processor.ProcessCommand(destinationRefs.head, 500, ConsumeLoad)
 				testMonitorProbe.expectMessage("Got load Some((MaterialLoad(First Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge_1")
