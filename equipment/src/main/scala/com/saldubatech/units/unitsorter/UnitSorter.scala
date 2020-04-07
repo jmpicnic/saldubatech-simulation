@@ -11,16 +11,16 @@ import com.saldubatech.util.LogEnabled
 
 import scala.collection.{SortedMap, mutable}
 
-trait UnitSorterSignal2 extends Identification
+trait UnitSorterSignal extends Identification
 
 
 
-object UnitSorter2 extends EquipmentUnit.Definitions[UnitSorterSignal2, UnitSorterSignal2, UnitSorterSignal2] {
+object UnitSorter extends EquipmentUnit.Definitions[UnitSorterSignal, UnitSorterSignal, UnitSorterSignal] {
 
-	abstract class ConfigurationCommand extends Identification.Impl() with UnitSorterSignal2
+	abstract class ConfigurationCommand extends Identification.Impl() with UnitSorterSignal
 	case object NoConfigure extends ConfigurationCommand
 
-	abstract class ExternalCommand extends Identification.Impl() with UnitSorterSignal2
+	abstract class ExternalCommand extends Identification.Impl() with UnitSorterSignal
 
 	case class Sort(load: MaterialLoad, destination: String) extends ExternalCommand
 
@@ -30,68 +30,68 @@ object UnitSorter2 extends EquipmentUnit.Definitions[UnitSorterSignal2, UnitSort
 	case class MaxRoutingReached(cmd: Sort) extends Notification
 	case class LoadArrival(load: MaterialLoad, channel: String) extends Notification
 
-	abstract class InternalSignal extends Identification.Impl() with UnitSorterSignal2
+	abstract class InternalSignal extends Identification.Impl() with UnitSorterSignal
 	case object Arrive extends InternalSignal
 	case class Deliver(load: MaterialLoad, dest: Int, cmd: ExternalCommand) extends InternalSignal
 	case class EmptyArrive(at: Int) extends InternalSignal
 
 	case class Configuration(name: String, maxRoutingMap: Int,
-	                         inducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal2]],
-	                         discharges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal2, _]],
+	                         inducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]],
+	                         discharges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]],
 	                         physics: CircularPathTravel)
 
 
-	def buildProcessor(configuration: Configuration)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref): Processor[UnitSorterSignal2] =
-		new Processor[UnitSorterSignal2](configuration.name, clockRef, simController, new UnitSorter2(configuration).configurer)
+	def buildProcessor(configuration: Configuration)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref): Processor[UnitSorterSignal] =
+		new Processor[UnitSorterSignal](configuration.name, clockRef, simController, new UnitSorter(configuration).configurer)
 }
 
-class UnitSorter2(configuration: UnitSorter2.Configuration) extends LogEnabled {
+class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 
-	import UnitSorter2._
+	import UnitSorter._
 
 	private case class PendingSortCommand(toDischarge: Int, sort: Sort)
 
 	private val receivedCommands: mutable.Map[MaterialLoad, PendingSortCommand] = mutable.Map.empty
 
 	private var manager: Processor.Ref = _
-	private var discharges: Map[Int, Channel.Start[MaterialLoad, UnitSorterSignal2]] = _
+	private var discharges: Map[Int, Channel.Start[MaterialLoad, UnitSorterSignal]] = _
 	private var dischargeIndex: Map[String, Int] = _
 	private var dischargeListener: RUNNER = _
-	private var inducts: Map[Int, Channel.End[MaterialLoad, UnitSorterSignal2]] = _
+	private var inducts: Map[Int, Channel.End[MaterialLoad, UnitSorterSignal]] = _
 	private var inductListener: RUNNER = _
 
 	lazy val endpointListener = dischargeListener orElse inductListener
 
-	private def configurer: Processor.DomainConfigure[UnitSorterSignal2] = new Processor.DomainConfigure[UnitSorterSignal2] {
-		override def configure(config: UnitSorterSignal2)(implicit ctx: Processor.SignallingContext[UnitSorterSignal2]): Processor.DomainMessageProcessor[UnitSorterSignal2] = {
+	private def configurer: Processor.DomainConfigure[UnitSorterSignal] = new Processor.DomainConfigure[UnitSorterSignal] {
+		override def configure(config: UnitSorterSignal)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): Processor.DomainMessageProcessor[UnitSorterSignal] = {
 			manager = ctx.from
 			inducts = configuration.inducts.map { case (idx, ch) => idx -> inductSink(manager, ch, ctx.aCtx.self) }
 			inductListener = inducts.values.map(_.loadReceiver).reduce(_ orElse _)
 			discharges = configuration.discharges.map { case (idx, ch) => idx -> dischargeSource(manager, ch, ctx.aCtx.self) }
 			dischargeIndex = configuration.discharges.map { case (idx, ch) => ch.ch.name -> idx }
 			dischargeListener = discharges.values.map(_.ackReceiver).reduce(_ orElse _)
-			ctx.reply(UnitSorter2.CompletedConfiguration(ctx.aCtx.self))
+			ctx.reply(UnitSorter.CompletedConfiguration(ctx.aCtx.self))
 			RUNNING
 		}
 	}
 
-	private def inductSink(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, _, UnitSorterSignal2], host: Processor.Ref) =
+	private def inductSink(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, _, UnitSorterSignal], host: Processor.Ref) =
 		new InductSink(manager, chOps, host) {
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, UnitSorterSignal2], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal2]): RUNNER = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, endpoint.channelName))
 				cycleAndSignalNext
 				Processor.DomainRun.same
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, UnitSorterSignal2], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal2]): RUNNER = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				Processor.DomainRun.same
 			}
 		}.end
 
-	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UnitSorterSignal2, _], host: Processor.Ref) =
+	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, _], host: Processor.Ref) =
 		new DischargeSource(manager, chOps, host) {
-			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, UnitSorterSignal2], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[UnitSorterSignal2]): RUNNER =
+			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, UnitSorterSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER =
 				Processor.DomainRun.same
 
 		}.start

@@ -1,0 +1,51 @@
+@startuml
+actor XCManager
+boundary induct_1
+participant sorter
+participant AisleA
+participant AisleA_carriage
+participant shuttle_AisleA_2
+participant shuttle_AisleA_2_carriage
+
+sorter -> XCManager: [0] CompletedConfiguration(Actor[akka://ShuttleLiftSorterFlowSpec/user/sorter#2116788478])
+XCManager -> sorter: [64] Sort(MaterialLoad(FirstLoad),sorter_aisle_A)
+XCManager -> AisleA: [64] Transfer(sorter_aisle_A,shuttle_AisleA_2_in)
+XCManager -> shuttle_AisleA_2: [64] Store(shuttle_AisleA_2_in,OnLeft(7))
+AisleA -> AisleA_carriage: [64] GoTo(Slot(OnRight(0)))
+shuttle_AisleA_2 -> shuttle_AisleA_2_carriage: [64] GoTo(Slot(OnLeft(-1)))
+AisleA_carriage -> AisleA: [64] Arrived(GoTo(Slot(OnRight(0))))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2_carriage: [67] Arriving(GoTo(Slot(OnLeft(-1))),Slot(OnLeft(-1)))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2: [67] Arrived(GoTo(Slot(OnLeft(-1))))
+induct_1 -> sorter: [80] TransferLoad(load: MaterialLoad(FirstLoad), channel: Inbound1, resource: Ib1_c1)
+sorter -> XCManager: [80] LoadArrival(MaterialLoad(FirstLoad),Inbound1)
+sorter -> sorter: [80] PulledLoad(load: MaterialLoad(FirstLoad), channel: Inbound1, idx: 0)
+sorter -> induct_1: [80] AcknowledgeLoad(load: MaterialLoad(FirstLoad), channel: Inbound1, resource: Ib1_c1)
+sorter -> sorter: [100] Arrive
+sorter -> XCManager: [100] CompletedCommand(Sort(MaterialLoad(FirstLoad),sorter_aisle_A))
+sorter -> AisleA: [120] TransferLoad(load: MaterialLoad(FirstLoad), channel: sorter_aisle_A, resource: c5)
+AisleA -> AisleA: [120] PulledLoad(load: MaterialLoad(FirstLoad), channel: sorter_aisle_A, idx: 0)
+AisleA -> AisleA_carriage: [120] Load(Slot(OnRight(0)))
+AisleA -> sorter: [120] AcknowledgeLoad(load: MaterialLoad(FirstLoad), channel: sorter_aisle_A, resource: c5)
+AisleA_carriage -> AisleA_carriage: [128] DoneLoading(Load(Slot(OnRight(0))))
+AisleA_carriage -> AisleA: [128] Loaded(Load(Slot(OnRight(0))))
+AisleA -> AisleA_carriage: [128] GoTo(Slot(OnRight(2)))
+AisleA_carriage -> AisleA_carriage: [132] Arriving(GoTo(Slot(OnRight(2))),Slot(OnRight(2)))
+AisleA_carriage -> AisleA: [132] Arrived(GoTo(Slot(OnRight(2))))
+AisleA -> AisleA_carriage: [132] Unload(Slot(OnRight(2)))
+AisleA_carriage -> AisleA_carriage: [140] DoneUnloading(Unload(Slot(OnRight(2))))
+AisleA_carriage -> AisleA: [140] Unloaded(Unload(Slot(OnRight(2))),MaterialLoad(FirstLoad))
+AisleA -> XCManager: [140] CompletedCommand(Transfer(sorter_aisle_A,shuttle_AisleA_2_in))
+AisleA -> shuttle_AisleA_2: [145] TransferLoad(load: MaterialLoad(FirstLoad), channel: shuttle_AisleA_2_in, resource: c2)
+shuttle_AisleA_2 -> shuttle_AisleA_2: [145] PulledLoad(load: MaterialLoad(FirstLoad), channel: shuttle_AisleA_2_in, idx: 0)
+shuttle_AisleA_2 -> shuttle_AisleA_2_carriage: [145] Load(Slot(OnLeft(-1)))
+shuttle_AisleA_2 -> AisleA: [145] AcknowledgeLoad(load: MaterialLoad(FirstLoad), channel: shuttle_AisleA_2_in, resource: c2)
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2_carriage: [153] DoneLoading(Load(Slot(OnLeft(-1))))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2: [153] Loaded(Load(Slot(OnLeft(-1))))
+shuttle_AisleA_2 -> shuttle_AisleA_2_carriage: [153] GoTo(Slot(OnLeft(7)))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2_carriage: [162] Arriving(GoTo(Slot(OnLeft(7))),Slot(OnLeft(7)))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2: [162] Arrived(GoTo(Slot(OnLeft(7))))
+shuttle_AisleA_2 -> shuttle_AisleA_2_carriage: [162] Unload(Slot(OnLeft(7)))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2_carriage: [170] DoneUnloading(Unload(Slot(OnLeft(7))))
+shuttle_AisleA_2_carriage -> shuttle_AisleA_2: [170] Unloaded(Unload(Slot(OnLeft(7))),MaterialLoad(FirstLoad))
+shuttle_AisleA_2 -> XCManager: [170] CompletedCommand(Store(shuttle_AisleA_2_in,OnLeft(7)))
+@enduml

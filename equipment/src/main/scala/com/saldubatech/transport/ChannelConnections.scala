@@ -6,7 +6,7 @@ package com.saldubatech.transport
 
 import com.saldubatech.units.shuttle.Shuttle
 import com.saldubatech.units.lift.BidirectionalCrossSwitch
-import com.saldubatech.units.unitsorter.UnitSorterSignal2
+import com.saldubatech.units.unitsorter.UnitSorterSignal
 
 object ChannelConnections {
 	// Registration of consumers of the messages to allow the typing of Actors to work O.K.
@@ -16,11 +16,11 @@ object ChannelConnections {
 	trait ChannelSourceMessage extends DummySourceMessageType
 		with Shuttle.ShuttleSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
-		with UnitSorterSignal2
+		with UnitSorterSignal
 
 	trait ChannelDestinationMessage extends DummySinkMessageType
 		with Shuttle.ShuttleSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
-		with UnitSorterSignal2
+		with UnitSorterSignal
 
 }

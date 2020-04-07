@@ -7,10 +7,29 @@ Simulation of Material Handling systems
 are in the path and that associated JAVA_HOME etc... are properly configured
 * sbt 1.3+: `brew install sbt` (for macs)
 
-# Build
+## Build
 * Clone from git: `git clone https://github.com/jmpicnic/saldubatech-simulation.git`
 * Go to the top directory: `cd saldubatech-simulation`
 * build and test with sbt: `sbt test`
+
+## In IntelliJ
+
+### Required PlugIn:
+* Scala
+
+### Recommended PlugIns:
+* Database Navigator
+* GitToolBox
+* Grep Console
+* HOCON
+* PlantUML Integration
+* PlantUML Syntax Check
+  
+### Other plugIns (for future)  
+  JS GraphQL
+  Swagger
+
+To use IntelliJ, clone using git command line and import the sources using the sbt structure import.
 
 
 ## Circle CI
