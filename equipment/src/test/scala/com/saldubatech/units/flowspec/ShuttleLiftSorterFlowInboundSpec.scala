@@ -25,150 +25,7 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 
 object ShuttleLiftSorterFlowInboundSpec {
-	import com.saldubatech.base.Identification
 
-	object ShuttleBuilder {
-		def build[InductSourceSignal >: ChannelConnections.ChannelSourceMessage, DischargeDestinatationSignal >: ChannelConnections.ChannelDestinationMessage]
-		(config: Shuttle.Configuration[InductSourceSignal, DischargeDestinatationSignal],
-		 initialState: Shuttle.InitialState = Shuttle.InitialState(0, Map.empty))(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): Processor.Ref = {
-			val shuttleLevelProcessor = Shuttle.buildProcessor(config, initialState)
-			actorCreator.spawn(shuttleLevelProcessor.init, config.name)
-		}
-
-		def configure(shuttle: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(shuttle, Shuttle.NoConfigure)
-	}
-
-	object LiftBuilder {
-		import com.saldubatech.units.lift.BidirectionalCrossSwitch
-
-		def build[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
-			OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
-		(config: BidirectionalCrossSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
-		(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator) =
-			actorCreator.spawn(BidirectionalCrossSwitch.buildProcessor(config).init, config.name)
-
-		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, BidirectionalCrossSwitch.NoConfigure)
-	}
-
-	object UnitSorterBuilder {
-		import com.saldubatech.units.unitsorter.UnitSorter
-		def build(config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): Processor.Ref =
-			actorCreator.spawn(UnitSorter.buildProcessor(config).init, config.name)
-
-		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter.NoConfigure)
-	}
-
-	class LiftShuttleChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, Shuttle.ShuttleSignal](delay, cards, configuredOpenSlots, name) {
-		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with Shuttle.ShuttleSignal
-		override type PullSignal = Channel.PulledLoad[MaterialLoad] with Shuttle.ShuttleSignal
-		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with Shuttle.ShuttleSignal
-
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
-	}
-
-	class SorterLiftChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, UnitSorterSignal, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
-		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override type PullSignal = Channel.PulledLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
-
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
-
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
-	}
-
-	class LiftSorterChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with UnitSorterSignal
-
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
-	}
-
-	class ShuttleLiftChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle.ShuttleSignal
-
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
-
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new transport.Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
-	}
-
-
-	class InboundInductChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
-
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with UnitSorterSignal
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
-	}
-
-	class OutboundDischargeChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
-
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
-
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
-
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
-	}
-
-
-	def buildAisle[InductSourceSignal >: ChannelConnections.ChannelSourceMessage, DischargeSinkSignal >: ChannelConnections.ChannelDestinationMessage]
-	(name: String,
-	 liftPhysics: Carriage.CarriageTravel,
-	 shuttlePhysics: Carriage.CarriageTravel,
-	 aisleDepth: Int,
-	 align: Int,
-	 inductChannel: (Int, Channel.Ops[MaterialLoad, InductSourceSignal, BidirectionalCrossSwitch.CrossSwitchSignal]),
-	 dischargeChannel: (Int, Channel.Ops[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, DischargeSinkSignal]),
-	 shuttles: Seq[Int],
-	 initialInventory: Map[Int, Map[Carriage.SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): (Processor.Ref, Seq[(Int, Processor.Ref)]) = {
-		val liftShuttles =
-			shuttles.map{idx =>
-				val inboundChannel = Channel.Ops(new LiftShuttleChannel(() => Some(5), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_in"))
-				val outboundChannel = Channel.Ops(new ShuttleLiftChannel(() => Some(5), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_out"))
-				val config = Shuttle.Configuration(s"shuttle_${name}_$idx", aisleDepth, shuttlePhysics, Seq(inboundChannel), Seq(outboundChannel))
-				(ShuttleBuilder.build(config, initialInventory.get(idx).map(inv => Shuttle.InitialState(0, inv)).getOrElse(Shuttle.InitialState(0, Map.empty))), config.inbound.map(o => (idx, o)), config.outbound.map(o => (idx, o)))
-			}
-		val inboundDischarge = liftShuttles.flatMap{_._2}
-		val outboundInduct = liftShuttles.flatMap{_._3}
-		val liftConfig = BidirectionalCrossSwitch.Configuration(name, liftPhysics, Seq(inductChannel), inboundDischarge, outboundInduct, Seq(dischargeChannel), align)
-		(LiftBuilder.build(liftConfig), liftShuttles.map(t => t._2.head._1 -> t._1 ))
-	}
 }
 
 class ShuttleLiftSorterFlowInboundSpec
@@ -178,7 +35,7 @@ class ShuttleLiftSorterFlowInboundSpec
 		with BeforeAndAfterAll
 		with LogEnabled {
 
-	import ShuttleLiftSorterFlowInboundSpec._
+	import VolumeGTPSpec._
 
 	implicit val testKit = ActorTestKit()
 
@@ -226,7 +83,7 @@ class ShuttleLiftSorterFlowInboundSpec
 		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
-		val sorterConfig = UnitSorter.Configuration("sorter", 40, sorterInducts, sorterDischarges, sorterPhysics)
+		val sorterConfig = UnitSorter.Configuration("sorter", 250, sorterInducts, sorterDischarges, sorterPhysics)
 		val sorter: Processor.Ref = UnitSorterBuilder.build(sorterConfig)
 
 		val sources = inboundInducts.values.toSeq.map{

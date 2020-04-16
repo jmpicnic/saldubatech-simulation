@@ -1,0 +1,53 @@
+@startuml
+
+boundary Inbound1
+boundary Inbound2
+participant sorterManager
+participant AisleA_controller
+participant sorter
+
+sorter -> AisleA: [120] TransferLoad(load: MaterialLoad(A_2_OnLeft(0)::0), channel: sorter_aisle_A, resource: c5)
+sorter -> sorter: [120] Arrive(With Delay: 20)
+Inbound2 -> sorter: [120] TransferLoad(load: MaterialLoad(A_5_OnLeft(1)::9), channel: Inbound2, resource: Ib2_c1)
+Inbound1 -> sorter: [120] TransferLoad(load: MaterialLoad(A_2_OnLeft(1)::8), channel: Inbound1, resource: Ib1_c1)
+sorter -> sorterManager: [120] CompletedCommand(Sort(MaterialLoad(A_2_OnRight(0)::4),sorter_aisle_A))
+sorter -> sorterManager: [120] LoadArrival(MaterialLoad(A_5_OnLeft(1)::9),Inbound2)
+AisleA -> AisleA: [120] PulledLoad(load: MaterialLoad(A_2_OnLeft(0)::0), channel: sorter_aisle_A, idx: 0)
+sorter -> sorter: [120] PulledLoad(load: MaterialLoad(A_5_OnLeft(1)::9), channel: Inbound2, idx: 0)
+sorter -> sorterManager: [120] LoadArrival(MaterialLoad(A_2_OnLeft(1)::8),Inbound1)
+AisleA -> AisleA_controller: [120] LoadArrival(sorter_aisle_A,MaterialLoad(A_2_OnLeft(0)::0))
+sorter -> sorter: [120] PulledLoad(load: MaterialLoad(A_2_OnLeft(1)::8), channel: Inbound1, idx: 0)
+AisleA -> sorter: [120] AcknowledgeLoad(load: MaterialLoad(A_2_OnLeft(0)::0), channel: sorter_aisle_A, resource: c5)
+AisleA_controller -> AisleA: [120] Transfer(sorter_aisle_A,shuttle_AisleA_2_in)
+sorter -> Inbound2: [120] AcknowledgeLoad(load: MaterialLoad(A_5_OnLeft(1)::9), channel: Inbound2, resource: Ib2_c1)
+sorter -> Inbound1: [120] AcknowledgeLoad(load: MaterialLoad(A_2_OnLeft(1)::8), channel: Inbound1, resource: Ib1_c1)
+AisleA -> AisleA_carriage: [120] GoTo(Slot(OnRight(0)))
+AisleA_carriage -> AisleA: [120] Arrived(GoTo(Slot(OnRight(0))))
+sorter -> sorter: [130] Arrive(With Delay: 40)
+Inbound2 -> sorter: [130] TransferLoad(load: MaterialLoad(B_5_OnLeft(1)::11), channel: Inbound2, resource: Ib2_c1)
+Inbound1 -> sorter: [130] TransferLoad(load: MaterialLoad(B_2_OnLeft(1)::10), channel: Inbound1, resource: Ib1_c1)
+sorter -> sorterManager: [130] CompletedCommand(Sort(MaterialLoad(B_2_OnLeft(0)::2),sorter_aisle_B))
+sorter -> sorterManager: [130] LoadArrival(MaterialLoad(B_5_OnLeft(1)::11),Inbound2)
+sorter -> sorter: [130] PulledLoad(load: MaterialLoad(B_5_OnLeft(1)::11), channel: Inbound2, idx: 0)
+sorter -> sorterManager: [130] LoadArrival(MaterialLoad(B_2_OnLeft(1)::10),Inbound1)
+sorter -> sorter: [130] PulledLoad(load: MaterialLoad(B_2_OnLeft(1)::10), channel: Inbound1, idx: 0)
+sorter -> Inbound2: [130] AcknowledgeLoad(load: MaterialLoad(B_5_OnLeft(1)::11), channel: Inbound2, resource: Ib2_c1)
+sorter -> Inbound1: [130] AcknowledgeLoad(load: MaterialLoad(B_2_OnLeft(1)::10), channel: Inbound1, resource: Ib1_c1)
+sorter -> AisleA: [140] TransferLoad(load: MaterialLoad(A_2_OnRight(0)::4), channel: sorter_aisle_A, resource: c2)
+sorter -> sorter: [140] Arrive(With Delay: 20)
+Inbound2 -> sorter: [140] TransferLoad(load: MaterialLoad(A_5_OnRight(1)::13), channel: Inbound2, resource: Ib2_c1)
+Inbound1 -> sorter: [140] TransferLoad(load: MaterialLoad(A_2_OnRight(1)::12), channel: Inbound1, resource: Ib1_c1)
+sorter -> sorterManager: [140] CompletedCommand(Sort(MaterialLoad(A_2_OnLeft(1)::8),sorter_aisle_A))
+AisleA -> AisleA: [140] PulledLoad(load: MaterialLoad(A_2_OnRight(0)::4), channel: sorter_aisle_A, idx: 0)
+sorter -> sorterManager: [140] LoadArrival(MaterialLoad(A_5_OnRight(1)::13),Inbound2)
+AisleA -> AisleA_carriage: [140] Load(Slot(OnRight(0)))
+sorter -> sorter: [140] PulledLoad(load: MaterialLoad(A_5_OnRight(1)::13), channel: Inbound2, idx: 0)
+sorter -> sorterManager: [140] LoadArrival(MaterialLoad(A_2_OnRight(1)::12),Inbound1)
+sorter -> sorter: [140] PulledLoad(load: MaterialLoad(A_2_OnRight(1)::12), channel: Inbound1, idx: 0)
+AisleA -> sorter: [140] AcknowledgeLoad(load: MaterialLoad(A_2_OnRight(0)::4), channel: sorter_aisle_A, resource: c2)
+sorter -> Inbound2: [140] AcknowledgeLoad(load: MaterialLoad(A_5_OnRight(1)::13), channel: Inbound2, resource: Ib2_c1)
+sorter -> Inbound1: [140] AcknowledgeLoad(load: MaterialLoad(A_2_OnRight(1)::12), channel: Inbound1, resource: Ib1_c1)
+AisleA_carriage -> AisleA_carriage: [148] DoneLoading(Load(Slot(OnRight(0))))
+AisleA_carriage -> AisleA: [148] UnacceptableCommand(Load(Slot(OnRight(0))),Cannot Load from an empty location Slot(OnRight(0)))
+
+@enduml

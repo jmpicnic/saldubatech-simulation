@@ -12,13 +12,14 @@ object ChannelConnections {
 	// Registration of consumers of the messages to allow the typing of Actors to work O.K.
 	trait DummySourceMessageType
 	trait DummySinkMessageType
+	trait DummyChannelMessageType
 
-	trait ChannelSourceMessage extends DummySourceMessageType
+	trait ChannelSourceMessage extends DummySourceMessageType with DummyChannelMessageType
 		with Shuttle.ShuttleSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
 		with UnitSorterSignal
 
-	trait ChannelDestinationMessage extends DummySinkMessageType
+	trait ChannelDestinationMessage extends DummySinkMessageType with DummyChannelMessageType
 		with Shuttle.ShuttleSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
 		with UnitSorterSignal

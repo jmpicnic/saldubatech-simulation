@@ -14,6 +14,7 @@ import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.Carriage
+import com.saldubatech.units.shuttle
 import com.saldubatech.units.shuttle.Shuttle.ShuttleSignal
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -95,6 +96,7 @@ object ShuttleLoopBackSpec {
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName}"
+				endpoint.getNext
 				runner
 			}
 
@@ -131,7 +133,7 @@ class ShuttleLoopBackSpec
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-	import ShuttleRejectedCommandsSpec._
+	import ShuttleLoopBackSpec._
 	val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {
@@ -180,11 +182,11 @@ class ShuttleLoopBackSpec
 		val config = Shuttle.Configuration("underTest", 20, physics, ib, ob)
 
 		// Sources & sinks
-		val sources = config.inbound.map(ibOps => new ShuttleRejectedCommandsSpec.SourceFixture(ibOps)(testMonitor, this))
+		val sources = config.inbound.map(ibOps => new shuttle.ShuttleLoopBackSpec.SourceFixture(ibOps)(testMonitor, this))
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val sinks = config.outbound.map(obOps => new ShuttleRejectedCommandsSpec.SinkFixture(obOps)(testMonitor, this))
+		val sinks = config.outbound.map(obOps => new ShuttleLoopBackSpec.SinkFixture(obOps)(testMonitor, this))
 		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sinkActors = sinkProcessors.zip(Seq("d1", "d2")).map(t => testKit.spawn(t._1.init, t._2))
 
@@ -255,7 +257,8 @@ class ShuttleLoopBackSpec
 				val loopbackCommand = Shuttle.LoopBack(chIb1.name, "Outbound2")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, loopbackCommand))
 				shuttleLevelManagerProbe.expectMessage((178L -> Shuttle.CompletedCommand(loopbackCommand)))
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Outbound2")
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Outbound2")
 			}
 		}
 		"C. Transfer a load from one channel to another" when {
@@ -264,13 +267,14 @@ class ShuttleLoopBackSpec
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 190L, loopbackCommand))
 			}
 			"C02. and then receives the load in the origin channel" in {
-				val probeLoad = MaterialLoad("First Load")
-				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
-				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 240L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: First Load")
+				val probeLoad = MaterialLoad("Second Load")
+				val probeLoadMessage = TestProbeMessage("Second Load", probeLoad)
+				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
+				testMonitorProbe.expectMessage("FromSender: Second Load")
 				shuttleLevelManagerProbe.expectMessage((269L -> Shuttle.CompletedCommand(loopbackCommand)))
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Outbound2")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Outbound2")
 			}
 		}
 	}

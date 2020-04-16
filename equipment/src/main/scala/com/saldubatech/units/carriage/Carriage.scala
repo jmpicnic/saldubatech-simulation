@@ -12,23 +12,28 @@ import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.physics.Travel
 import com.saldubatech.physics.Travel.Speed
-import com.saldubatech.transport.MaterialLoad
+import com.saldubatech.transport.Channel.Ops
+import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.util.LogEnabled
 
 object Carriage {
 	sealed trait SlotLocator{val idx: Int}
+	case class At(override val idx: Int) extends SlotLocator
 	case class OnRight(override val idx: Int) extends SlotLocator
 	case class OnLeft(override val idx: Int) extends SlotLocator
+
 
 	case class Slot(at: SlotLocator) {
 		private var contents: Option[MaterialLoad] = None
 		def isEmpty = contents.isEmpty
 		def store(load: MaterialLoad): Option[MaterialLoad] = if(contents isEmpty) {
+			println(s"### Storing Load $load in $this")
 			contents = Some(load)
 			contents
-		} else None
+		} else throw new IllegalStateException((s"Cannot store in full slot $this. Contents: $contents, argument $load"))
 		def inspect: Option[MaterialLoad] = contents
 		def retrieve: Option[MaterialLoad] = {
+			println(s"### Retrieving Load $contents from $this")
 			val r = contents
 			contents = None
 			r
@@ -60,7 +65,7 @@ object Carriage {
 
 	case class CompleteConfiguration(pr: Processor.Ref) extends Identification.Impl() with CarriageNotification
 	case class UnacceptableCommand(cmd: CarriageCommand, reason: String) extends Identification.Impl() with CarriageNotification
-	case class Loaded(cmd: Load) extends Identification.Impl() with CarriageNotification
+	case class Loaded(cmd: Load, load: MaterialLoad) extends Identification.Impl() with CarriageNotification
 	case class Unloaded(cmd: Unload, load: MaterialLoad) extends Identification.Impl() with CarriageNotification
 	case class Arrived(cmd: GoTo) extends Identification.Impl() with CarriageNotification
 
@@ -157,7 +162,7 @@ class Carriage(name: String, travelPhysics: Carriage.CarriageTravel) extends Ide
 						idleEmpty
 					} else {
 						tray = loc.retrieve
-						ctx.signal(currentClient.head, Loaded(cmd))
+						tray.foreach(ld => ctx.signal(currentClient.head, Loaded(cmd, ld)))
 						currentClient = None
 						idleFull
 					}

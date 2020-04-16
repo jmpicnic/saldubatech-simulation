@@ -79,7 +79,7 @@ class CarriageSpec
 			"A03 Load the tray when empty with the acquire delay" in {
 				val loadCommand = Carriage.Load(locAt0)
 				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
-				harnessObserver.expectMessage(500 millis, (10L, Carriage.Loaded(loadCommand)))
+				harnessObserver.expectMessage(500 millis, (10L, Carriage.Loaded(loadCommand, loadProbe)))
 				locAt0.isEmpty should be (true)
 			}
 			"A04 Reject a command to load again" in {

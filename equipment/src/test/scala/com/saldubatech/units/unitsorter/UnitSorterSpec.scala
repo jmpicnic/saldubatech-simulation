@@ -82,11 +82,11 @@ class UnitSorterSpec
 		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
 		val inducts = Map(0 -> new Channel.Ops(chIb1), 30 -> new Channel.Ops(chIb2))
 
-		val chDis1 = new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_1")
-		val chDis2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
+		val chDis1 = new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_0")
+		val chDis2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_1")
 		val discharges = Map(15 -> new Channel.Ops(chDis1), 45 -> new Channel.Ops(chDis2))
 
-		val config = UnitSorter.Configuration("underTest", 40, inducts, discharges, physics)
+		val config = UnitSorter.Configuration("underTest", 200, inducts, discharges, physics)
 
 
 		// Sources & sinks
@@ -159,11 +159,65 @@ class UnitSorterSpec
 				val transferCmd = UnitSorter.Sort(probeLoad, chDis1.name)
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 130, transferCmd))
 				testMonitorProbe.expectMessage("Received Load Acknowledgement through Channel: Inbound1 with MaterialLoad(First Load) at 130")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge_1 at 200")
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge_0 at 200")
 				xcManagerProbe.expectMessage(190L -> UnitSorter.CompletedCommand(transferCmd))
-				destinationRefs.head ! Processor.ProcessCommand(destinationRefs.head, 500, ConsumeLoad)
-				testMonitorProbe.expectMessage("Got load Some((MaterialLoad(First Load),Ob1_c2))")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge_1")
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge_0")
+				testMonitorProbe.expectNoMessage(500 millis)
+			}
+		}
+		"C. Transfer many loads from inputs to outputs" when {
+			val loads = (0 until 200).map(idx => idx -> MaterialLoad(s"Load_${idx}_${idx%2}_${(idx%4)/2}"))
+			val commands = loads.map{
+				case (idx, load) => UnitSorter.Sort(load, s"Discharge_${(idx%4)/2}")
+			}
+			"C01. Sending all commands first" in {
+				commands.foreach(cmd => globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 500, cmd)))
+				xcManagerProbe.expectNoMessage(500 millis)
+			}
+			"C02. Then sending the loads" in {
+				loads.foreach {
+					case (idx, load) => sourceRefs(idx%2) ! Processor.ProcessCommand(sourceRefs(idx%2), 600+idx, TestProbeMessage(load.lid, load))
+				}
+				var fromSenderCount = 0
+				var acknowledgedLoadCount = 0
+				var releasedToSinkCount = 0
+				var foundAtSinkCount = 0
+				def isDone = fromSenderCount == 200 && acknowledgedLoadCount == 200 && foundAtSinkCount == 200 && releasedToSinkCount == 200
+				testMonitorProbe.fishForMessage(3 second){
+					case msg: String if loads.map{case (idx, load) => s"FromSender: ${load.lid}"}.contains(msg) =>
+						fromSenderCount += 1
+						if(isDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case msg: String if msg.startsWith("Received Load Acknowledgement through Channel: Inbound") =>
+						acknowledgedLoadCount += 1
+						if(isDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case msg: String if msg.startsWith("Load MaterialLoad(Load_") && msg.contains("released on channel Discharge_") =>
+						releasedToSinkCount += 1
+						if(isDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case msg: String if msg.startsWith("Load MaterialLoad(Load_") =>
+						foundAtSinkCount += 1
+						if(isDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case other => FishingOutcome.Fail(s"Found $other")
+				}
+				var sorterLoadsReceived = 0
+				var sorterCompletedCommands = 0
+				def isSorterDone = sorterCompletedCommands == 200 && sorterLoadsReceived == 200
+				xcManagerProbe.fishForMessage(3 seconds){
+					case (tick, UnitSorter.LoadArrival(load, channel)) =>
+						sorterLoadsReceived += 1
+						if(isSorterDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case (tick, UnitSorter.CompletedCommand(cmd)) =>
+						sorterCompletedCommands += 1
+						if(isSorterDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case other => FishingOutcome.Fail(s"Unexpected Received $other")
+				}
+				testMonitorProbe.expectNoMessage(500 millis)
+				xcManagerProbe.expectNoMessage(500 millis)
 			}
 		}
 	}

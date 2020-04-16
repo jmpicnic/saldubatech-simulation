@@ -72,7 +72,7 @@ class FanInSpec
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2)(testMonitor, this)
+		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, false)(testMonitor, this)
 		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", globalClock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
@@ -150,6 +150,7 @@ class FanInSpec
 				val probeLoad = MaterialLoad("First Load")
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
+				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")

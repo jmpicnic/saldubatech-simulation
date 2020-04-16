@@ -77,7 +77,7 @@ class FanInWaitingForSlotSpec
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2)(testMonitor, this)
+		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, true)(testMonitor, this)
 		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", globalClock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
@@ -147,7 +147,7 @@ class FanInWaitingForSlotSpec
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
 			}
 		}
-		"C. Transfer a second load from one collector to the discharge" when {
+		"C. Transfer a second load from one induct to the discharge" when {
 			val secondTransferCommand = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
 			val thirdTransferCommand = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
 			"C01. it receives the command first" in {
@@ -160,7 +160,7 @@ class FanInWaitingForSlotSpec
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
 			}
-			"C03. One more load to force the shuttle to error out and the Lift to waitforslot" in {
+			"C03. One more load to force the carriage to error out and the Lift to waitforslot" in {
 				val thirdLoad = MaterialLoad("Third Load")
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)

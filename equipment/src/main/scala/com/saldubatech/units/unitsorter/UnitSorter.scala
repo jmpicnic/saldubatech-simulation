@@ -31,7 +31,7 @@ object UnitSorter extends EquipmentUnit.Definitions[UnitSorterSignal, UnitSorter
 	case class LoadArrival(load: MaterialLoad, channel: String) extends Notification
 
 	abstract class InternalSignal extends Identification.Impl() with UnitSorterSignal
-	case object Arrive extends InternalSignal
+	case class Arrive(msg: String) extends InternalSignal
 	case class Deliver(load: MaterialLoad, dest: Int, cmd: ExternalCommand) extends InternalSignal
 	case class EmptyArrive(at: Int) extends InternalSignal
 
@@ -102,7 +102,7 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 	 */
 	//import Ordering._
 	private val pendingCommands = mutable.Map.empty[MaterialLoad, PendingSortCommand]
-
+	private val scheduledDeliveries = mutable.Map.empty[MaterialLoad, PendingSortCommand]
 	private def dischargeArrivals(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
 		//log.info(s"Discharging: Time is ${ctx.now} with currentZero: ${sorterAt.slotAtZero}")
 		//log.info(s"Discharging: Loaded Trays: $loadedTrays at ${loadedTrays.map(tk => sorterAt.indexForSlot(tk._1))}")
@@ -111,12 +111,12 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 			(dischargeIdx, discharge) <- discharges
 			tray = sorterAt.slotAtIndex(dischargeIdx)
 			load <- loadedTrays.get(tray)
-			cmd <- pendingCommands.get(load).filter(_.toDischarge == dischargeIdx).map(_.sort)
+			cmd <- scheduledDeliveries.get(load).filter(_.toDischarge == dischargeIdx).map(_.sort)
 		} yield {
 			//log.info(s"Candidate Discharge load($load) from Tray($tray) at position($dischargeIdx) through channel(${discharge.channelName} with command($cmd)")
 			if (discharge.send(load)) {
 				loadedTrays -= tray
-				pendingCommands -= load
+				scheduledDeliveries -= load
 				ctx.signal(manager, CompletedCommand(cmd))
 				None
 			} else Some(configuration.physics.oneTurnTime)
@@ -172,7 +172,11 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 		val candidates = for{
 			(tr, load) <- loadedTrays
 			pendingCmd <- pendingCommands.get(load)
-		} yield configuration.physics.travelTime(sorterAt.indexForSlot(tr), pendingCmd.toDischarge)
+		} yield {
+			pendingCommands -= load
+			scheduledDeliveries += load -> pendingCmd
+			configuration.physics.travelTime(sorterAt.indexForSlot(tr), pendingCmd.toDischarge)
+		}
 		//log.info(s"inTransitLoads Candidates: $candidates")
 		if (candidates isEmpty) None else Some(candidates.min)
 	}
@@ -188,8 +192,8 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 		//log.info(s"CycleAndSignal: Target Times Candidates: $candidates")
 		if(candidates nonEmpty) {
 			val target = candidates.min
-			//log.info(s"Scheduling Event at: $target")
-			ctx.signalSelf(Arrive, target)
+			if(target == 0) throw new IllegalStateException(s"A delay of 0 should not happen")
+			ctx.signalSelf(Arrive(s"With Delay: $target"), target)
 		}
 	}
 
@@ -202,7 +206,7 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 				else ctx.reply(MaxRoutingReached(sortCmd))
 				cycleAndSignalNext
 				RUNNING
-			case Arrive =>
+			case Arrive(_) =>
 				cycleAndSignalNext
 				RUNNING
 		}

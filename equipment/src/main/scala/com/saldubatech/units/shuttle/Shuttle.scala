@@ -66,13 +66,13 @@ object Shuttle {
 			override val ref: Processor.Ref = host
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ShuttleSignal], load: MaterialLoad, at: Option[Distance] = None)(implicit ctx: CTX): RUNNER = {
-				ctx.aCtx.log.debug(s"DefaultSink: Received load $load at channel ${endpoint.channelName}")
+				ctx.aCtx.log.debug(s"ShuttleSink: Received load $load at channel ${endpoint.channelName}")
 				ctx.signal(manager, Shuttle.LoadArrival(endpoint.channelName, load))
 				if (inboundSlot.isEmpty) {
-					ctx.aCtx.log.debug(s"DefaultSink: Pulling load $load into slot $inboundSlot")
+					ctx.aCtx.log.debug(s"ShuttleSink: Pulling load $load into slot $inboundSlot")
 					endpoint.get(load).foreach(t => inboundSlot.store(t._1))
 				} else {
-					ctx.aCtx.log.debug(s"DefaultSink: Slot $inboundSlot is full, leaving load $load in Channel ${endpoint.channelName}")
+					ctx.aCtx.log.debug(s"ShuttleSink: Slot $inboundSlot is full, leaving load $load in Channel ${endpoint.channelName}")
 				}
 				ctx.aCtx.log.debug(s"Finishing Load Arrived at Sink for ${endpoint.channelName}")
 				Processor.DomainRun.same[ShuttleSignal]
@@ -164,8 +164,7 @@ class Shuttle[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, Do
 		}
 	}
 
-	def waitingForCarriageConfiguration(implicit ctx: Shuttle.CTX) = {
-		log.debug(s"Setting up waitingForCarriage Configuration for Lift Level: $name")
+	def waitingForCarriageConfiguration(implicit ctx: Shuttle.CTX) =
 		new Processor.DomainConfigure[ShuttleSignal] {
 			override def configure(config: ShuttleSignal)(implicit ctx: Shuttle.CTX): Processor.DomainMessageProcessor[ShuttleSignal] = {
 				config match {
@@ -177,7 +176,6 @@ class Shuttle[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, Do
 				}
 			}
 		}
-	}
 
 	private lazy val IDLE: Shuttle.RUNNER =
 		inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
@@ -210,7 +208,7 @@ class Shuttle[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, Do
 								)
 						)
 					case (None, _) =>
-						ctx.reply(NotAcceptedCommand(cmd, s"Inbound Channel does not exist"))
+						ctx.reply(NotAcceptedCommand(cmd, s"Inbound Channel does not exist in $inboundSlots"))
 						IDLE
 					case (_, None) =>
 						ctx.reply(Shuttle.FailedEmpty(cmd, "Destination does not exist or is full"))
@@ -338,7 +336,7 @@ class Shuttle[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, Do
 		rejectExternalCommand orElse outboundLoadListener orElse {
 			ctx: Shuttle.CTX => {
 				case tr: Channel.TransferLoad[MaterialLoad] if tr.channel == from.channelName =>
-					from.performReceiving(tr.load, tr.resource)(ctx)
+					from.doEndpointReceiving(tr.load, tr.resource)(ctx)
 					if (fromLoc isEmpty) {
 						from.get(tr.load)(ctx)
 						fromLoc store tr.load
@@ -352,10 +350,18 @@ class Shuttle[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, Do
 			}
 		} orElse inboundLoadListener orElse ignoreSlotAvailable
 
+
+	private def refreshInducts(implicit ctx: Shuttle.CTX) =
+		inboundSlots.map{
+			case (ch, slot) => if(slot.isEmpty) inboundChannels(ch).getNext.map{case (ld, _) => slot.store(ld)}
+		}
+
 	private def LOADING(continue: DelayedDomainRun[ShuttleSignal]): Shuttle.RUNNER =
 		rejectExternalCommand orElse inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
 			implicit ctx: Shuttle.CTX => {
-				case Carriage.Loaded(Carriage.Load(loc)) => continue(ctx)
+				case Carriage.Loaded(Carriage.Load(loc), _) =>
+					refreshInducts
+					continue(ctx)
 			}
 		}
 
