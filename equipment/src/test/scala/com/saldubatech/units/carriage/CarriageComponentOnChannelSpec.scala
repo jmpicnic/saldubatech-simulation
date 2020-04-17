@@ -38,7 +38,7 @@ object CarriageComponentOnChannelSpec {
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with MockSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with MockSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with MockSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with MockSignal
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with MockSignal
 	}
 
@@ -273,8 +273,8 @@ object CarriageComponentOnChannelSpec {
 				case Configure(loc, inventory) =>
 					_ref = Some(ctx.aCtx.self)
 					manager = ctx.from
-					carriage.configureInitialLocation(loc)
-					carriage.configureInitialInventory(inventory)
+					carriage.atLocation(loc)
+					carriage.withInventory(inventory)
 					ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
 					ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")
 					EIDLE

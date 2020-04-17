@@ -49,8 +49,8 @@ package object flowspec {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with Shuttle.ShuttleSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
+			new Channel.PulledLoadImpl(ld, card, idx, this.name) with Shuttle.ShuttleSignal
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
@@ -65,8 +65,8 @@ package object flowspec {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
+			new Channel.PulledLoadImpl(ld, card, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
@@ -80,8 +80,8 @@ package object flowspec {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with UnitSorterSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
+			new Channel.PulledLoadImpl(ld, card, idx, this.name) with UnitSorterSignal
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
@@ -96,8 +96,8 @@ package object flowspec {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
+			new Channel.PulledLoadImpl(ld, card, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
@@ -112,7 +112,7 @@ package object flowspec {
 
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with UnitSorterSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with UnitSorterSignal
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
@@ -124,7 +124,7 @@ package object flowspec {
 
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 	}

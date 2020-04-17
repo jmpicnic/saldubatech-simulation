@@ -150,8 +150,8 @@ object CarriageComponentOnSlotSpec {
 		def configurer: Processor.DomainConfigure[MockSignal] = new Processor.DomainConfigure[MockSignal] {
 			override def configure(config: MockSignal)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = config match {
 				case Configure(loc, inventory) =>
-					carriage.configureInitialLocation(loc)
-					carriage.configureInitialInventory(inventory)
+					carriage.atLocation(loc)
+					carriage.withInventory(inventory)
 					ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
 					ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")
 					EIDLE

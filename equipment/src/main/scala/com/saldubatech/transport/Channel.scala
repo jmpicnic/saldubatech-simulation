@@ -52,12 +52,13 @@ object Channel {
 
 	trait PulledLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
 		val load: L
+		val resource: String
 		val channel: String
 		val idx: Int
 	}
-	abstract class PulledLoadImpl[L <: Identification](override val load: L, override val idx: Int, override val channel: String)
+	abstract class PulledLoadImpl[L <: Identification](override val load: L, override val resource: String, override val idx: Int, override val channel: String)
 		extends Identification.Impl() with PulledLoad[L]{
-		override def toString = s"PulledLoad(load: $load, channel: $channel, idx: $idx)"
+		override def toString = s"PulledLoad(load: $load, card: $resource, channel: $channel, idx: $idx)"
 	}
 
 
@@ -165,7 +166,7 @@ object Channel {
 						} else {
 							openSlots += idx
 						}
-						ctx.signalSelf(ch.loadPullBuilder(r.head._1,idx))
+						ctx.signalSelf(ch.loadPullBuilder(r.head._1, r.head._2, idx))
 					}
 					r
 				}
@@ -174,11 +175,11 @@ object Channel {
 				override def peek(l: LOAD): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => peek(e._1))
 				override def peek(idx: Int): Option[(LOAD, String)] = delivered.get(idx)
 
-				private def acknowledgeLoad(load: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Unit = {
+				private def acknowledgeLoad(load: LOAD, rs: String, idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Unit = {
 					log.debug(s"Start Acknowledge Load $load with endpoint ${_start}, from $delivered")
 					for {
 						st <- _start
-						(idx, (ld, rs)) <- delivered.find(p => p._2._1.uid == load.uid)
+						//(idx, (ld, rs)) <- delivered.find(p => p._2._1.uid == load.uid)
 					} yield {
 						log.debug(s"Releasing $load to ${st.source.ref} with $rs")
 						ctx.signal(st.source.ref, ch.acknowledgeBuilder(ch.name, load, rs))
@@ -205,8 +206,9 @@ object Channel {
 							doEndpointReceiving(tr.load, tr.resource).map(i => sink.loadArrived(this, tr.load, Some(i))).getOrElse(DomainRun.same)
 						case tr: PulledLoad[LOAD] if tr.channel == ch.name =>
 							log.debug(s"Processing PulledLoad with ${tr.load}")
-							acknowledgeLoad(tr.load)
+							acknowledgeLoad(tr.load, tr.resource, tr.idx)
 							sink.loadReleased(this, tr.load, Some(tr.idx))
+						case tr: PulledLoad[LOAD] => throw new RuntimeException(s"Received $tr on different channel $ch.name")
 					}
 				}
 
@@ -226,7 +228,7 @@ abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnectio
 	type PullSignal <: Channel.PulledLoad[LOAD]
 
 	def transferBuilder(channel: String, load: LOAD, resource: String): TransferSignal
-	def loadPullBuilder(ld: LOAD, idx: Int): PullSignal
+	def loadPullBuilder(ld: LOAD, card: String, idx: Int): PullSignal
 
 	type AckSignal <: Channel.AcknowledgeLoad[LOAD]
 

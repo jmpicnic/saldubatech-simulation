@@ -4,7 +4,7 @@
 
 package com.saldubatech.transport
 
-import com.saldubatech.units.shuttle.Shuttle
+import com.saldubatech.units.shuttle.{Shuttle, Shuttle2}
 import com.saldubatech.units.lift.BidirectionalCrossSwitch
 import com.saldubatech.units.unitsorter.UnitSorterSignal
 
@@ -16,11 +16,13 @@ object ChannelConnections {
 
 	trait ChannelSourceMessage extends DummySourceMessageType with DummyChannelMessageType
 		with Shuttle.ShuttleSignal
+		with Shuttle2.ShuttleSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
 		with UnitSorterSignal
 
 	trait ChannelDestinationMessage extends DummySinkMessageType with DummyChannelMessageType
 		with Shuttle.ShuttleSignal
+		with Shuttle2.ShuttleSignal
 		with BidirectionalCrossSwitch.CrossSwitchSignal
 		with UnitSorterSignal
 
