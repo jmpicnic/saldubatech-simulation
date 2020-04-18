@@ -27,7 +27,7 @@ class CarriageTravelSpec
   }
 
 	"A Lift Travel" when {
-		val underTest = Carriage.CarriageTravel(2,10, 6,7, 5)
+		val underTest = CarriageTravel(2,10, 6,7, 5)
 		"A. Keep its configuration" should {
 			"A01. acquire value" in {
 				underTest.acquireTime should be(7L)

@@ -6,17 +6,15 @@ package com.saldubatech.units.flowspec
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.BaseSpec.TestProbeExt
-import com.saldubatech.transport
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Carriage
-import com.saldubatech.units.lift.BidirectionalCrossSwitch
 import com.saldubatech.units.shuttle.Shuttle
 import com.saldubatech.units.UnitsFixture.{DownstreamConfigure, SinkFixture, SourceFixture, TestProbeMessage, UpstreamConfigure, configurer}
 import com.saldubatech.units.`abstract`.EquipmentManager
+import com.saldubatech.units.carriage.{CarriageTravel, OnLeft}
+import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -34,8 +32,7 @@ class ShuttleLiftSorterFlowInboundSpec
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-
-	import VolumeGTPSpec._
+	
 
 	implicit val testKit = ActorTestKit()
 
@@ -58,8 +55,8 @@ class ShuttleLiftSorterFlowInboundSpec
 	import ShuttleLiftSorterFlowOutboundSpec._
 
 	"A GTP BackEnd" should {
-		val liftPhysics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
-		val shuttlePhysics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
+		val liftPhysics = new CarriageTravel(2, 6, 4, 8, 8)
+		val shuttlePhysics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_A"))
 		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_B"))
@@ -121,33 +118,28 @@ class ShuttleLiftSorterFlowInboundSpec
 				sorter ! Processor.ConfigurationCommand(systemManager, 0L, UnitSorter.NoConfigure)
 				systemManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(sorter))
 				val systemManagerProbeExt = new TestProbeExt(systemManagerProbe)
-				aisleA._1 ! Processor.ConfigurationCommand(systemManager, 6L, BidirectionalCrossSwitch.NoConfigure)
-				aisleB._1 ! Processor.ConfigurationCommand(systemManager, 6L, BidirectionalCrossSwitch.NoConfigure)
+				aisleA._1 ! Processor.ConfigurationCommand(systemManager, 6L, XSwitch.NoConfigure)
+				aisleB._1 ! Processor.ConfigurationCommand(systemManager, 6L, XSwitch.NoConfigure)
 				val shuttles = aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
 				shuttles.foreach(sh => sh ! Processor.ConfigurationCommand(systemManager, 10L, Shuttle.NoConfigure))
 
 				val shuttleCompletes = shuttles.map(sh => (10L -> Shuttle.CompletedConfiguration(sh))).toList
 				systemManagerProbeExt.expectMessages(
-					(6L -> BidirectionalCrossSwitch.CompletedConfiguration(aisleA._1)) :: (6L -> BidirectionalCrossSwitch.CompletedConfiguration(aisleB._1)) :: shuttleCompletes: _*
+					(6L -> XSwitch.CompletedConfiguration(aisleA._1)) :: (6L -> XSwitch.CompletedConfiguration(aisleB._1)) :: shuttleCompletes: _*
 				)
 				val actorsToConfigure = mutable.Set((Seq(sorter, aisleA._1, aisleB._1) ++ shuttles): _*)
-				var nShuttles = 6
-				var nShuttlesToRegister = 6
 				simControllerProbe.fishForMessage(1000 millis) {
 					case Processor.CompleteConfiguration(pr) if actorsToConfigure.contains(pr) =>
 						actorsToConfigure -= pr
-						if(actorsToConfigure.nonEmpty || nShuttles > 0 || nShuttlesToRegister > 0) FishingOutcome.Continue
+						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: Processor.CompleteConfiguration if nShuttles > 0 =>
-						nShuttles -= 1
-						if(actorsToConfigure.nonEmpty || nShuttles > 0 || nShuttlesToRegister > 0) FishingOutcome.Continue
+					case msg: Processor.CompleteConfiguration =>
+						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: Processor.RegisterProcessor if nShuttlesToRegister > 0 =>
-						println(s"Registering: $msg")
-						nShuttlesToRegister -= 1
-						if(actorsToConfigure.nonEmpty || nShuttles > 0 || nShuttlesToRegister > 0) FishingOutcome.Continue
+					case msg: Processor.RegisterProcessor =>
+						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case other => FishingOutcome.Fail(s"Unexpected message: $other with remaining shuttles to register $nShuttlesToRegister and toConfigure $nShuttles")
+					case other => FishingOutcome.Fail(s"Unexpected message: $other with remaining actors to configure $actorsToConfigure")
 				}
 				simControllerProbe.expectNoMessage(500 millis)
 			}
@@ -175,8 +167,8 @@ class ShuttleLiftSorterFlowInboundSpec
 		"B. Transfer a load from one of its inbound sources" when {
 			val probeLoad = MaterialLoad("FirstLoad")
 			val sorterCommand = UnitSorter.Sort(probeLoad, sorterAisleA.ch.name)
-			val liftCommand = BidirectionalCrossSwitch.Transfer(sorterAisleA.ch.name, "shuttle_AisleA_2_in")
-			val shuttleCommand = Shuttle.Store("shuttle_AisleA_2_in", Carriage.OnLeft(7))
+			val liftCommand = XSwitch.Transfer(sorterAisleA.ch.name, "shuttle_AisleA_2_in")
+			val shuttleCommand = Shuttle.Store("shuttle_AisleA_2_in", OnLeft(7))
 			"B01. Receives commands in advance of the load" in {
 				globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(systemManager, 64L, sorterCommand))
 				globalClock ! Clock.Enqueue(aisleA._1, Processor.ProcessCommand(systemManager, 64L, liftCommand))
@@ -189,7 +181,7 @@ class ShuttleLiftSorterFlowInboundSpec
 				testMonitorProbe.expectMessage("FromSender: FirstLoad")
 				systemManagerProbe.expectMessage(80L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
 				systemManagerProbe.expectMessage(100L -> UnitSorter.CompletedCommand(sorterCommand))
-				systemManagerProbe.expectMessage(140L -> BidirectionalCrossSwitch.CompletedCommand(liftCommand))
+				systemManagerProbe.expectMessage(140L -> XSwitch.CompletedCommand(liftCommand))
 				systemManagerProbe.expectMessage(170L -> Shuttle.CompletedCommand(shuttleCommand))
 				systemManagerProbe.expectNoMessage(500 millis)
 			}

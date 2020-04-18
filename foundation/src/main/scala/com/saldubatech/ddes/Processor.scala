@@ -78,12 +78,15 @@ object Processor {
 			implicit ctx: SignallingContext[DomainMessage] => runLogic
 		}
 
-		class Same[DomainMessage] extends DomainRun[DomainMessage] {
+		class Same[DomainMessage] extends Processor.DomainRun[DomainMessage] {
 			override def apply(ctx: SignallingContext[DomainMessage]): PartialFunction[DomainMessage, DomainRun[DomainMessage]] = {
 				case any =>
 					throw new IllegalStateException(s"The 'Same' DomainRun should never be active: Received signal: $any from ${ctx.from} as part of ${ctx.aCtx.self}")
 					this
 			}
+		}
+		def noOp[DomainMessage] = Processor.DomainRun[DomainMessage]{
+			case n: Any if false => Processor.DomainRun.same
 		}
 
 		def same[DomainMessage] = new Same[DomainMessage]

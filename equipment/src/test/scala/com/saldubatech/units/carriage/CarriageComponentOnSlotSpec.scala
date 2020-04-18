@@ -12,7 +12,7 @@ import com.saldubatech.ddes.Processor._
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Carriage.SlotLocator
+import com.saldubatech.units.carriage.SlotLocator
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -40,18 +40,18 @@ object CarriageComponentOnSlotSpec {
 		override type HOST_SIGNAL = MockSignal
 
 		override type LOAD_SIGNAL = Load
-		override def loader(loc: Carriage.SlotLocator) = Load(loc)
+		override def loader(loc: SlotLocator) = Load(loc)
 		override type UNLOAD_SIGNAL = Unload
-		override def unloader(loc: Carriage.SlotLocator) = Unload(loc)
+		override def unloader(loc: SlotLocator) = Unload(loc)
 		override type INDUCT_SIGNAL = Induct
-		override def inducter(from: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], at: Carriage.SlotLocator) = Induct(from, at)
+		override def inducter(from: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], at: SlotLocator) = Induct(from, at)
 		override type DISCHARGE_SIGNAL = Discharge
-		override def discharger(to: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], at: Carriage.SlotLocator) = Discharge(to, at)
+		override def discharger(to: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], at: SlotLocator) = Discharge(to, at)
 
 	}
 
 
-	class Harness(monitor: ActorRef[MockNotification], physics: Carriage.CarriageTravel) extends LogEnabled {
+	class Harness(monitor: ActorRef[MockNotification], physics: CarriageTravel) extends LogEnabled {
 		val host = new MOCK_HOST(monitor)
 		val carriage =
 			new CarriageComponent[ChannelConnections.DummySourceMessageType, ChannelConnections.DummySinkMessageType, MOCK_HOST](physics, host)
@@ -150,8 +150,7 @@ object CarriageComponentOnSlotSpec {
 		def configurer: Processor.DomainConfigure[MockSignal] = new Processor.DomainConfigure[MockSignal] {
 			override def configure(config: MockSignal)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = config match {
 				case Configure(loc, inventory) =>
-					carriage.atLocation(loc)
-					carriage.withInventory(inventory)
+					carriage.atLocation(loc).withInventory(inventory)
 					ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
 					ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")
 					EIDLE
@@ -195,17 +194,17 @@ class CarriageComponentOnSlotSpec
 //		val mockProcessorReceiver = testKit.createTestProbe[ProcessorMessage]
 		val testActor = testKit.createTestProbe[ProcessorMessage]
 
-		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
+		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 		val harness = new Harness(harnessMonitor.ref, physics)
 		val carriageProcessor = new Processor[MockSignal]("underTest", globalClock, testController.ref, harness.configurer)
 		val underTest = testKit.spawn(carriageProcessor.init, "undertest")
 
 		val loadProbe = new MaterialLoad("loadProbe")
 		val loadProbe2 = new MaterialLoad("loadProbe2")
-		val locAt0 = Carriage.OnRight(0)
-		val locAt7 = Carriage.OnRight(7)
-		val locAt5 = Carriage.OnLeft(5)
-		val locAt10 = Carriage.OnRight(10)
+		val locAt0 = OnRight(0)
+		val locAt7 = OnRight(7)
+		val locAt5 = OnLeft(5)
+		val locAt10 = OnRight(10)
 
 
 		"A. Register Itself for configuration" should {

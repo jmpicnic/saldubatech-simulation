@@ -116,7 +116,7 @@ object Channel {
 				localBox.checkoutAny.map(c => doSend(load, c)).isDefined
 
 			private def doSend(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]) = {
-				if(_end isEmpty) throw new IllegalStateException(s"Cannot send through a channel without its endpoint configured ${ch.name}")
+				if(_end isEmpty) throw new IllegalStateException(s"Cannot send through a channel without its End configured ${ch.name}")
 				(
 					for {
 						doTell <- _end.map(e => ctx.signaller(e.sink.ref))
@@ -150,7 +150,7 @@ object Channel {
 				override lazy val sink = sinkParam
 				override lazy val channelName = ch.name
 				override lazy val receivingSlots = ch.configuredOpenSlots
-				private lazy val openSlots: mutable.Set[Int] = mutable.Set((0 until receivingSlots): _*)
+				private lazy val openSlots: mutable.Queue[Int] = mutable.Queue((0 until receivingSlots): _*)
 				private val delivered: mutable.SortedMap[Int, (LOAD, String)] = mutable.SortedMap.empty
 				private val pending: mutable.Queue[(LOAD, String)] = mutable.Queue.empty
 
@@ -164,7 +164,8 @@ object Channel {
 							delivered += idx -> next
 							sink.loadArrived(this, next._1, Some(idx) )
 						} else {
-							openSlots += idx
+							delivered -= idx
+							openSlots.enqueue(idx)
 						}
 						ctx.signalSelf(ch.loadPullBuilder(r.head._1, r.head._2, idx))
 					}
@@ -183,20 +184,19 @@ object Channel {
 					} yield {
 						log.debug(s"Releasing $load to ${st.source.ref} with $rs")
 						ctx.signal(st.source.ref, ch.acknowledgeBuilder(ch.name, load, rs))
-						delivered.remove(idx)
+						//delivered.remove(idx)
 					}
 				}
 				def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int] = {
 					log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}")
 					if (openSlots nonEmpty) {
-						val idx = openSlots.head
-						openSlots -= idx
+						val idx = openSlots.dequeue
 						delivered += idx -> (load, resource)
-						log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}: Available Slot for delivery. Delivered $delivered, Queued: $pending")
+						log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}: Available Slot for delivery $idx. Delivered $delivered, Queued: $pending, OpenSlots: $openSlots")
 						Some(idx)
 					} else {
-						log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}: Not available slot, queuing. Delivered $delivered, Queued: $pending")
 						pending.enqueue((load -> resource))
+						log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}: Not available slot, queuing. Delivered $delivered, Queued: $pending")
 						None
 					}
 				}
@@ -208,7 +208,6 @@ object Channel {
 							log.debug(s"Processing PulledLoad with ${tr.load}")
 							acknowledgeLoad(tr.load, tr.resource, tr.idx)
 							sink.loadReleased(this, tr.load, Some(tr.idx))
-						case tr: PulledLoad[LOAD] => throw new RuntimeException(s"Received $tr on different channel $ch.name")
 					}
 				}
 

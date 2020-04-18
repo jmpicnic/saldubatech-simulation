@@ -13,7 +13,7 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Carriage.SlotLocator
+import com.saldubatech.units.carriage.SlotLocator
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -130,18 +130,18 @@ object CarriageComponentOnChannelSpec {
 		override type HOST_SIGNAL = MockSignal
 
 		override type LOAD_SIGNAL = Load
-		override def loader(loc: Carriage.SlotLocator) = Load(loc)
+		override def loader(loc: SlotLocator) = Load(loc)
 		override type UNLOAD_SIGNAL = Unload
-		override def unloader(loc: Carriage.SlotLocator) = Unload(loc)
+		override def unloader(loc: SlotLocator) = Unload(loc)
 		override type INDUCT_SIGNAL = Induct
-		override def inducter(from: Channel.End[MaterialLoad, MockSignal], at: Carriage.SlotLocator) = Induct(from, at)
+		override def inducter(from: Channel.End[MaterialLoad, MockSignal], at: SlotLocator) = Induct(from, at)
 		override type DISCHARGE_SIGNAL = Discharge
-		override def discharger(to: Channel.Start[MaterialLoad, MockSignal], at: Carriage.SlotLocator) = Discharge(to, at)
+		override def discharger(to: Channel.Start[MaterialLoad, MockSignal], at: SlotLocator) = Discharge(to, at)
 
 	}
 
 
-	class Harness(monitor: ActorRef[MockNotification], physics: Carriage.CarriageTravel, inbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal],
+	class Harness(monitor: ActorRef[MockNotification], physics: CarriageTravel, inbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal],
 	              outbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal]) extends LogEnabled {
 		val host = new MOCK_HOST(monitor)
 		val carriage = new CarriageComponent[MockSignal, MockSignal, MOCK_HOST](physics, host)
@@ -273,8 +273,7 @@ object CarriageComponentOnChannelSpec {
 				case Configure(loc, inventory) =>
 					_ref = Some(ctx.aCtx.self)
 					manager = ctx.from
-					carriage.atLocation(loc)
-					carriage.withInventory(inventory)
+					carriage.atLocation(loc).withInventory(inventory)
 					ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
 					ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")
 					EIDLE
@@ -346,7 +345,7 @@ class CarriageComponentOnChannelSpec
 //		val mockProcessorReceiver = testKit.createTestProbe[ProcessorMessage]
 		val testActor = testKit.createTestProbe[ProcessorMessage]
 
-		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
+		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		val chIn = new MockChannel(() => Some(10), Set("c1", "c2", "c3"), 1, "inboundCh")
 		val chInOps = new Channel.Ops(chIn)
@@ -366,10 +365,10 @@ class CarriageComponentOnChannelSpec
 
 		val loadProbe = new MaterialLoad("loadProbe")
 		val loadProbe2 = new MaterialLoad("loadProbe2")
-		val locAt0 = Carriage.OnRight(0)
-		val locAt7 = Carriage.OnRight(7)
-		val locAt5 = Carriage.OnLeft(5)
-		val locAt10 = Carriage.OnRight(10)
+		val locAt0 = OnRight(0)
+		val locAt7 = OnRight(7)
+		val locAt5 = OnLeft(5)
+		val locAt10 = OnRight(10)
 
 
 		val inboundJobs = mutable.Map.empty[MaterialLoad, Seq[MockSignal]]
@@ -410,7 +409,7 @@ class CarriageComponentOnChannelSpec
 			"A03 Load the tray when empty with the acquire delay and reject another command in between" in {
 				val loadCommandAt0 = EInduct(chInOps.end, locAt0)
 				val loadCommandToFail = EInduct(chInOps.end, locAt7)
-				val dischargeCommand = EDischarge(chOutOps.start, Carriage.OnRight(10))
+				val dischargeCommand = EDischarge(chOutOps.start, OnRight(10))
 				inboundJobs += loadProbe -> Seq(loadCommandAt0, loadCommandToFail)
 				sourceRef ! ProcessCommand(sourceRef, 1L, TestProbeMessage("First Load", loadProbe))
 				val expected = 2

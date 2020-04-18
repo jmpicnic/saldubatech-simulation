@@ -2,33 +2,34 @@
  * Copyright (c) 2020. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.units.lift
+package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.{Carriage, CarriageNotification}
-import com.saldubatech.units.lift
+import com.saldubatech.units.carriage.CarriageTravel
+import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object BidirectionalCrossSwitchSpec {
+object XSwitchSpec {
 
 
 }
 
-class BidirectionalCrossSwitchSpec
+class XSwitchSpec 
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-	import BidirectionalXSFixtures._
+	import XSwitchFixtures._
+
 	val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {
@@ -47,7 +48,7 @@ class BidirectionalCrossSwitchSpec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController: SimulationController.Ref = simControllerProbe.ref
 
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, BidirectionalCrossSwitch.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, XSwitch.Notification)]
 	val xcManagerRef = xcManagerProbe.ref
 	val xcManagerProcessor = new ProcessorSink(xcManagerRef, globalClock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "XCManager")
@@ -55,28 +56,28 @@ class BidirectionalCrossSwitchSpec
 
 	"A Lift Level" should {
 
-		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
+		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1: Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, BidirectionalCrossSwitch.CrossSwitchSignal] = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb1: Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, XSwitch.XSwitchSignal] = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
 		val chIb2: InboundChannelImpl = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
-		val obInduct = Seq(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
+		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Seq((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
 
-		val config = BidirectionalCrossSwitch.Configuration("underTest", physics, Seq.empty, Seq.empty, obInduct, obDischarge, 0)
+		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
 
 
 		// Sources & sinks
-		val sources = config.outboundInduction.map(_._2).map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
+		val sources = config.outboundInduction.values.map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
-		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
+		val sourceActors: Seq[Processor.Ref] = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2)).toSeq
 
 		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, false)(testMonitor, this)
 		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", globalClock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
-		val underTestProcessor = BidirectionalCrossSwitch.buildProcessor(config)
+		val underTestProcessor = XSwitch.buildProcessor("underTest",config)
 		val underTest = testKit.spawn(underTestProcessor.init, "underTest")
 
 
@@ -98,11 +99,9 @@ class BidirectionalCrossSwitchSpec
 				actorsToRegister.isEmpty should be(true)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				underTest ! Processor.ConfigurationCommand(xcManager, 0L, BidirectionalCrossSwitch.NoConfigure)
-				simControllerProbe.expectMessageType[Processor.RegisterProcessor] // SHuttle ref is not available here.
-				simControllerProbe.expectMessageType[Processor.CompleteConfiguration]
+				underTest ! Processor.ConfigurationCommand(xcManager, 0L, XSwitch.NoConfigure)
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
-				xcManagerProbe.expectMessage(0L -> BidirectionalCrossSwitch.CompletedConfiguration(underTest))
+				xcManagerProbe.expectMessage(0L -> XSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(xcManager, 0L, UpstreamConfigure))
@@ -132,19 +131,19 @@ class BidirectionalCrossSwitchSpec
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(12L -> BidirectionalCrossSwitch.LoadArrival(chIb1.name, probeLoad))
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
+				xcManagerProbe.expectMessage(12L -> XSwitch.LoadArrival(chIb1.name, probeLoad))
 			}
 			"B02. and then it receives a Transfer command" in {
-				val transferCmd = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
+				val transferCmd = XSwitch.Transfer(chIb1.name, "Discharge")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 155, transferCmd))
-				xcManagerProbe.expectMessage(174L -> BidirectionalCrossSwitch.CompletedCommand(transferCmd))
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
+				xcManagerProbe.expectMessage(174L -> XSwitch.CompletedCommand(transferCmd))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
 			}
 		}
 		"C. Transfer a load from one collector to the discharge" when {
-			val transferCmd = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
+			val transferCmd = XSwitch.Transfer(chIb1.name, "Discharge")
 			"C01. it receives the command first" in {
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 190L, transferCmd))
 			}
@@ -155,7 +154,7 @@ class BidirectionalCrossSwitchSpec
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
-				xcManagerProbe.expectMessage(269L -> BidirectionalCrossSwitch.CompletedCommand(transferCmd))
+				xcManagerProbe.expectMessage(269L -> XSwitch.CompletedCommand(transferCmd))
 			}
 		}
 	}

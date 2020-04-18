@@ -6,22 +6,19 @@ package com.saldubatech.units.shuttle
 
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.Processor.{DelayedDomainRun, DomainRun}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
-import com.saldubatech.ddes.Processor.DelayedDomainRun
-import com.saldubatech.physics.Travel.{Distance, Speed}
+import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.`abstract`.EquipmentManager
-import com.saldubatech.units.carriage.{Carriage, CarriageNotification}
-import com.saldubatech.units.carriage.Carriage.{OnLeft, OnRight, Slot, SlotLocator}
+import com.saldubatech.units.carriage.{CarriageComponent, CarriageNotification, CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.util.LogEnabled
 
 import scala.collection.mutable
 
 object Shuttle {
-	trait ShuttleSignal extends Identification
 
-	type CTX = Processor.SignallingContext[ShuttleSignal]
-	type RUNNER = Processor.DomainRun[ShuttleSignal]
+	trait ShuttleSignal extends Identification
 
 	sealed abstract class ShuttleLevelConfigurationCommand extends Identification.Impl() with ShuttleSignal
 	case object NoConfigure extends ShuttleLevelConfigurationCommand
@@ -49,364 +46,312 @@ object Shuttle {
 	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Notification
 	case class CompletedConfiguration(self: Processor.Ref) extends Notification
 
-	sealed abstract class InternalSignal extends Identification.Impl() with ShuttleSignal
-	case class SlotBecomesAvailable(slot: Carriage.Slot) extends InternalSignal
-
-	case class Configuration[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
+	case class Configuration[UpstreamMessage >: ChannelConnections.ChannelSourceMessage, DownStreamMessage >: ChannelConnections.ChannelDestinationMessage]
 	(name: String,
 	 depth: Int,
-	 physics: Carriage.CarriageTravel,
-	 inbound: Seq[Channel.Ops[MaterialLoad, UpstreamMessageType, ShuttleSignal]],
-	 outbound: Seq[Channel.Ops[MaterialLoad, ShuttleSignal, DownstreamMessageType]])
+	 physics: CarriageTravel,
+	 inbound: Seq[Channel.Ops[MaterialLoad, UpstreamMessage, ShuttleSignal]],
+	 outbound: Seq[Channel.Ops[MaterialLoad, ShuttleSignal, DownStreamMessage]])
 
 	case class InitialState(position: Int, inventory: Map[SlotLocator, MaterialLoad])
 
-	private def inductSink[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage](inboundSlot: Slot, manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UpstreamMessageType, ShuttleSignal], host: Processor.Ref) = {
-		(new Channel.Sink[MaterialLoad, ShuttleSignal] {
-			override val ref: Processor.Ref = host
-
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, ShuttleSignal], load: MaterialLoad, at: Option[Distance] = None)(implicit ctx: CTX): RUNNER = {
-				ctx.aCtx.log.debug(s"ShuttleSink: Received load $load at channel ${endpoint.channelName}")
-				ctx.signal(manager, Shuttle.LoadArrival(endpoint.channelName, load))
-				if (inboundSlot.isEmpty) {
-					ctx.aCtx.log.debug(s"ShuttleSink: Pulling load $load into slot $inboundSlot")
-					endpoint.get(load).foreach(t => inboundSlot.store(t._1))
-				} else {
-					ctx.aCtx.log.debug(s"ShuttleSink: Slot $inboundSlot is full, leaving load $load in Channel ${endpoint.channelName}")
-				}
-				ctx.aCtx.log.debug(s"Finishing Load Arrived at Sink for ${endpoint.channelName}")
-				Processor.DomainRun.same[ShuttleSignal]
-			}
-
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, ShuttleSignal], load: MaterialLoad, at: Option[Distance])(implicit ctx: CTX): RUNNER = {
-				if (inboundSlot.isEmpty) endpoint.getNext.foreach(t => inboundSlot.store(t._1))
-				ctx.aCtx.log.debug(s"Finishing Load Released at Sink for ${endpoint.channelName}")
-				Processor.DomainRun.same
-			}
-
-			val end = chOps.registerEnd(this)
-		}).end
-	}
-
-	private def dischargeSource[DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
-	(slot: Carriage.Slot, manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, ShuttleSignal, DownstreamMessageType], host: Processor.Ref) = {
+		def dischargeSource[DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
+	(slot: SlotLocator, manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, ShuttleSignal, DownstreamMessageType], host: Processor.Ref) = {
 		(new Channel.Source[MaterialLoad, ShuttleSignal] {
 			override val ref: Processor.Ref = host
 			val start = chOps.registerStart(this)
 
-			override def loadAcknowledged(endpoint: Channel.Start[MaterialLoad, ShuttleSignal], load: MaterialLoad)(implicit ctx: Shuttle.CTX): RUNNER = {
-				if (slot.inspect nonEmpty) ctx.signalSelf(SlotBecomesAvailable(slot))
-				Processor.DomainRun.same
-			}
+			override def loadAcknowledged(endpoint: Channel.Start[MaterialLoad, ShuttleSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = Processor.DomainRun.same
 		}).start
 	}
 
 	def buildProcessor[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
 	(configuration: Configuration[UpstreamMessageType, DownstreamMessageType],
-		initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
-		val carriage = Carriage.buildProcessor(configuration.name+"_carriage", configuration.physics, clockRef, simController)
-		val domain = new Shuttle(configuration.name, carriage, configuration, initial)
+	 initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
+		val domain = new Shuttle(configuration.name, configuration, initial)
 		new Processor[ShuttleSignal](configuration.name, clockRef, simController, domain.configurer)
-	}
-
-	private val ignoreSlotAvailable: RUNNER = Processor.DomainRun {
-		case SlotBecomesAvailable(_) =>	Processor.DomainRun.same
-	}
-	private val rejectExternalCommand: RUNNER = (ctx: CTX) => {
-		case cmd: ExternalCommand =>
-			ctx.reply(FailedBusy(cmd, "Command cannot be processed. Processor is Busy"))
-			Processor.DomainRun.same
 	}
 }
 
-import Shuttle._
-class Shuttle[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
+class Shuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage, DownstreamSignal >: ChannelConnections.ChannelDestinationMessage]
 (name: String,
- shuttleProcessor: Processor[Carriage.CarriageSignal],
- configuration: Shuttle.Configuration[UpstreamMessageType, DownstreamMessageType],
- initial: Shuttle.InitialState) extends Identification.Impl(name) with LogEnabled {
+ configuration: Shuttle.Configuration[UpstreamSignal, DownstreamSignal],
+ initial: Shuttle.InitialState) extends Identification.Impl(name) with CarriageComponent.Host[Shuttle.ShuttleSignal, Shuttle.ShuttleSignal] with LogEnabled {
+	import Shuttle._
+
+	override type HOST_SIGNAL = ShuttleSignal
+
+	sealed trait CarriageSignal extends ShuttleSignal
+	case class Load(override val loc: SlotLocator) extends CarriageComponent.LoadCmd(loc) with CarriageSignal
+	case class Unload(override val loc: SlotLocator) extends CarriageComponent.UnloadCmd(loc) with CarriageSignal
+	case class Induct(override val from: Channel.End[MaterialLoad, ShuttleSignal], override val at: SlotLocator)
+		extends CarriageComponent.InductCmd[ShuttleSignal](from, at) with CarriageSignal
+	case class Discharge(override val to: Channel.Start[MaterialLoad, ShuttleSignal], override val at: SlotLocator)
+		extends CarriageComponent.DischargeCmd[ShuttleSignal](to, at) with CarriageSignal
+
+	override type HOST = Shuttle[UpstreamSignal, DownstreamSignal]
+	override type LOAD_SIGNAL = Load
+	override type UNLOAD_SIGNAL = Unload
+	override type INDUCT_SIGNAL = Induct
+	override type DISCHARGE_SIGNAL = Discharge
+
+	override def loader(loc: SlotLocator) = Load(loc)
+	override def unloader(loc: SlotLocator) = Unload(loc)
+	override def inducter(from: Channel.End[MaterialLoad, ShuttleSignal], at: SlotLocator) = Induct(from, at)
+	override def discharger(to: Channel.Start[MaterialLoad, ShuttleSignal], at: SlotLocator) = Discharge(to, at)
+
+	private sealed trait WaitFor
+	private case object NoWait extends WaitFor
+	private case class WaitToDischarge(ep: Channel.Start[MaterialLoad, ShuttleSignal], toLoc: SlotLocator) extends WaitFor
+	private case class WaitToStore(toLoc: SlotLocator) extends WaitFor
+	private var waitingForLoad: WaitFor = NoWait
+
+	private def inductSink[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage]
+	(inboundSlot: SlotLocator,
+	 chOps: Channel.Ops[MaterialLoad, UpstreamMessageType, ShuttleSignal])(implicit ctx: CTX) = {
+		(new Channel.Sink[MaterialLoad, ShuttleSignal] {
+			override val ref: Processor.Ref = ctx.aCtx.self
+
+			override def loadArrived(fromEp: Channel.End[MaterialLoad, ShuttleSignal], ld: MaterialLoad, at: Option[Distance] = None)(implicit ctx: Processor.SignallingContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = {
+				ctx.aCtx.log.debug(s"ShuttleSink: Received load $ld at channel ${fromEp.channelName}")
+				waitingForLoad match {
+					case NoWait =>
+						ctx.signal(manager, LoadArrival(fromEp.channelName, ld))
+						DomainRun.same
+					case WaitToDischarge(ep, toLoc) =>
+						carriageComponent.inductFrom(fromEp, inboundSlots(fromEp.channelName))
+						waitingForLoad = NoWait
+						carriageComponent.INDUCTING(dischargeAfterInducting(ep, toLoc))
+					case WaitToStore(loc) =>
+						carriageComponent.inductFrom(fromEp, inboundSlots(fromEp.channelName))
+						waitingForLoad = NoWait
+						carriageComponent.INDUCTING(storeAfterInducting(loc))
+				}
+			}
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, ShuttleSignal], load: MaterialLoad, at: Option[Distance])(implicit ctx: Processor.SignallingContext[ShuttleSignal]): Processor.DomainRun[ShuttleSignal] = Processor.DomainRun.same
+
+			val end = chOps.registerEnd(this)
+		}).end
+	}
+
+	private val inboundSlots: mutable.Map[String, SlotLocator] = mutable.Map.empty
+	private val inboundChannels: mutable.Map[String, Channel.End[MaterialLoad, ShuttleSignal]] = mutable.Map.empty
+	private var inboundLoadListener: RUNNER = null
+
+	private val outboundSlots: mutable.Map[String, SlotLocator] = mutable.Map.empty
+	private val outboundChannels: mutable.Map[String, Channel.Start[MaterialLoad, ShuttleSignal]] = mutable.Map.empty
+	private var outboundLoadListener: RUNNER = null
+
+	private val carriageComponent: CarriageComponent[ShuttleSignal, ShuttleSignal, HOST] =
+		new CarriageComponent[ShuttleSignal, ShuttleSignal, HOST](configuration.physics, this).atLocation(initial.position).withInventory(initial.inventory)
 
 	private var manager: Processor.Ref = null
-
-	private val slots: Map[SlotLocator, Slot] = (0 until configuration.depth).flatMap(idx => Seq(OnRight(idx) -> Slot(OnRight(idx)), OnLeft(idx) -> Slot(OnLeft(idx)))).toMap
-	initial.inventory.foreach(e => slots(e._1).store(e._2))
-
-	private val inboundSlots: mutable.Map[String, Slot] = mutable.Map.empty
-	private val inboundChannels: mutable.Map[String, Channel.End[MaterialLoad, ShuttleSignal]] = mutable.Map.empty
-	private var inboundLoadListener: Shuttle.RUNNER = null
-
-	private val outboundSlots: mutable.Map[String, Slot] = mutable.Map.empty
-	private val outboundChannels: mutable.Map[String, Channel.Start[MaterialLoad, ShuttleSignal]] = mutable.Map.empty
-	private var outboundLoadListener: Shuttle.RUNNER = null
-
-	private var carriage: ActorRef[Processor.ProcessorMessage] = null
-
+	private var currentCommand: Option[ExternalCommand] = None
 
 	private def configurer: Processor.DomainConfigure[ShuttleSignal] = {
 		new Processor.DomainConfigure[ShuttleSignal] {
-			override def configure(config: ShuttleSignal)(implicit ctx: Shuttle.CTX): Processor.DomainMessageProcessor[ShuttleSignal] = {
+			override def configure(config: ShuttleSignal)(implicit ctx: CTX): Processor.DomainMessageProcessor[ShuttleSignal] = {
 				config match {
-					case cmd@Shuttle.NoConfigure =>
+					case cmd@NoConfigure =>
 						manager = ctx.from
-						carriage = ctx.aCtx.spawn(shuttleProcessor.init, shuttleProcessor.processorName)
-						ctx.configureContext.signal(carriage, Carriage.Configure(initial.position))
-						inboundSlots ++= configuration.inbound.zip(-configuration.inbound.size until 0).map(t => t._1.ch.name -> Slot(OnLeft(t._2)))
-						inboundChannels ++= configuration.inbound.map{chOps =>	chOps.ch.name -> inductSink(inboundSlots(chOps.ch.name), manager, chOps, ctx.aCtx.self)}.toMap
+						inboundSlots ++= configuration.inbound.zip(-configuration.inbound.size until 0).map(t => t._1.ch.name -> OnLeft(t._2))
+						inboundChannels ++= configuration.inbound.map{chOps =>	chOps.ch.name -> inductSink(inboundSlots(chOps.ch.name), chOps)}
 						inboundLoadListener = configuration.inbound.map(chOps => chOps.end.loadReceiver).reduce((l, r) => l orElse r)
 
-						outboundSlots ++= configuration.outbound.zip(-configuration.outbound.size until 0).map{c => c._1.ch.name -> Slot(OnRight(c._2))}
-						outboundChannels ++= configuration.outbound.map(chOps => chOps.ch.name -> dischargeSource(outboundSlots(chOps.ch.name), manager, chOps, ctx.aCtx.self)).toMap
+						outboundSlots ++= configuration.outbound.zip(-configuration.outbound.size until 0).map{c => c._1.ch.name -> OnRight(c._2)}
+						outboundChannels ++= configuration.outbound.map(chOps => chOps.ch.name -> dischargeSource(outboundSlots(chOps.ch.name), manager, chOps, ctx.aCtx.self))
 						outboundLoadListener = configuration.outbound.map(chOps => chOps.start.ackReceiver).reduce((l, r) => l orElse r)
-						ctx.aCtx.log.debug(s"Configured Subcomponents, now waiting for Carriage Confirmation")
-						waitingForCarriageConfiguration
+						ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
+						IDLE_EMPTY
 				}
 			}
 		}
 	}
+	private def verifyLocator(l: SlotLocator): Option[SlotLocator] = if(l.idx < configuration.depth && l.idx >= 0) Some(l) else None
 
-	def waitingForCarriageConfiguration(implicit ctx: Shuttle.CTX) =
-		new Processor.DomainConfigure[ShuttleSignal] {
-			override def configure(config: ShuttleSignal)(implicit ctx: Shuttle.CTX): Processor.DomainMessageProcessor[ShuttleSignal] = {
-				config match {
-					case cmd@Carriage.CompleteConfiguration(pr) if pr == carriage =>
-						// This is be needed in the future to signal the manager
-						log.debug(s"Completing CarriageLevel Configuration")
-						ctx.configureContext.signal(manager, Shuttle.CompletedConfiguration(ctx.aCtx.self))
-						IDLE
-				}
-			}
+	private def completeCommand(next: => RUNNER = Processor.DomainRun.same)(implicit ctx: CTX): RUNNER = {
+		assert(currentCommand nonEmpty)
+		currentCommand.foreach(cmd => ctx.signal(manager, CompletedCommand(cmd)))
+		currentCommand = None
+		next
+	}
+	private def executeCommand(cmd: ExternalCommand)(body: => RUNNER)(implicit ctx: CTX): RUNNER =
+		if(currentCommand isEmpty) {
+			currentCommand = Some(cmd)
+			body
+		} else {
+			ctx.signal(manager, NotAcceptedCommand(cmd, s"Currently processing $currentCommand"))
+			Processor.DomainRun.same
 		}
 
-	private lazy val IDLE: Shuttle.RUNNER =
-		inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
-		ctx: Shuttle.CTX => {
-			case cmd@Store(fromCh, toLocator) =>
-				implicit val c = cmd
-				implicit val r =  ctx.from
-				(inboundSlots.get(fromCh), slots.get(toLocator).filter(_.isEmpty)) match {
-					case (Some(fromLoc), Some(toLoc)) =>
-						ctx.signal(carriage, Carriage.GoTo(fromLoc))
-						FETCHING(
-							(successFetchingCtx: Shuttle.CTX) => {
-								successFetchingCtx.signal(carriage, Carriage.GoTo(toLoc))
-								DELIVERING(successDeliverCtx => {
-									successDeliverCtx.signal(manager, Shuttle.CompletedCommand(cmd))
-									IDLE
-								},
-									_ => ERROR_LOADED)
-							}
-						,
-							_ => WAITING_FOR_LOAD(inboundChannels(fromCh), fromLoc)(
-									(afterLoadingCtx: Shuttle.CTX) => {
-										afterLoadingCtx.signal(carriage, Carriage.GoTo(toLoc));
-										DELIVERING(afterDeliverCtx => {
-											afterDeliverCtx.signal(manager, Shuttle.CompletedCommand(cmd))
-											IDLE
-										},
-											_ =>  ERROR_LOADED)
-									}
-								)
-						)
+	private lazy val loadListeners = inboundLoadListener orElse outboundLoadListener
+	private lazy val IDLE_EMPTY: RUNNER = loadListeners orElse {
+		implicit ctx: CTX => {
+			case cmd@Store(fromCh, toLocator) => executeCommand(cmd){
+				(inboundChannels.get(fromCh), verifyLocator(toLocator)) match {
+					case (Some(induct), Some(toLoc)) =>
+						if(carriageComponent.inspect(toLoc) nonEmpty) failEmpty(s"Target Location to Store ($toLoc) is Full")
+						else {
+							carriageComponent.inductFrom(induct, inboundSlots(fromCh))
+							loadListeners orElse carriageComponent.INDUCTING(storeAfterInducting(toLoc))
+						}
 					case (None, _) =>
-						ctx.reply(NotAcceptedCommand(cmd, s"Inbound Channel does not exist in $inboundSlots"))
-						IDLE
+						currentCommand = None
+						rejectCommand(cmd, s"Inbound Channel does not exist")
 					case (_, None) =>
-						ctx.reply(Shuttle.FailedEmpty(cmd, "Destination does not exist or is full"))
-						IDLE
+						currentCommand = None
+						rejectCommand(cmd, s"Destination $toLocator does not exist")
 					case other =>
-						ctx.reply(NotAcceptedCommand(cmd, s"From or To ($other) are incompatible for Store Command: $cmd"))
-						IDLE
+						currentCommand = None
+						rejectCommand(cmd, s"From or To ($other) are incompatible for Store Command: $cmd")
 				}
-			case cmd@Retrieve(fromLocator, toChName) =>
-				implicit val c = cmd
-				implicit val r =  ctx.from
-				(slots.get(fromLocator).filter(!_.isEmpty), outboundSlots.get(toChName).filter(_.isEmpty)) match {
-					case (Some(fromLoc), Some(toChLoc)) =>
-						ctx.signal(carriage, Carriage.GoTo(fromLoc))
-						val toEp = outboundChannels(toChName)
-						FETCHING(
-							successFetchingCtx => {
-								successFetchingCtx.signal(carriage, Carriage.GoTo(toChLoc))
-								DELIVERING(postDeliveryCtx => doDischarge(toChLoc, toEp)(postDeliveryCtx),
-									postDeliveryErrorCtx => WAITING_FOR_SLOT(toEp, toChLoc)
-								)
-							},
-							failedFetchingCtx => {
-								failedFetchingCtx.signal(manager,Shuttle.FailedEmpty(cmd, s"Was not able to Fetch for $cmd"))
-								IDLE
-							}
-						)
+			}
+			case cmd@Retrieve(fromLocator,toCh) => executeCommand(cmd){
+				(verifyLocator(fromLocator), outboundChannels.get(toCh)) match {
+					case (Some(loc), Some(discharge)) =>
+						if(carriageComponent.inspect(loc) isEmpty) failEmpty(s"Source Location ($loc) to Retrieve is Empty")
+						else {
+							carriageComponent.loadFrom(loc)
+							loadListeners orElse carriageComponent.LOADING(dischargeAfterLoading(discharge, outboundSlots(toCh)))
+						}
+					case (None, _) =>
+						currentCommand = None
+						rejectCommand(cmd, s"Inbound Source $fromLocator does not exist")
+					case (_, None) =>
+						currentCommand = None
+						rejectCommand(cmd, "Destination $toCh does not exist")
 					case other =>
-						ctx.reply(NotAcceptedCommand(cmd, s"Source or Destination ($other) are incompatible for Retrieve Command: $cmd"))
-						IDLE
+						currentCommand = None
+						rejectCommand(cmd, s"From or To ($other) are incompatible for Store Command: $cmd")
 				}
-			case cmd@Groom(fromLocator, toLocator) =>
-				implicit val c = cmd
-				implicit val r =  ctx.from
-				val maybeFromLoc = slots.get(fromLocator).filter(!_.isEmpty)
-				val maybeToLoc = slots.get(toLocator).filter(_.isEmpty)
-				(maybeFromLoc, maybeToLoc) match {
-					case (Some(fromLoc), Some(toLoc)) =>
-						ctx.signal(carriage, Carriage.GoTo(fromLoc))
-						FETCHING(afterFetchingCtx => {
-							afterFetchingCtx.signal(carriage, Carriage.GoTo(toLoc))
-							DELIVERING(afterDeliverCtx => {
-								afterDeliverCtx.signal(manager, CompletedCommand(cmd))
-								IDLE
-							},
-								_ => ERROR_LOADED)
-						},
-							_ => IDLE
-						)
-					case (None, Some(toLoc)) =>
-						ctx.reply(Shuttle.FailedEmpty(cmd, "Origin does not exist or is empty"))
-						IDLE
-					case (Some(fromLoc), None) =>
-						ctx.reply(Shuttle.FailedEmpty(cmd, "Destination does not exist or is full"))
-						IDLE
-					case (None, None) =>
-						ctx.reply(Shuttle.FailedEmpty(cmd, "Neither Origin or Destination match requirements"))
-						IDLE
+			}
+			case cmd@Groom(fromLocator, toLocator) => executeCommand(cmd){
+				(verifyLocator(fromLocator), verifyLocator(toLocator)) match {
+					case (Some(from), Some(to)) =>
+						if(carriageComponent.inspect(to) nonEmpty) failEmpty(s"Target Location to Store ($to) is not empty")
+						else if (carriageComponent.inspect(from) isEmpty) failEmpty(s"Source Location ($from) to Retrieve is Empty")
+						else {
+							carriageComponent.loadFrom(from)
+							loadListeners orElse carriageComponent.LOADING(unloadAfterLoading(to))
+						}
+					case (None, _) =>
+						currentCommand = None
+						rejectCommand(cmd, s"Source location does not exist")
+					case (_, None) =>
+						currentCommand = None
+						rejectCommand(cmd, "Destination does not exist")
+					case other =>
+						currentCommand = None
+						rejectCommand(cmd, s"From or To ($other) are incompatible for Store Command: $cmd")
 				}
-			case cmd@LoopBack(fromChName, toChName) =>
-				implicit val c = cmd
-				implicit val r =  ctx.from
-				val fromChEp = inboundChannels(fromChName)
-				val fromChLoc = inboundSlots(fromChName)
-				val toChEp = outboundChannels(toChName)
-				val toChLoc = outboundSlots(toChName)
-				ctx.signal(carriage, Carriage.GoTo(fromChLoc))
-				FETCHING(fetchSuccessCtx => {
-					fetchSuccessCtx.signal(carriage, Carriage.GoTo(toChLoc))
-					DELIVERING(
-						postDeliveryCtx => doDischarge(toChLoc, toChEp)(postDeliveryCtx),
-						_ => WAITING_FOR_SLOT(toChEp, toChLoc))
-				},
-					_ => WAITING_FOR_LOAD(fromChEp, fromChLoc)(
-						loadReceivedCtx => {
-							loadReceivedCtx.signal(carriage, Carriage.GoTo(toChLoc));
-								DELIVERING(
-									deliveringSuccessCtx => doDischarge(toChLoc, toChEp)(deliveringSuccessCtx),
-									_ => WAITING_FOR_SLOT(toChEp, toChLoc)
-								)
-							}
-						))
+			}
+			case cmd@LoopBack(fromChName, toChName) => executeCommand(cmd){
+				(inboundChannels.get(fromChName), outboundChannels.get(toChName)) match {
+					case (Some(from), Some(to)) =>
+						carriageComponent.inductFrom(from, inboundSlots(fromChName))
+						loadListeners orElse carriageComponent.INDUCTING(dischargeAfterInducting(to, outboundSlots(toChName)))
+					case (None, _) =>
+						currentCommand = None
+						rejectCommand(cmd, s"Inbound Channel does not exist")
+					case (_, None) =>
+						currentCommand = None
+						rejectCommand(cmd, "Destination does not exist")
+					case other =>
+						currentCommand = None
+						rejectCommand(cmd, s"From or To ($other) are incompatible for Store Command: $cmd")
+				}
+			}
+			case cmd: ExternalCommand => rejectCommand(cmd, "Unknown Command $cmd")
+		}
+	}
+	private lazy val IDLE_FULL: RUNNER = loadListeners orElse {
+		implicit ctx: CTX => {
+			case cmd@PutawayFromTray(toLocator) => executeCommand(cmd){
+				verifyLocator(toLocator) match {
+					case Some(toLoc) =>
+						carriageComponent.unloadTo(toLoc)
+						loadListeners orElse carriageComponent.UNLOADING(afterUnloading)
+					case None => failFull(s"Destination $toLocator does not exist")
+				}
+			}
+			case cmd@DeliverFromTray(chName) => executeCommand(cmd) {
+				outboundChannels.get(chName) match {
+					case Some(discharge) =>
+						carriageComponent.dischargeTo(discharge, outboundSlots(chName))
+						loadListeners orElse carriageComponent.DISCHARGING(afterUnloading)
+					case None => failFull(s"Outbound Channel $chName does not exist")
+				}
+			}
+			case cmd: ExternalCommand => rejectCommand(cmd, s"Unexpected Command: $cmd")
+		}
+	}
+	private def dischargeAfterLoading(ch: Channel.Start[MaterialLoad, ShuttleSignal], loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
+		implicit ctx => {
+			case CarriageComponent.LoadOperationOutcome.Loaded =>
+				carriageComponent.dischargeTo(ch, loc)
+				carriageComponent.DISCHARGING(afterUnloading) orElse loadListeners
+			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
+			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => failEmpty("Trying to load from an empty Source")
+		}
+	}
+	private def unloadAfterLoading(loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
+		implicit ctx => {
+			case CarriageComponent.LoadOperationOutcome.Loaded =>
+				carriageComponent.unloadTo(loc)
+				carriageComponent.UNLOADING(afterUnloading) orElse loadListeners
+			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
+			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => failEmpty("Trying to load from an empty Source")
+		}
+	}
+	private def storeAfterInducting(loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
+		implicit ctx => {
+			case CarriageComponent.LoadOperationOutcome.Loaded =>
+				carriageComponent.unloadTo(loc)
+				carriageComponent.UNLOADING(afterUnloading) orElse loadListeners
+			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
+				waitingForLoad = WaitToStore(loc)
+				DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
+		}
+	}
+	private def dischargeAfterInducting(ch: Channel.Start[MaterialLoad, ShuttleSignal], loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
+		implicit ctx => {
+			case CarriageComponent.LoadOperationOutcome.Loaded =>
+				carriageComponent.dischargeTo(ch, loc)
+				carriageComponent.DISCHARGING(afterUnloading) orElse loadListeners
+			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
+				waitingForLoad = WaitToDischarge(ch, loc)
+				DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
 		}
 	}
 
-	private def doDischarge(toChLoc: Slot, toEp: Channel.Start[MaterialLoad, ShuttleSignal])(ctx: Shuttle.CTX)(implicit cmd: ExternalCommand, requester: Processor.Ref): Shuttle.RUNNER =
-		if(toChLoc.inspect.isEmpty) throw new IllegalStateException(s"Unexpected Empty Discharge slot while executing $cmd for $requester")
-		else if (toChLoc.inspect.exists(toEp.send(_)(ctx))) {
-			toChLoc.retrieve
-			ctx.signal(requester, CompletedCommand(cmd))
-			IDLE
-		} else WAITING_FOR_SLOT(toEp, toChLoc)
-
-	private def FETCHING(
-		                    success: DelayedDomainRun[ShuttleSignal],
-		                    failure: DelayedDomainRun[ShuttleSignal])(implicit cmd: ExternalCommand, requester: Processor.Ref): Shuttle.RUNNER =
-		rejectExternalCommand orElse inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
-			ctx: Shuttle.CTX => {
-				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
-					ctx.signal(carriage, Carriage.Load(destination))
-					LOADING(success)
-				case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
-					failure(ctx)
-				case other: CarriageNotification =>
-					failure(ctx)
-			}
+	private def afterUnloading: CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, RUNNER] = {
+		implicit ctx => {
+			case CarriageComponent.UnloadOperationOutcome.Unloaded => completeCommand(IDLE_EMPTY)
+			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull => failFull(s"Target destination is Full")
+			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => failEmpty("Trying to unload an empty Tray")
 		}
+	}
 
-	private def DELIVERING(success: DelayedDomainRun[ShuttleSignal],
-	                       failure: DelayedDomainRun[ShuttleSignal])(implicit cmd: ExternalCommand, requester: Processor.Ref): Shuttle.RUNNER =
-		rejectExternalCommand orElse inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
-			implicit ctx: Shuttle.CTX => {
-				case Carriage.Arrived(Carriage.GoTo(destination)) if destination.isEmpty =>
-					ctx.signal(carriage, Carriage.Unload(destination))
-					UNLOADING(success)
-				case Carriage.Arrived(Carriage.GoTo(destination)) if !destination.isEmpty =>
-					failure(ctx)
-				case other: CarriageNotification =>
-					failure(ctx)
-			}
-		}
+	private def rejectCommand(cmd: ExternalCommand, msg: String)(implicit ctx: CTX): RUNNER = {
+		ctx.signal(manager, Shuttle.NotAcceptedCommand(cmd, s"Unexpected Command: $cmd"))
+		Processor.DomainRun.same
+	}
+	private def failFull(msg: String)(implicit ctx: CTX): RUNNER = {
+			currentCommand.foreach(cmd => ctx.signal(manager, FailedBusy(cmd, msg)))
+			currentCommand = None
+			IDLE_FULL
+	}
 
-	private def WAITING_FOR_LOAD(from: Channel.End[MaterialLoad, ShuttleSignal], fromLoc: => Slot)(
-		continue: DelayedDomainRun[ShuttleSignal]): Shuttle.RUNNER =
-		rejectExternalCommand orElse outboundLoadListener orElse {
-			ctx: Shuttle.CTX => {
-				case tr: Channel.TransferLoad[MaterialLoad] if tr.channel == from.channelName =>
-					from.doEndpointReceiving(tr.load, tr.resource)(ctx)
-					if (fromLoc isEmpty) {
-						from.get(tr.load)(ctx)
-						fromLoc store tr.load
-						ctx.signal(carriage, Carriage.Load(fromLoc))
-						LOADING(continue)
-					} else {
-						throw new IllegalStateException(s"Location $fromLoc is not empty to receive load ${tr.load} from channel ${from.channelName}")
-					}
-				case other =>
-					throw new IllegalArgumentException(s"Unknown signal received $other when waiting for load from channel ${from.channelName}")
-			}
-		} orElse inboundLoadListener orElse ignoreSlotAvailable
-
-
-	private def refreshInducts(implicit ctx: Shuttle.CTX) =
-		inboundSlots.map{
-			case (ch, slot) => if(slot.isEmpty) inboundChannels(ch).getNext.map{case (ld, _) => slot.store(ld)}
-		}
-
-	private def LOADING(continue: DelayedDomainRun[ShuttleSignal]): Shuttle.RUNNER =
-		rejectExternalCommand orElse inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
-			implicit ctx: Shuttle.CTX => {
-				case Carriage.Loaded(Carriage.Load(loc), _) =>
-					refreshInducts
-					continue(ctx)
-			}
-		}
-
-	private def WAITING_FOR_SLOT(toEp: Channel.Start[MaterialLoad, ShuttleSignal], toLoc: Slot)(implicit cmd: ExternalCommand, requester: Processor.Ref): Shuttle.RUNNER =
-		rejectExternalCommand orElse inboundLoadListener orElse outboundLoadListener orElse {
-			ctx: Shuttle.CTX => {
-				case signal@SlotBecomesAvailable(slot) if slot == toLoc =>
-					if (slot.isEmpty) {
-						log.info(s"DISCHARGE SLOT: EMPTY")
-						IDLE
-					}
-					else {
-						log.info(s"DISCHARGE SLOT: FULL ${toLoc.inspect}")
-						doDischarge(toLoc, toEp)(ctx)
-					}
-			}
-		}
-
-	private def UNLOADING(continue: DelayedDomainRun[ShuttleSignal]): Shuttle.RUNNER =
-		rejectExternalCommand orElse inboundLoadListener orElse outboundLoadListener orElse ignoreSlotAvailable orElse {
-			implicit ctx: Shuttle.CTX => {
-				case Carriage.Unloaded(Carriage.Unload(loc), load) => continue(ctx)
-			}
-		}
-
-	private def ERROR_LOADED(implicit extCmd: ExternalCommand, requester: Processor.Ref): Shuttle.RUNNER = inboundLoadListener orElse outboundLoadListener orElse {
-		ctx: Shuttle.CTX => {
-			case cmd @ PutawayFromTray(to) =>
-				val toLoc = slots(to)
-				ctx.signal(carriage, Carriage.GoTo(toLoc))
-				DELIVERING(
-					afterDeliveryCtx => {
-						afterDeliveryCtx.signal(manager, CompletedCommand(cmd))
-						IDLE
-					},
-					_ => ERROR_LOADED
-				)
-			case cmd @ DeliverFromTray(chName) =>
-				val toLoc = outboundSlots(chName)
-				val toEp = outboundChannels(chName)
-				ctx.signal(carriage, Carriage.GoTo(toLoc))
-				DELIVERING(
-					successDeliveryCtx => doDischarge(toLoc, toEp)(successDeliveryCtx),
-					failDeliveryCtx => WAITING_FOR_SLOT(toEp, toLoc)
-				)
-		}
+	private def failEmpty(msg: String)(implicit ctx: CTX): RUNNER = {
+		currentCommand.foreach(cmd => ctx.signal(manager, FailedEmpty(cmd, msg)))
+		currentCommand = None
+		IDLE_EMPTY
 	}
 }
