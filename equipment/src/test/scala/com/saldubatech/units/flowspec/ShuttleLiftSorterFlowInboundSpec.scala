@@ -58,22 +58,22 @@ class ShuttleLiftSorterFlowInboundSpec
 		val liftPhysics = new CarriageTravel(2, 6, 4, 8, 8)
 		val shuttlePhysics = new CarriageTravel(2, 6, 4, 8, 8)
 
-		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_A"))
-		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_B"))
-		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_A"))
-		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_B"))
+		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_A"))
+		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_B"))
+		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_A"))
+		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_B"))
 
 		val aisleA = buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2,5))
 		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2,5))
 		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(45 -> aisleASorter, 0 -> aisleBSorter)
 		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
 
-		val chIb1 = new InboundInductChannel(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundInductChannel(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1 = new InboundInductChannel(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundInductChannel(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
 		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
 
-		val chDis1 = new OutboundDischargeChannel(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_1")
-		val chDis2 = new OutboundDischargeChannel(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
+		val chDis1 = new OutboundDischargeChannel(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_1")
+		val chDis2 = new OutboundDischargeChannel(() => Some(10L), () => Some(3L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
 		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
 
 		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = inboundInducts ++ aisleInducts
@@ -179,10 +179,10 @@ class ShuttleLiftSorterFlowInboundSpec
 				val probeLoadMessage = TestProbeMessage("FirstLoad", probeLoad)
 				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 70L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: FirstLoad")
-				systemManagerProbe.expectMessage(80L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
-				systemManagerProbe.expectMessage(100L -> UnitSorter.CompletedCommand(sorterCommand))
-				systemManagerProbe.expectMessage(140L -> XSwitch.CompletedCommand(liftCommand))
-				systemManagerProbe.expectMessage(170L -> Shuttle.CompletedCommand(shuttleCommand))
+				systemManagerProbe.expectMessage(83L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
+				systemManagerProbe.expectMessage(103L -> UnitSorter.CompletedCommand(sorterCommand))
+				systemManagerProbe.expectMessage(146L -> XSwitch.CompletedCommand(liftCommand))
+				systemManagerProbe.expectMessage(179L -> Shuttle.CompletedCommand(shuttleCommand))
 				systemManagerProbe.expectNoMessage(500 millis)
 			}
 		}

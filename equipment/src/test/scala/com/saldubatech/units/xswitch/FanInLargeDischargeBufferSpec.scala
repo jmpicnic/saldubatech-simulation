@@ -62,11 +62,11 @@ class FanInLargeDischargeBufferSpec
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1 = new InboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
 		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
 
 		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
 
@@ -134,7 +134,7 @@ class FanInLargeDischargeBufferSpec
 				val probeLoadMessage = TestProbeMessage("First Load", firstLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(12L -> XSwitch.LoadArrival(chIb1.name, firstLoad))
+				xcManagerProbe.expectMessage(15L -> XSwitch.LoadArrival(chIb1.name, firstLoad))
 			}
 			"B02. and then it receives a Transfer command" in {
 				val transferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
@@ -156,28 +156,28 @@ class FanInLargeDischargeBufferSpec
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
-				xcManagerProbe.expectMessage(269L -> XSwitch.CompletedCommand(secondTransferCommand))
+				xcManagerProbe.expectMessage(272L -> XSwitch.CompletedCommand(secondTransferCommand))
 			}
 			"C03. One more load to force the shuttle to error out and the Lift to waitforslot" in {
 				val thirdLoad = MaterialLoad("Third Load")
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Third Load")
-				xcManagerProbe.expectMessage(285L -> XSwitch.LoadArrival("Inbound1", thirdLoad))
+				xcManagerProbe.expectMessage(288L -> XSwitch.LoadArrival("Inbound1", thirdLoad))
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 288L, thirdTransferCommand))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Third Load)")
 				xcManagerProbe.expectNoMessage(500 millis)
 			}
 			"C04. and then the discharge consumes load, second load is sent and third command is complete" in {
 				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 310L, ConsumeLoad))
-				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
 				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 330L, ConsumeLoad))
 				xcManagerProbe.expectMessage(318L -> XSwitch.CompletedCommand(thirdTransferCommand)) //330?
-				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) arrived to Sink via channel Discharge")
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) arrived to Sink via channel Discharge")
 				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 350L, ConsumeLoad))
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) released on channel Discharge")

@@ -35,6 +35,9 @@
         <Logger name="com.saldubatech.ddes" level="info" additivity="false">
             <AppenderRef ref="MSC"/>
         </Logger>
+        <Logger name="com.saldubatech.transport" level="info" additivity="false">
+            <AppenderRef ref="STDOUT"/>
+        </Logger>
         <Logger name="com.saldubatech.base" level="info" additivity="false">
             <AppenderRef ref="STDOUT"/>
         </Logger>

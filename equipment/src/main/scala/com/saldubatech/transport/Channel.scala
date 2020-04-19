@@ -36,18 +36,11 @@ object Channel {
 		override def toString = s"TransferLoad(load: $load, channel: $channel, resource: $resource)"
 	}
 
-
-	trait Endpoint {
-		val channelName: String
+	trait DeliverLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage{
+		val channel: String
 	}
-	trait Start[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] extends Endpoint {
-		val source: Source[LOAD, SourceProfile]
-
-		def availableCards: Int
-		def reserveCard: Option[String]
-		def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean
-		def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean
-		def ackReceiver: Processor.DomainRun[SourceProfile]
+	abstract class DeliverLoadImpl[L <: Identification](override val channel: String) extends Identification.Impl() with DeliverLoad[L]{
+		override def toString = s"Deliverload($channel)--$uid"
 	}
 
 	trait PulledLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
@@ -62,10 +55,26 @@ object Channel {
 	}
 
 
+
+	trait Endpoint {
+		val channelName: String
+	}
+	trait Start[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] extends Endpoint {
+		val source: Source[LOAD, SourceProfile]
+
+		def availableCards: Int
+		def reserveCard: Option[String]
+		def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean
+		def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean
+		def ackReceiver: Processor.DomainRun[SourceProfile]
+	}
+
+
+
 	trait End[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] extends Endpoint {
 		val sink: Sink[LOAD, SinkProfile]
 		val receivingSlots: Int
-		def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int]
+		//def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int]
 		def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
 		def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
@@ -159,15 +168,18 @@ object Channel {
 				override def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
 					var r = delivered.get(idx)
 					if (r nonEmpty) {
-						if (pending nonEmpty) {
+						/*if (pending nonEmpty) {
 							val next = pending.dequeue
 							delivered += idx -> next
 							sink.loadArrived(this, next._1, Some(idx) )
 						} else {
 							delivered -= idx
 							openSlots.enqueue(idx)
-						}
+						}*/
+						delivered -= idx
+						openSlots.enqueue(idx)
 						ctx.signalSelf(ch.loadPullBuilder(r.head._1, r.head._2, idx))
+						ctx.signalSelf(ch.deliverBuilder(ch.name), ch.deliveryTime().getOrElse(0))
 					}
 					r
 				}
@@ -187,23 +199,30 @@ object Channel {
 						//delivered.remove(idx)
 					}
 				}
-				def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int] = {
-					log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}")
-					if (openSlots nonEmpty) {
+				private def tryDeliverToEndpoint(implicit ctx: SignallingContext[SinkProfile]): Option[(Int, LOAD)] = {
+					if (openSlots.nonEmpty && pending.nonEmpty) {
 						val idx = openSlots.dequeue
-						delivered += idx -> (load, resource)
-						log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}: Available Slot for delivery $idx. Delivered $delivered, Queued: $pending, OpenSlots: $openSlots")
-						Some(idx)
+						val (ld, rsc) = pending.dequeue
+						delivered += idx -> (ld, rsc)
+						log.debug(s"Processing Delivery Load ${ld} on channel ${ch.name}: Available Slot for delivery $idx. Delivered $delivered, Queued: $pending, OpenSlots: $openSlots")
+						Some(idx -> ld)
 					} else {
-						pending.enqueue((load -> resource))
-						log.debug(s"Processing Transfer Load ${load} on channel ${ch.name}: Not available slot, queuing. Delivered $delivered, Queued: $pending")
+						log.debug(s"Processing Delivery on channel ${ch.name}: No Available slot or load. Delivered $delivered, Queued: $pending, OpenSlots: $openSlots")
 						None
 					}
 				}
 				override def loadReceiver: Processor.DomainRun[SinkProfile] = {
 					implicit ctx: SignallingContext[SinkProfile] => {
 						case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
-							doEndpointReceiving(tr.load, tr.resource).map(i => sink.loadArrived(this, tr.load, Some(i))).getOrElse(DomainRun.same)
+							log.debug(s"Receiving load(${tr.load}) in channel ${tr.channel}, enqueued: $pending, openSlots: $openSlots")
+							pending.enqueue((tr.load -> tr.resource))
+							ctx.signalSelf(ch.deliverBuilder(tr.channel), ch.deliveryTime().getOrElse(0))
+							DomainRun.same
+							//doEndpointReceiving(tr.load, tr.resource).map(i => sink.loadArrived(this, tr.load, Some(i))).getOrElse(DomainRun.same)
+						case deliver: DeliverLoad[LOAD] if deliver.channel == ch.name =>
+							tryDeliverToEndpoint.map{
+								case (idx, ld) => sink.loadArrived(this, ld, Some(idx))
+							}.getOrElse(DomainRun.same)
 						case tr: PulledLoad[LOAD] if tr.channel == ch.name =>
 							log.debug(s"Processing PulledLoad with ${tr.load}")
 							acknowledgeLoad(tr.load, tr.resource, tr.idx)
@@ -221,12 +240,14 @@ object Channel {
 }
 
 abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage, SinkProfile >: ChannelConnections.ChannelDestinationMessage]
-(val delay: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, val name:String = java.util.UUID.randomUUID().toString)
+(val delay: () => Option[Delay], val deliveryTime: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, val name:String = java.util.UUID.randomUUID().toString)
 	extends Identification.Impl(name) {
 	type TransferSignal <: Channel.TransferLoad[LOAD]
 	type PullSignal <: Channel.PulledLoad[LOAD]
+	type DeliverSignal <: Channel.DeliverLoad[LOAD]
 
 	def transferBuilder(channel: String, load: LOAD, resource: String): TransferSignal
+	def deliverBuilder(channel: String): DeliverSignal
 	def loadPullBuilder(ld: LOAD, card: String, idx: Int): PullSignal
 
 	type AckSignal <: Channel.AcknowledgeLoad[LOAD]

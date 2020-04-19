@@ -30,8 +30,8 @@ object ShuttleLoopBackSpec {
 	case object UpstreamConfigure extends UpstreamSignal
 	case class TestProbeMessage(msg: String, load: MaterialLoad) extends UpstreamSignal
 
-	class InboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleSignal](delay, cards, configuredOpenSlots, name) {
+	class InboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with Shuttle.ShuttleSignal
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with Shuttle.ShuttleSignal
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle.ShuttleSignal
@@ -39,17 +39,24 @@ object ShuttleLoopBackSpec {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with Shuttle.ShuttleSignal
+
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with Shuttle.ShuttleSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with Shuttle.ShuttleSignal
+
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
-	class OutboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+	class OutboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, ChannelConnections.DummySinkMessageType](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle.ShuttleSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
+
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with ChannelConnections.DummySinkMessageType
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with ChannelConnections.DummySinkMessageType
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 	}
@@ -170,12 +177,12 @@ class ShuttleLoopBackSpec
 
 
 		// Channels
-		val chIb1 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1", "Ib1_c2"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1", "Ib1_c2"), 1, "Inbound2")
+		val chIb1 = new InboundChannelImpl(() => Some(10L), () => Some(3), Set("Ib1_c1", "Ib1_c2"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl(() => Some(10L), () => Some(3), Set("Ib1_c1", "Ib1_c2"), 1, "Inbound2")
 		val ib = Seq(chIb1, chIb2).map(Channel.Ops(_))
 
-		val chOb1 = new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Outbound1")
-		val chOb2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Outbound2")
+		val chOb1 = new OutboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Outbound1")
+		val chOb2 = new OutboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ob2_c1", "Ob2_c2"), 1, "Outbound2")
 		val ob = Seq(chOb1, chOb2).map(Channel.Ops(_))
 
 		val config = Shuttle.Configuration("underTest", 20, physics, ib, ob)
@@ -245,7 +252,7 @@ class ShuttleLoopBackSpec
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
+				shuttleLevelManagerProbe.expectMessage(15L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
 			}
 			"B02. and then received a Loopback command" in {
 				val loopbackCommand = Shuttle.LoopBack(chIb1.name, "Outbound2")
@@ -259,14 +266,14 @@ class ShuttleLoopBackSpec
 		"C. Transfer a load from one channel to another" when {
 			val loopbackCommand = Shuttle.LoopBack(chIb1.name, "Outbound2")
 			"C01. it receives the command first" in {
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 190L, loopbackCommand))
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 195L, loopbackCommand))
 			}
 			"C02. and then receives the load in the origin channel" in {
 				val probeLoad = MaterialLoad("Second Load")
 				val probeLoadMessage = TestProbeMessage("Second Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
-				shuttleLevelManagerProbe.expectMessage((269L -> Shuttle.CompletedCommand(loopbackCommand)))
+				shuttleLevelManagerProbe.expectMessage((272L -> Shuttle.CompletedCommand(loopbackCommand)))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Outbound2")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Outbound2")

@@ -6,7 +6,7 @@ package com.saldubatech.transport
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes
+import com.saldubatech.{ddes, transport}
 import com.saldubatech.ddes.Processor.SignallingContext
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.{Clock, Processor}
@@ -55,7 +55,7 @@ class ChannelSpec extends WordSpec
 	val testActor = testKit.createTestProbe[String]
 	val globalClock = testKit.spawn(Clock())
 	val testController = testKit.createTestProbe[ControllerMessage]
-	val underTest = new Channel[ProbeLoad, DummySourceMessageType, DummySinkMessageType](() => Some(7), Set("card1", "card2"), 1, "underTest"){
+	val underTest = new Channel[ProbeLoad, DummySourceMessageType, DummySinkMessageType](() => Some(7), () => Some(3), Set("card1", "card2"), 1, "underTest"){
 		override type TransferSignal = Channel.TransferLoad[ProbeLoad] with DummySinkMessageType
 		override type PullSignal = Channel.PulledLoad[ProbeLoad] with DummySinkMessageType
 		override def transferBuilder(channel: String, load: ProbeLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[ProbeLoad](channel, load, resource) with DummySinkMessageType {
@@ -65,6 +65,9 @@ class ChannelSpec extends WordSpec
 		override def loadPullBuilder(ld: ProbeLoad, resource: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[ProbeLoad](ld, resource, idx, this.name) with DummySinkMessageType {
 			override def toString = s"Receiver.PulledLoad(load: $ld, idx: $idx)"
 		}
+
+		override type DeliverSignal = Channel.DeliverLoadImpl[ProbeLoad] with DummySinkMessageType
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[ProbeLoad](channel) with DummySinkMessageType
 
 		override type AckSignal = Channel.AcknowledgeLoad[ProbeLoad] with DummySourceMessageType
 		override def acknowledgeBuilder(channel: String, load: ProbeLoad, resource: String): AckSignal = new Channel.AckLoadImpl[ProbeLoad](channel, load, resource)  with DummySourceMessageType {

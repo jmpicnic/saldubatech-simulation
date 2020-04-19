@@ -31,14 +31,17 @@ object CarriageComponentOnChannelSpec {
 	case class CompletedConfiguration(self: Processor.Ref) extends MockNotification
 
 
-	class MockChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, MockSignal, MockSignal](delay, cards, configuredOpenSlots, name) {
+	class MockChannel(delay: () => Option[Delay], delivery: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+		extends Channel[MaterialLoad, MockSignal, MockSignal](delay, delivery, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with MockSignal
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with MockSignal
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with MockSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with MockSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with MockSignal
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with MockSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with MockSignal
+
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with MockSignal
 	}
 
@@ -347,9 +350,9 @@ class CarriageComponentOnChannelSpec
 
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
-		val chIn = new MockChannel(() => Some(10), Set("c1", "c2", "c3"), 1, "inboundCh")
+		val chIn = new MockChannel(() => Some(10), () => Some(3), Set("c1", "c2", "c3"), 1, "inboundCh")
 		val chInOps = new Channel.Ops(chIn)
-		val chOut = new MockChannel(() => Some(10), Set("c1", "c2", "c3"), 1, "outboundCh")
+		val chOut = new MockChannel(() => Some(10), () => Some(3), Set("c1", "c2", "c3"), 1, "outboundCh")
 		val chOutOps = new Channel.Ops(chOut)
 
 		val sourceFixture = new SourceFixture(chInOps)(fixtureObserver.ref, this)
@@ -376,24 +379,23 @@ class CarriageComponentOnChannelSpec
 		val commandRelayerRef = testKit.spawn((new Processor("commandRelayer", globalClock, testController.ref, commandRelayer.configurer)).init, "commandRelayer")
 
 		"A. Register Itself for configuration" should {
-			//			globalClock ! RegisterMonitor(testController.ref)
-			//			testController.expectMessage(RegisteredClockMonitors(1))
-
-			//			testController.expectMessage(StartedOn(0L))
-
+			globalClock ! RegisterMonitor(testController.ref)
+			globalClock ! StartTime(0L)
 
 			"A01. Send a registration message to the controller" in {
 				testController.expectMessage(RegisterProcessor(sourceRef))
 				testController.expectMessage(RegisterProcessor(sinkRef))
 				testController.expectMessage(RegisterProcessor(underTest))
 				testController.expectMessage(RegisterProcessor(commandRelayerRef))
+				testController.expectMessage(RegisteredClockMonitors(1))
+				testController.expectMessage(StartedOn(0L))
+				testController.expectMessage(NoMoreWork(0L))
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
 				commandRelayerRef ! ConfigurationCommand(shuttleHarness, 0L, NullConfigure)
 				underTest ! ConfigurationCommand(commandRelayerRef, 0L, Configure(locAt0.idx, Map(locAt0 -> loadProbe, locAt5 -> loadProbe2)))
 				sourceRef ! ConfigurationCommand(sourceRef, 0L, FixtureConfigure)
 				sinkRef ! ConfigurationCommand(sinkRef, 0L, FixtureConfigure)
-				globalClock ! StartTime(0L)
 				val expectedConfigurations =
 					mutable.Set(CompleteConfiguration(sourceRef), CompleteConfiguration(sinkRef), CompleteConfiguration(underTest), CompleteConfiguration(commandRelayerRef))
 				testController.fishForMessage(500 millis) {
@@ -401,8 +403,10 @@ class CarriageComponentOnChannelSpec
 						expectedConfigurations -= cmd
 						if(expectedConfigurations isEmpty) FishingOutcome.Complete
 						else FishingOutcome.Continue
+					case cmd: NoMoreWork => FishingOutcome.ContinueAndIgnore
 				}
 				harnessObserver.expectMessage((0L, CompletedConfiguration(underTest)))
+				testController.expectMessage(NoMoreWork(0L))
 				testController.expectNoMessage
 				harnessObserver.expectNoMessage
 			}
@@ -424,7 +428,7 @@ class CarriageComponentOnChannelSpec
 						if(count == expected) FishingOutcome.Complete
 						else FishingOutcome.Continue
 				}
-				harnessMonitor.expectMessage(500 millis, Notify("Completed Loading at 19"))
+				harnessMonitor.expectMessage(500 millis, Notify("Completed Loading at 22"))
 				harnessMonitor.expectMessage(Notify("Load MaterialLoad(loadProbe) released on channel inboundCh"))
 				harnessMonitor.expectNoMessage(500 millis)
 

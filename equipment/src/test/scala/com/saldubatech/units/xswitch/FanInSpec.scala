@@ -59,11 +59,11 @@ class FanInSpec
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1 = new InboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
 		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
 
 		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
 
@@ -130,7 +130,7 @@ class FanInSpec
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(12L -> XSwitch.LoadArrival(chIb1.name, probeLoad))
+				xcManagerProbe.expectMessage(15L -> XSwitch.LoadArrival(chIb1.name, probeLoad))
 			}
 			"B02. and then it receives a Transfer command" in {
 				val transferCmd = XSwitch.Transfer(chIb1.name, "Discharge")
@@ -153,7 +153,7 @@ class FanInSpec
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
-				xcManagerProbe.expectMessage(269L -> XSwitch.CompletedCommand(transferCmd))
+				xcManagerProbe.expectMessage(272L -> XSwitch.CompletedCommand(transferCmd))
 			}
 		}
 	}
