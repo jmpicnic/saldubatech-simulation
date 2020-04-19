@@ -20,7 +20,7 @@ import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object ShuttleHappyPathSpec {
+object Shuttle2RejectedCommandsSpec {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
 	case object DownstreamConfigure extends Identification.Impl() with DownstreamSignal
@@ -30,33 +30,33 @@ object ShuttleHappyPathSpec {
 	case class TestProbeMessage(msg: String, load: MaterialLoad) extends UpstreamSignal
 
 	class InboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with Shuttle.ShuttleSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with Shuttle.ShuttleSignal
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle2.ShuttleSignal](delay, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with Shuttle2.ShuttleSignal
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with Shuttle2.ShuttleSignal
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): Channel.TransferLoad[MaterialLoad] = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle2.ShuttleSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with Shuttle.ShuttleSignal
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): Channel.AcknowledgeLoad[MaterialLoad] = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with Shuttle2.ShuttleSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
 	class OutboundChannelImpl(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+		extends Channel[MaterialLoad, Shuttle2.ShuttleSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle.ShuttleSignal
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle2.ShuttleSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle2.ShuttleSignal
 	}
 
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, Shuttle2.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: Ref = _ref.head
@@ -86,7 +86,7 @@ object ShuttleHappyPathSpec {
 	}
 
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, Shuttle.ShuttleSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture(ops: Channel.Ops[MaterialLoad, Shuttle2.ShuttleSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: Ref = _ref.head
 
@@ -123,13 +123,13 @@ object ShuttleHappyPathSpec {
 
 }
 
-class ShuttleHappyPathSpec
+class Shuttle2RejectedCommandsSpec
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-	import ShuttleRejectedCommandsSpec._
+	import Shuttle2RejectedCommandsSpec._
 	val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {
@@ -148,7 +148,7 @@ class ShuttleHappyPathSpec
 	val testControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = testControllerProbe.ref
 
-	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, Shuttle.Notification)]
+	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, Shuttle2.Notification)]
 	val shuttleLevelManagerRef = shuttleLevelManagerProbe.ref
 	val shuttleLevelManagerProcessor = new ProcessorSink(shuttleLevelManagerRef, globalClock)
 	val shuttleLevelManager = testKit.spawn(shuttleLevelManagerProcessor.init, "ShuttleLevelManager")
@@ -157,14 +157,13 @@ class ShuttleHappyPathSpec
 	"A Shuttle Level" should {
 
 		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
-		val shuttleProcessor = Carriage.buildProcessor("shuttle", physics, globalClock, simController)
 
 
 		val initialInventory: Map[Carriage.SlotLocator, MaterialLoad] = Map(
 			Carriage.OnLeft(2) -> MaterialLoad("L2"),
 			Carriage.OnRight(5) -> MaterialLoad("R5")
 		)
-		val initial = Shuttle.InitialState(0, initialInventory)
+		val initial = Shuttle2.InitialState(0, initialInventory)
 
 
 		// Channels
@@ -176,18 +175,19 @@ class ShuttleHappyPathSpec
 		val chOb2 = new OutboundChannelImpl(() => Some(10L), Set("Ob2_c1", "Ob2_c2"), 1, "Outbound2")
 		val ob = Seq(chOb1, chOb2).map(Channel.Ops(_))
 
-		val config = Shuttle.Configuration("underTest", 20, physics, ib, ob)
-
+		val config = Shuttle2.Configuration("underTest", 20, physics, ib, ob)
 		// Sources & sinks
-		val sources = config.inbound.map(ibOps => new ShuttleRejectedCommandsSpec.SourceFixture(ibOps)(testMonitor, this))
+		val sources = config.inbound.map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val sinks = config.outbound.map(obOps => new ShuttleRejectedCommandsSpec.SinkFixture(obOps)(testMonitor, this))
+		val sinks = config.outbound.map(obOps => new SinkFixture(obOps)(testMonitor, this))
 		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sinkActors = sinkProcessors.zip(Seq("d1", "d2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val shuttleLevelProcessor = Shuttle.buildProcessor(config, initial)
+		val shuttleProcessor = Carriage.buildProcessor("shuttle", config.physics, globalClock, simController)
+
+		val shuttleLevelProcessor = Shuttle2.buildProcessor(config, initial)
 		val underTest = testKit.spawn(shuttleLevelProcessor.init, "underTest")
 
 
@@ -207,22 +207,19 @@ class ShuttleHappyPathSpec
 						}
 				}
 				actorsToRegister.isEmpty should be(true)
+				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				underTest ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, Shuttle.NoConfigure)
-				testControllerProbe.expectMessageType[Processor.RegisterProcessor] // SHuttle ref is not available here.
-				testControllerProbe.expectMessageType[Processor.CompleteConfiguration]
+				underTest ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, Shuttle2.NoConfigure)
 				testControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
-				val msg = shuttleLevelManagerProbe.receiveMessage()
-				msg should be(0L -> Shuttle.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
-				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.UpstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.UpstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.UpstreamConfigure}")
-				sinkActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, ShuttleRejectedCommandsSpec.DownstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${ShuttleRejectedCommandsSpec.DownstreamConfigure}")
+				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, UpstreamConfigure))
+				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
+				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
+				sinkActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, DownstreamConfigure))
+				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
+				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
 				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
@@ -239,43 +236,37 @@ class ShuttleHappyPathSpec
 				actorsToConfigure.isEmpty should be(true)
 			}
 		}
-		"B. Acknowledge receiving a load through an inbound channel" when {
-			"B01. it has just started" in {
+		"B. Reply with Error when trying to puaway into Full Locations" when {
+			"B01. Storing a Load" in {
 				val probeLoad = MaterialLoad("First Load")
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
-				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
+				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
-			}
-			"B02. Signal a second load on the same channel, but do not acknowledge to sender" in {
-				val probeLoad = MaterialLoad("Second Load")
-				val probeLoadMessage = TestProbeMessage("Second Load", probeLoad)
-				sourceActors(0) ! Processor.ProcessCommand(sourceActors(0), 2L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: Second Load")
-				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
-			}
-		}
-		"C. Store the load in an location" when {
-			"C01. receiving a Store Command" in {
-				val storeCmd = Shuttle.Store("Inbound1", Carriage.OnRight(4))
+				shuttleLevelManagerProbe.expectMessage(12L -> Shuttle2.LoadArrival(chIb1.name, probeLoad))
+				val storeCmd = Shuttle2.Store("Inbound1", Carriage.OnLeft(2))
 				log.info(s"Queuing Store Command: $storeCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
-				shuttleLevelManagerProbe.expectMessage((128L -> Shuttle.CompletedCommand(storeCmd)))
+				shuttleLevelManagerProbe.expectMessage((100L -> Shuttle2.FailedEmpty(storeCmd, "Target Location to Store (OnLeft(2)) is Full")))
 			}
-			"C02. And then move it to a different location with a Groom Command" in {
-				val groomCmd = Shuttle.Groom(Carriage.OnRight(4), Carriage.OnLeft(7))
+			"B02. Grooming a load" in {
+				val groomCmd = Shuttle2.Groom(Carriage.OnLeft(2), Carriage.OnRight(5))
 				log.info(s"Queuing Groom Command: $groomCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
-				shuttleLevelManagerProbe.expectMessage((151L -> Shuttle.CompletedCommand(groomCmd)))
+				shuttleLevelManagerProbe.expectMessage((130L -> Shuttle2.FailedEmpty(groomCmd, "Target Location to Store (OnRight(5)) is not empty")))
 			}
-			"C03. And finally send it through an outbound channel with a Retrieve Command" in {
-				val retrieveCmd = Shuttle.Retrieve(Carriage.OnLeft(7), "Outbound2")
+		}
+		"C. Reply Error when retrieving from empty locations" when {
+			"C01. Retrieving a load" in {
+				val retrieveCmd = Shuttle2.Retrieve(Carriage.OnLeft(7), "Outbound2")
 				log.info(s"Queuing Retrieve Command: $retrieveCmd")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
-				shuttleLevelManagerProbe.expectMessage((180L -> Shuttle.CompletedCommand(retrieveCmd)))
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
+				shuttleLevelManagerProbe.expectMessage((155L -> Shuttle2.FailedEmpty(retrieveCmd, "Source Location (OnLeft(7)) to Retrieve is Empty")))
+			}
+			"C02. Grooming a Load" in {
+				val groomCmd = Shuttle2.Groom(Carriage.OnRight(4), Carriage.OnLeft(7))
+				log.info(s"Queuing Groom Command: $groomCmd")
+				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 160, groomCmd))
+				shuttleLevelManagerProbe.expectMessage((160L -> Shuttle2.FailedEmpty(groomCmd, "Source Location (OnRight(4)) to Retrieve is Empty")))
 			}
 		}
 	}

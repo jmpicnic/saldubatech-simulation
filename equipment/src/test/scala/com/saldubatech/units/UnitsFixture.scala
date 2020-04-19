@@ -9,6 +9,8 @@ import com.saldubatech.units.carriage.Carriage.Ref
 import com.saldubatech.util.LogEnabled
 import org.scalatest.WordSpec
 
+import scala.collection.mutable
+
 object UnitsFixture {
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
@@ -25,12 +27,14 @@ object UnitsFixture {
 		val runner: Processor.DomainRun[DomainMessage]
 	}
 	class SourceFixture[DestinationSignal >: ChannelConnections.ChannelDestinationMessage](ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+		private val pending: mutable.Queue[MaterialLoad] = mutable.Queue.empty
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: Ref = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType]): Processor.DomainRun[ChannelConnections.DummySourceMessageType] = {
-				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
+				//log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
+				pending.headOption.find(ops.start.send(_)).foreach(_ => pending.dequeue)
 				testMonitor ! s"Received Load Acknowledgement through Channel: ${chStart.channelName} with $load at ${ctx.now}"
 				runner
 			}
@@ -41,13 +45,17 @@ object UnitsFixture {
 			ops.start.ackReceiver orElse {
 				implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType] => {
 					case TestProbeMessage(msg, load) =>
-						log.info(s"Got Domain Message in Sender $msg")
+						//log.info(s"Got Domain Message in Sender $msg")
 						testMonitor ! s"FromSender: $msg"
-						ops.start.send(load)
-						log.info(s"Sent $load through channel ${ops.start.channelName}")
+						if(!ops.start.send(load)) {
+							pending += load
+//							log.debug(s"Queued $load for channel ${ops.start.channelName}")
+						} else {
+//							log.debug(s"Sent $load through channel ${ops.start.channelName}")
+						}
 						runner
 					case other =>
-						log.info(s"Received Other Message at Receiver: $other")
+						//log.info(s"Received Other Message at Receiver: $other")
 						hostTest.fail(s"Unexpected Message $other")
 				}
 			}
@@ -59,11 +67,12 @@ object UnitsFixture {
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName} at ${ctx.now}"
+				endpoint.getNext
 				runner
 			}
 
 			override def loadReleased(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
-				log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
+				//log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				testMonitor ! s"Load $load released on channel ${endpoint.channelName}"
 				runner
 			}
@@ -78,7 +87,7 @@ object UnitsFixture {
 						testMonitor ! s"Got load $ld"
 						runner
 					case other =>
-						log.info(s"Received Other Message at Receiver: $other")
+						//log.info(s"Received Other Message at Receiver: $other")
 						hostTest.fail(s"SinkFixture: ${ops.ch.name}: Unexpected Message $other")
 				}
 			}

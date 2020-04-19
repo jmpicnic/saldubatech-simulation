@@ -62,7 +62,7 @@ class ChannelSpec extends WordSpec
 			override def toString = s"Receiver.TransferLoad(ch: $channel, ld: $load, rs: $resource)"
 		}
 
-		override def loadPullBuilder(ld: ProbeLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[ProbeLoad](ld, idx, this.name) with DummySinkMessageType {
+		override def loadPullBuilder(ld: ProbeLoad, resource: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[ProbeLoad](ld, resource, idx, this.name) with DummySinkMessageType {
 			override def toString = s"Receiver.PulledLoad(load: $ld, idx: $idx)"
 		}
 

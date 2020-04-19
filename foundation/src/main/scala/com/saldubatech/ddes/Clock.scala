@@ -11,7 +11,7 @@ import com.saldubatech.base.Monitored
 import com.saldubatech.ddes.Processor.{ActionCommand, ProcessCommand, ProcessorMessage}
 import com.saldubatech.ddes.Simulation.{Command, Notification}
 import com.saldubatech.ddes.SimulationController.ControllerMessage
-import com.saldubatech.util.Logging
+import com.saldubatech.util.LogEnabled
 
 import scala.collection.mutable
 
@@ -57,7 +57,7 @@ object Clock {
 }
 
 class Clock private () extends Monitored[Clock.ClockNotification, Clock.RegisteredClockMonitors]
-	with Logging {
+	with LogEnabled {
 	import Clock._
 
 	var current: Option[Clock] = None

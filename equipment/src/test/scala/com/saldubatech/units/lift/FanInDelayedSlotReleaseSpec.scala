@@ -82,7 +82,7 @@ class FanInDelayedSlotReleaseSpec
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
-		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2)(testMonitor, this)
+		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, true)(testMonitor, this)
 		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", globalClock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 

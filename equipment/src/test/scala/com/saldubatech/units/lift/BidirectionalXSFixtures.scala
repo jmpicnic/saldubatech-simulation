@@ -28,7 +28,7 @@ object BidirectionalXSFixtures {
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
@@ -39,7 +39,7 @@ object BidirectionalXSFixtures {
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
-		override def loadPullBuilder(ld: MaterialLoad, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, idx, this.name) with ChannelConnections.DummySinkMessageType
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
 	}
@@ -77,12 +77,13 @@ object BidirectionalXSFixtures {
 			}
 	}
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture(ops: Channel.Ops[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, ChannelConnections.DummySinkMessageType], controlled: Boolean)(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: Ref = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName}"
+				if(!controlled) endpoint.getNext
 				runner
 			}
 
@@ -96,10 +97,9 @@ object BidirectionalXSFixtures {
 
 		val runner: Processor.DomainRun[ChannelConnections.DummySinkMessageType] =
 			ops.end.loadReceiver orElse {
-				ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType] => {
+				implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType] => {
 					case ConsumeLoad =>
-						val ld = channelEnd.getNext(ctx)
-						testMonitor ! s"Got load $ld"
+						if(controlled) testMonitor ! s"Got load ${channelEnd.getNext}"
 						runner
 					case other =>
 						log.info(s"Received Other Message at Receiver: $other")

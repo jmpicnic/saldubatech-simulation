@@ -31,11 +31,11 @@ object Processor {
 	case class CompleteConfiguration(p: Ref) extends BaseCompleteConfiguration(p: Ref)
 	case class Run(at: Tick) extends Identification.Impl() with ProcessorNotification
 
-	trait SignallingContext[DomainMessage] extends LogEnabled {
+	trait SignallingContext[-DomainMessage] extends LogEnabled {
 		val from: Ref
 		val now: Tick
 		val aCtx: ActorContext[ProcessorMessage]
-		implicit protected val clock: ActorRef[ClockMessage]
+		implicit val clock: ActorRef[ClockMessage]
 
 		protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand
 
@@ -56,11 +56,12 @@ object Processor {
 		def commandContext = CommandContext(from, now, aCtx)
 	}
 
-	case class CommandContext[DomainMessage](override val from: Ref, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override protected val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
+
+	case class CommandContext[-DomainMessage](override val from: Ref, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
 		override protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand = ProcessCommand(aCtx.self, at, msg)
 	}
 
-	case class ConfigureContext[DomainMessage](override val from: Ref, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override protected val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
+	case class ConfigureContext[-DomainMessage](override val from: Ref, override val now: Tick, override val aCtx: ActorContext[ProcessorMessage])(implicit override val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
 		override protected def wrap[TargetDomainMessage](to: ActorRef[ProcessorMessage], at: Tick, msg: TargetDomainMessage): ActionCommand = ConfigurationCommand(aCtx.self, at, msg)
 	}
 

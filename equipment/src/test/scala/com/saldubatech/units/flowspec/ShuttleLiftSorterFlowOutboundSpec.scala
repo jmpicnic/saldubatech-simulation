@@ -34,7 +34,6 @@ class ShuttleLiftSorterFlowOutboundSpec
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-	import ShuttleLiftSorterFlowInboundSpec._
 
 	implicit val testKit = ActorTestKit()
 
@@ -60,10 +59,11 @@ class ShuttleLiftSorterFlowOutboundSpec
 		val liftPhysics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
 		val shuttlePhysics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
 
-		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_A"))
-		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_B"))
-		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_A"))
-		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_B"))
+		val cards = (0 until 5).map(i => s"c$i").toSet
+		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20), cards, 1, s"sorter_aisle_A"))
+		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20), cards, 1, s"sorter_aisle_B"))
+		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20), cards, 1, s"aisle_sorter_A"))
+		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20), cards, 1, s"aisle_sorter_B"))
 
 		val probeLoad = MaterialLoad("InitialLoad")
 		val aisleA =
@@ -186,6 +186,7 @@ class ShuttleLiftSorterFlowOutboundSpec
 				systemManagerProbe.expectMessage(143L -> UnitSorter.LoadArrival(probeLoad, aisleASorter.ch.name))
 				systemManagerProbe.expectMessage(263L -> UnitSorter.CompletedCommand(sorterCommand))
 				testMonitorProbe.expectMessage("Load MaterialLoad(InitialLoad) arrived to Sink via channel Discharge_1 at 273")
+				testMonitorProbe.expectMessage("Load MaterialLoad(InitialLoad) released on channel Discharge_1")
 				testMonitorProbe.expectNoMessage(500 millis)
 				simControllerProbe.expectNoMessage(500 millis)
 			}
