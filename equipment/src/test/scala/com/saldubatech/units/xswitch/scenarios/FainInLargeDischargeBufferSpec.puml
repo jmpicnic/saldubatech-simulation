@@ -1,0 +1,41 @@
+@startuml
+actor FanInManager
+boundary u1
+participant underTest
+boundary discharge
+
+underTest -> FanInManager: [0] CompletedConfiguration(Actor[akka://FanInLargeDischargeBufferSpec/user/underTest#-958774417])
+u1 -> underTest: [12] TransferLoad(load: MaterialLoad(First Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> FanInManager: [12] LoadArrival(Inbound1,MaterialLoad(First Load))
+FanInManager -> underTest: [155] Transfer(Inbound1,Discharge)
+underTest -> underTest: [163] Induct(com.saldubatech.transport.Channel$Ops$$anon$2@4ec14484,At(0))
+underTest -> underTest: [163] PulledLoad(load: MaterialLoad(First Load), card: Ib1_c1, channel: Inbound1, idx: 0)
+underTest -> u1: [163] AcknowledgeLoad(load: MaterialLoad(First Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> underTest: [174] Discharge(com.saldubatech.transport.Channel$Ops$$anon$1@72989b03,At(-1))
+underTest -> FanInManager: [174] CompletedCommand(Transfer(Inbound1,Discharge))
+underTest -> discharge: [184] TransferLoad(load: MaterialLoad(First Load), channel: Discharge, resource: Ob1_c2)
+FanInManager -> underTest: [190] Transfer(Inbound1,Discharge)
+underTest -> underTest: [201] Induct(com.saldubatech.transport.Channel$Ops$$anon$2@4ec14484,At(0))
+u1 -> underTest: [250] TransferLoad(load: MaterialLoad(Second Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> underTest: [258] Induct(com.saldubatech.transport.Channel$Ops$$anon$2@4ec14484,At(0))
+underTest -> underTest: [258] PulledLoad(load: MaterialLoad(Second Load), card: Ib1_c1, channel: Inbound1, idx: 0)
+underTest -> u1: [258] AcknowledgeLoad(load: MaterialLoad(Second Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> underTest: [269] Discharge(com.saldubatech.transport.Channel$Ops$$anon$1@72989b03,At(-1))
+underTest -> FanInManager: [269] CompletedCommand(Transfer(Inbound1,Discharge))
+underTest -> discharge: [279] TransferLoad(load: MaterialLoad(Second Load), channel: Discharge, resource: Ob1_c1)
+u1 -> underTest: [285] TransferLoad(load: MaterialLoad(Third Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> FanInManager: [285] LoadArrival(Inbound1,MaterialLoad(Third Load))
+FanInManager -> underTest: [288] Transfer(Inbound1,Discharge)
+underTest -> underTest: [299] Induct(com.saldubatech.transport.Channel$Ops$$anon$2@4ec14484,At(0))
+underTest -> underTest: [299] PulledLoad(load: MaterialLoad(Third Load), card: Ib1_c1, channel: Inbound1, idx: 0)
+underTest -> u1: [299] AcknowledgeLoad(load: MaterialLoad(Third Load), channel: Inbound1, resource: Ib1_c1)
+underTest -> underTest: [310] Discharge(com.saldubatech.transport.Channel$Ops$$anon$1@72989b03,At(-1))
+discharge -> discharge: [310] ConsumeLoad
+discharge -> discharge: [310] PulledLoad(load: MaterialLoad(First Load), card: Ob1_c2, channel: Discharge, idx: 0)
+discharge -> underTest: [310] AcknowledgeLoad(load: MaterialLoad(First Load), channel: Discharge, resource: Ob1_c2)
+underTest -> underTest: [318] Discharge(com.saldubatech.transport.Channel$Ops$$anon$1@72989b03,At(-1))
+underTest -> FanInManager: [318] CompletedCommand(Transfer(Inbound1,Discharge))
+underTest -> discharge: [328] TransferLoad(load: MaterialLoad(Third Load), channel: Discharge, resource: Ob1_c2)
+discharge -> discharge: [400] ConsumeLoad
+
+@enduml

@@ -5,7 +5,6 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Carriage.Ref
 import com.saldubatech.util.LogEnabled
 import org.scalatest.WordSpec
 
@@ -23,14 +22,14 @@ object UnitsFixture {
 	case object ConsumeLoad extends Identification.Impl() with ChannelConnections.DummySinkMessageType
 
 	trait Fixture[DomainMessage] extends LogEnabled {
-		var _ref: Option[Ref] = None
+		var _ref: Option[Processor.Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
 	class SourceFixture[DestinationSignal >: ChannelConnections.ChannelDestinationMessage](ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 		private val pending: mutable.Queue[MaterialLoad] = mutable.Queue.empty
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
-			override lazy val ref: Ref = _ref.head
+			override lazy val ref: Processor.Ref = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType]): Processor.DomainRun[ChannelConnections.DummySourceMessageType] = {
 				//log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -63,7 +62,7 @@ object UnitsFixture {
 
 	class SinkFixture[SourceSignal >: ChannelConnections.ChannelSourceMessage](ops: Channel.Ops[MaterialLoad, SourceSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
-			override lazy val ref: Ref = _ref.head
+			override lazy val ref: Processor.Ref = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName} at ${ctx.now}"

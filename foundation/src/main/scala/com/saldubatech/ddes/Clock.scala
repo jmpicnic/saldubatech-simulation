@@ -140,7 +140,8 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 			Behaviors.same
 		} else {
 			log.error(s"Received action($eq) for earlier: $tick when now is $now")
-			Behaviors.stopped
+			throw new IllegalStateException(s"Received action($eq) for earlier: $tick when now is $now")
+			//Behaviors.stopped
 		}
 	}
 

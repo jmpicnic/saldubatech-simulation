@@ -114,12 +114,17 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 			cmd <- scheduledDeliveries.get(load).filter(_.toDischarge == dischargeIdx).map(_.sort)
 		} yield {
 			//log.info(s"Candidate Discharge load($load) from Tray($tray) at position($dischargeIdx) through channel(${discharge.channelName} with command($cmd)")
+			println(s"### Load Ready to send $load from tray $tray into ${discharge.channelName}")
 			if (discharge.send(load)) {
+				println(s"### Sending load $load from tray $tray into ${discharge.channelName}")
 				loadedTrays -= tray
 				scheduledDeliveries -= load
 				ctx.signal(manager, CompletedCommand(cmd))
 				None
-			} else Some(configuration.physics.oneTurnTime)
+			} else {
+				println(s"### Cannot send load $load fron tray $tray into ${discharge.channelName}, taking turn around.")
+				Some(configuration.physics.oneTurnTime)
+			}
 		}
 		//log.info(s"DischargeArrivals Candidates: $candidates")
 		if(candidates isEmpty) None else candidates.min
@@ -132,7 +137,7 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 	 */
 	private def assignCommands(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
 		val candidates = for {
-			trayPosition <- (0 until configuration.physics.nSlots).filter(!loadedTrays.keySet.contains(_)).map(sorterAt.indexForSlot) // positions of empty trays
+			trayPosition <- (0 until configuration.physics.nSlots).filter(!loadedTrays.contains(_)).map(sorterAt.indexForSlot) // positions of empty trays
 			(availableLoadPosition, load) <- inducts.flatMap{ case (i, induct) => induct.peekNext.map(i -> _._1)}
 			pendingCmd <- receivedCommands.get(load)
 		} yield (trayPosition, availableLoadPosition, pendingCmd)
@@ -154,25 +159,25 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 	2. Have an empty tray in front of them.
 	Collect "Deliver" Event candidates.
 	 */
-	private def inductPickups(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
-		val candidates = for{
+	private def inductPickups(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Unit =
+		for{
 			(idx, induct) <- inducts
 			(load, _) <- induct.peekNext
 			tray = sorterAt.slotAtIndex(idx)
 			pendingCmd <- pendingCommands.get(load) if (!loadedTrays.contains(tray))
-		} yield {
-			induct.getNext
+		} {
 			loadedTrays += tray -> load
+			println(s"### Loading tray $tray with $load")
+			induct.getNext
 			//log.info(s"InductPickups: Loading Tray $tray at $idx with $load")
 		}
-		None
-	}
 
-	private def inTransitLoads(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
+	private def inTransitLoadDischarges(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
 		val candidates = for{
 			(tr, load) <- loadedTrays
 			pendingCmd <- pendingCommands.get(load)
 		} yield {
+			println(s"### InTransitLoad $load in tray $tr with cmd: $pendingCmd")
 			pendingCommands -= load
 			scheduledDeliveries += load -> pendingCmd
 			configuration.physics.travelTime(sorterAt.indexForSlot(tr), pendingCmd.toDischarge)
@@ -182,12 +187,13 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 	}
 	private def cycleAndSignalNext(implicit ctx: CTX) = {
 		val currentPosition = new configuration.physics.Position(ctx.now)
+		val nextArrival = dischargeArrivals(currentPosition)
+		val nextCommandFirstPass = assignCommands(currentPosition)
+		inductPickups(currentPosition)
+		val nextCommandSecondPass = assignCommands(currentPosition)
+		val nextDischargeFromInTransit = inTransitLoadDischarges(currentPosition)
 		val candidates = Seq(
-			dischargeArrivals(currentPosition),
-			assignCommands(currentPosition),
-			inductPickups(currentPosition),
-			assignCommands(currentPosition),
-			inTransitLoads(currentPosition)
+			nextArrival, nextCommandFirstPass, nextCommandSecondPass, nextDischargeFromInTransit
 		).flatten
 		//log.info(s"CycleAndSignal: Target Times Candidates: $candidates")
 		if(candidates nonEmpty) {

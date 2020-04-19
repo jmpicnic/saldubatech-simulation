@@ -2,7 +2,7 @@
  * Copyright (c) 2020. Salduba Technologies LLC, all right reserved
  */
 
-package com.saldubatech.units.lift
+package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
@@ -12,7 +12,8 @@ import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.{Carriage, CarriageNotification}
+import com.saldubatech.units.carriage.CarriageTravel
+import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -30,7 +31,7 @@ class FanInLargeDischargeBufferSpec
 		with WordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
-	import BidirectionalXSFixtures._
+	import XSwitchFixtures._
 	val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {
@@ -49,13 +50,8 @@ class FanInLargeDischargeBufferSpec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
-	val carriageMonitorProbe = testKit.createTestProbe[(Clock.Tick, CarriageNotification)]
-	val carriageMonitor = carriageMonitorProbe.ref
-	val carriageManagerProcessor = new ProcessorSink(carriageMonitor, globalClock)
-	val carriageManager = testKit.spawn(carriageManagerProcessor.init, "carriageManager")
 
-
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, BidirectionalCrossSwitch.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, XSwitch.Notification)]
 	val xcManagerRef = xcManagerProbe.ref
 	val xcManagerProcessor = new ProcessorSink(xcManagerRef, globalClock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "FanInManager")
@@ -63,20 +59,20 @@ class FanInLargeDischargeBufferSpec
 
 	"A Lift Level" should {
 
-		val physics = new Carriage.CarriageTravel(2, 6, 4, 8, 8)
+		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl(() => Some(10L), Set("Ib1_c1"), 1, "Inbound2")
-		val obInduct = Seq(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
+		val chIb1 = new InboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
+		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Seq((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
 
-		val config = BidirectionalCrossSwitch.Configuration("underTest", physics, Seq.empty, Seq.empty, obInduct, obDischarge, 0)
+		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
 
 
 		// Sources & sinks
-		val sources = config.outboundInduction.map(_._2).map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
+		val sources = config.outboundInduction.values.map(ibOps => new SourceFixture(ibOps)(testMonitor, this)).toSeq
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
@@ -84,7 +80,7 @@ class FanInLargeDischargeBufferSpec
 		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", globalClock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
-		val underTestProcessor = BidirectionalCrossSwitch.buildProcessor(config)
+		val underTestProcessor = XSwitch.buildProcessor("underTest", config)
 		val underTest = testKit.spawn(underTestProcessor.init, "underTest")
 
 
@@ -106,11 +102,9 @@ class FanInLargeDischargeBufferSpec
 				actorsToRegister.isEmpty should be(true)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				underTest ! Processor.ConfigurationCommand(xcManager, 0L, BidirectionalCrossSwitch.NoConfigure)
-				simControllerProbe.expectMessageType[Processor.RegisterProcessor] // SHuttle ref is not available here.
-				simControllerProbe.expectMessageType[Processor.CompleteConfiguration]
+				underTest ! Processor.ConfigurationCommand(xcManager, 0L, XSwitch.NoConfigure)
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
-				xcManagerProbe.expectMessage(0L -> BidirectionalCrossSwitch.CompletedConfiguration(underTest))
+				xcManagerProbe.expectMessage(0L -> XSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(xcManager, 0L, UpstreamConfigure))
@@ -140,19 +134,19 @@ class FanInLargeDischargeBufferSpec
 				val probeLoadMessage = TestProbeMessage("First Load", firstLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(12L -> BidirectionalCrossSwitch.LoadArrival(chIb1.name, firstLoad))
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
+				xcManagerProbe.expectMessage(15L -> XSwitch.LoadArrival(chIb1.name, firstLoad))
 			}
 			"B02. and then it receives a Transfer command" in {
-				val transferCommand = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
+				val transferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 155, transferCommand))
-				xcManagerProbe.expectMessage(174L -> BidirectionalCrossSwitch.CompletedCommand(transferCommand))
+				xcManagerProbe.expectMessage(174L -> XSwitch.CompletedCommand(transferCommand))
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
 			}
 		}
 		"C. Transfer a second load from one collector to the discharge" when {
-			val secondTransferCommand = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
-			val thirdTransferCommand = BidirectionalCrossSwitch.Transfer(chIb1.name, "Discharge")
+			val secondTransferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
+			val thirdTransferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
 			"C01. it receives the command first" in {
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 190L, secondTransferCommand))
 			}
@@ -162,29 +156,30 @@ class FanInLargeDischargeBufferSpec
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
-				xcManagerProbe.expectMessage(269L -> BidirectionalCrossSwitch.CompletedCommand(secondTransferCommand))
+				xcManagerProbe.expectMessage(272L -> XSwitch.CompletedCommand(secondTransferCommand))
 			}
 			"C03. One more load to force the shuttle to error out and the Lift to waitforslot" in {
 				val thirdLoad = MaterialLoad("Third Load")
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Third Load")
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Third Load)")
-				xcManagerProbe.expectMessage(285L -> BidirectionalCrossSwitch.LoadArrival("Inbound1", thirdLoad))
+				xcManagerProbe.expectMessage(288L -> XSwitch.LoadArrival("Inbound1", thirdLoad))
 				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 288L, thirdTransferCommand))
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Third Load)")
+				xcManagerProbe.expectNoMessage(500 millis)
 			}
 			"C04. and then the discharge consumes load, second load is sent and third command is complete" in {
 				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 310L, ConsumeLoad))
-				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
+				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
 				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 330L, ConsumeLoad))
+				xcManagerProbe.expectMessage(318L -> XSwitch.CompletedCommand(thirdTransferCommand)) //330?
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
-				xcManagerProbe.expectMessage(330L -> BidirectionalCrossSwitch.CompletedCommand(thirdTransferCommand))
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) arrived to Sink via channel Discharge")
-				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 365L, ConsumeLoad))
-				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Ob1_c1))")
+				globalClock ! Enqueue(dischargeActor, Processor.ProcessCommand(dischargeActor, 350L, ConsumeLoad))
+				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) released on channel Discharge")
 			}
 		}

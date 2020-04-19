@@ -3,8 +3,8 @@ package com.saldubatech.units
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Carriage
-import com.saldubatech.units.lift.BidirectionalCrossSwitch
+import com.saldubatech.units.carriage.{CarriageTravel, SlotLocator}
+import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.units.shuttle.Shuttle
 import com.saldubatech.units.unitsorter.UnitSorterSignal
 
@@ -22,15 +22,14 @@ package object flowspec {
 	}
 
 	object LiftBuilder {
-		import com.saldubatech.units.lift.BidirectionalCrossSwitch
 
 		def build[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
 			OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
-		(config: BidirectionalCrossSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
+		(name: String, config: XSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
 		(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator) =
-			actorCreator.spawn(BidirectionalCrossSwitch.buildProcessor(config).init, config.name)
+			actorCreator.spawn(XSwitch.buildProcessor(name, config).init, name)
 
-		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, BidirectionalCrossSwitch.NoConfigure)
+		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, XSwitch.NoConfigure)
 	}
 
 	object UnitSorterBuilder {
@@ -41,71 +40,84 @@ package object flowspec {
 		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter.NoConfigure)
 	}
 
-	class LiftShuttleChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, Shuttle.ShuttleSignal](delay, cards, configuredOpenSlots, name) {
+	class LiftShuttleChannel(override val delay: () => Option[Delay], override val deliveryTime: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
+		extends Channel[MaterialLoad, XSwitch.XSwitchSignal, Shuttle.ShuttleSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with Shuttle.ShuttleSignal
 		override type PullSignal = Channel.PulledLoad[MaterialLoad] with Shuttle.ShuttleSignal
-		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
+		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with XSwitch.XSwitchSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
 			new Channel.PulledLoadImpl(ld, card, idx, this.name) with Shuttle.ShuttleSignal
 
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with Shuttle.ShuttleSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with Shuttle.ShuttleSignal
+
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
+			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
 	}
 
-	class SorterLiftChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, UnitSorterSignal, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
-		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		override type PullSignal = Channel.PulledLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
+	class SorterLiftChannel(override val delay: () => Option[Delay], override val deliveryTime: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
+		extends Channel[MaterialLoad, UnitSorterSignal, XSwitch.XSwitchSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
+		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with XSwitch.XSwitchSignal
+		override type PullSignal = Channel.PulledLoad[MaterialLoad] with XSwitch.XSwitchSignal
 		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
 
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
+			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, card, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
+			new Channel.PulledLoadImpl(ld, card, idx, this.name) with XSwitch.XSwitchSignal
+
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with XSwitch.XSwitchSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with XSwitch.XSwitchSignal
+
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 	}
 
-	class LiftSorterChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
+	class LiftSorterChannel(override val delay: () => Option[Delay], override val deliveryTime: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
+		extends Channel[MaterialLoad, XSwitch.XSwitchSignal, UnitSorterSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with XSwitch.XSwitchSignal
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
 			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
 			new Channel.PulledLoadImpl(ld, card, idx, this.name) with UnitSorterSignal
 
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with UnitSorterSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with UnitSorterSignal
+
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
-			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
+			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
 	}
 
-	class ShuttleLiftChannel(override val delay: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
-		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, BidirectionalCrossSwitch.CrossSwitchSignal](delay, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with BidirectionalCrossSwitch.CrossSwitchSignal
+	class ShuttleLiftChannel(override val delay: () => Option[Delay], override val deliveryTime: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name:String)
+		extends Channel[MaterialLoad, Shuttle.ShuttleSignal, XSwitch.XSwitchSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with XSwitch.XSwitchSignal
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with XSwitch.XSwitchSignal
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Shuttle.ShuttleSignal
 
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal =
-			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with BidirectionalCrossSwitch.CrossSwitchSignal
+			new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): Channel.PulledLoad[MaterialLoad] with PullSignal =
-			new Channel.PulledLoadImpl(ld, card, idx, this.name) with BidirectionalCrossSwitch.CrossSwitchSignal
+			new Channel.PulledLoadImpl(ld, card, idx, this.name) with XSwitch.XSwitchSignal
+
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with XSwitch.XSwitchSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with XSwitch.XSwitchSignal
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal =
 			new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Shuttle.ShuttleSignal
 	}
 
 
-	class InboundInductChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal](delay, cards, configuredOpenSlots, name) {
+	class InboundInductChannel(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
@@ -113,11 +125,15 @@ package object flowspec {
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with UnitSorterSignal
+
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with UnitSorterSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with UnitSorterSignal
+
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
-	class OutboundDischargeChannel(delay: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType](delay, cards, configuredOpenSlots, name) {
+	class OutboundDischargeChannel(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+		extends Channel[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
@@ -126,31 +142,34 @@ package object flowspec {
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
 
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with ChannelConnections.DummySinkMessageType
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with ChannelConnections.DummySinkMessageType
+
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
 	}
 
 
 	def buildAisle[InductSourceSignal >: ChannelConnections.ChannelSourceMessage, DischargeSinkSignal >: ChannelConnections.ChannelDestinationMessage]
 	(name: String,
-	 liftPhysics: Carriage.CarriageTravel,
-	 shuttlePhysics: Carriage.CarriageTravel,
+	 liftPhysics: CarriageTravel,
+	 shuttlePhysics: CarriageTravel,
 	 aisleDepth: Int,
 	 align: Int,
-	 inductChannel: (Int, Channel.Ops[MaterialLoad, InductSourceSignal, BidirectionalCrossSwitch.CrossSwitchSignal]),
-	 dischargeChannel: (Int, Channel.Ops[MaterialLoad, BidirectionalCrossSwitch.CrossSwitchSignal, DischargeSinkSignal]),
+	 inductChannel: (Int, Channel.Ops[MaterialLoad, InductSourceSignal, XSwitch.XSwitchSignal]),
+	 dischargeChannel: (Int, Channel.Ops[MaterialLoad, XSwitch.XSwitchSignal, DischargeSinkSignal]),
 	 shuttles: Seq[Int],
-	 initialInventory: Map[Int, Map[Carriage.SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): (Processor.Ref, Seq[(Int, Processor.Ref)]) = {
+	 initialInventory: Map[Int, Map[SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): (Processor.Ref, Seq[(Int, Processor.Ref)]) = {
 		val liftShuttles =
 			shuttles.map{idx =>
-				val inboundChannel = Channel.Ops(new LiftShuttleChannel(() => Some(5), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_in"))
-				val outboundChannel = Channel.Ops(new ShuttleLiftChannel(() => Some(5), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_out"))
+				val inboundChannel = Channel.Ops(new LiftShuttleChannel(() => Some(5), () => Some(3), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_in"))
+				val outboundChannel = Channel.Ops(new ShuttleLiftChannel(() => Some(5), () => Some(3), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_out"))
 				val config = Shuttle.Configuration(s"shuttle_${name}_$idx", aisleDepth, shuttlePhysics, Seq(inboundChannel), Seq(outboundChannel))
 				(ShuttleBuilder.build(config, initialInventory.get(idx).map(inv => Shuttle.InitialState(0, inv)).getOrElse(Shuttle.InitialState(0, Map.empty))), config.inbound.map(o => (idx, o)), config.outbound.map(o => (idx, o)))
 			}
-		val inboundDischarge = liftShuttles.flatMap{_._2}
-		val outboundInduct = liftShuttles.flatMap{_._3}
-		val liftConfig = BidirectionalCrossSwitch.Configuration(name, liftPhysics, Seq(inductChannel), inboundDischarge, outboundInduct, Seq(dischargeChannel), align)
-		(LiftBuilder.build(liftConfig), liftShuttles.map(t => t._2.head._1 -> t._1 ))
+		val inboundDischarge = liftShuttles.flatMap{_._2}.toMap
+		val outboundInduct = liftShuttles.flatMap{_._3}.toMap
+		val liftConfig = XSwitch.Configuration(liftPhysics, Map(inductChannel), inboundDischarge, outboundInduct, Map(dischargeChannel), align)
+		(LiftBuilder.build(name, liftConfig), liftShuttles.map(t => t._2.head._1 -> t._1 ))
 	}
 
 }

@@ -4,7 +4,7 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor
 import com.saldubatech.ddes.Processor.CommandContext
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Carriage.{OnRight, SlotLocator}
+import com.saldubatech.units.carriage.{OnRight, SlotLocator}
 
 import scala.collection.mutable
 
@@ -53,7 +53,7 @@ object CarriageComponent {
 }
 class CarriageComponent[SourceProfile >: ChannelConnections.ChannelSourceMessage,
 	SinkProfile >: ChannelConnections.ChannelDestinationMessage, HOST <: CarriageComponent.Host[SourceProfile, SinkProfile]]
-(travelPhysics: Carriage.CarriageTravel, val host: HOST) {
+(travelPhysics: CarriageTravel, val host: HOST) {
 	import CarriageComponent._
 
 	def atLocation(loc: Int): CarriageComponent[SourceProfile, SinkProfile, HOST] = {
@@ -72,8 +72,8 @@ class CarriageComponent[SourceProfile >: ChannelConnections.ChannelSourceMessage
 	private val contents = mutable.Map.empty[SlotLocator, MaterialLoad]
 
 	def loadFrom(loc: SlotLocator)(implicit ctx: host.CTX): LoadOperationOutcome = {
-//		println(s"### Traveling and Loading from $currentLocation to $loc within ${travelPhysics.timeToPickup(Carriage.At(currentLocation), loc)} ticks")
-		ctx.signalSelf(host.loader(loc), travelPhysics.timeToPickup(Carriage.At(_currentLocation), loc))
+//		println(s"### Traveling and Loading from $currentLocation to $loc within ${travelPhysics.timeToPickup(At(currentLocation), loc)} ticks")
+		ctx.signalSelf(host.loader(loc), travelPhysics.timeToPickup(At(_currentLocation), loc))
 		OperationOutcome.InTransit
 	}
 
@@ -96,8 +96,8 @@ class CarriageComponent[SourceProfile >: ChannelConnections.ChannelSourceMessage
 	}
 
 	def unloadTo(loc: SlotLocator)(implicit ctx: host.CTX): UnloadOperationOutcome = {
-//		println(s"### Traveling and Unloading from $currentLocation to $loc within ${travelPhysics.timeToDeliver(Carriage.At(currentLocation), loc)} ticks")
-		ctx.signalSelf(host.unloader(loc), travelPhysics.timeToDeliver(Carriage.At(_currentLocation), loc))
+//		println(s"### Traveling and Unloading from $currentLocation to $loc within ${travelPhysics.timeToDeliver(At(currentLocation), loc)} ticks")
+		ctx.signalSelf(host.unloader(loc), travelPhysics.timeToDeliver(At(_currentLocation), loc))
 		OperationOutcome.InTransit
 	}
 	def UNLOADING(continuation: host.CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, host.RUNNER]): host.RUNNER = {
@@ -119,8 +119,8 @@ class CarriageComponent[SourceProfile >: ChannelConnections.ChannelSourceMessage
 	}
 
 	def inductFrom(from: Channel.End[MaterialLoad, SinkProfile], at: SlotLocator)(implicit ctx: host.CTX): LoadOperationOutcome =  {
-//		println(s"### Traveling and Inducting from $currentLocation to $at within ${travelPhysics.timeToPickup(Carriage.At(currentLocation), at)} ticks")
-		ctx.signalSelf(host.inducter(from, at), travelPhysics.timeToPickup(Carriage.At(_currentLocation), at))
+//		println(s"### Traveling and Inducting from $currentLocation to $at within ${travelPhysics.timeToPickup(At(currentLocation), at)} ticks")
+		ctx.signalSelf(host.inducter(from, at), travelPhysics.timeToPickup(At(_currentLocation), at))
 		OperationOutcome.InTransit
 	}
 
@@ -143,8 +143,8 @@ class CarriageComponent[SourceProfile >: ChannelConnections.ChannelSourceMessage
 	}
 
 	def dischargeTo(to: Channel.Start[MaterialLoad, SourceProfile], at: SlotLocator)(implicit ctx: host.CTX): UnloadOperationOutcome = {
-//		println(s"### Traveling and Discharging from $currentLocation to $at within ${travelPhysics.timeToDeliver(Carriage.At(currentLocation), at)} ticks")
-		ctx.signalSelf(host.discharger(to, at), travelPhysics.timeToDeliver(Carriage.At(_currentLocation), at))
+//		println(s"### Traveling and Discharging from $currentLocation to $at within ${travelPhysics.timeToDeliver(At(currentLocation), at)} ticks")
+		ctx.signalSelf(host.discharger(to, at), travelPhysics.timeToDeliver(At(_currentLocation), at))
 		OperationOutcome.InTransit
 	}
 
@@ -153,7 +153,7 @@ class CarriageComponent[SourceProfile >: ChannelConnections.ChannelSourceMessage
 			case cmd: host.DISCHARGE_SIGNAL => continuation(ctx)(trayDischargeEffect(cmd.to, cmd.at))
 		}
 	}
-	private def trayDischargeEffect(to: Channel.Start[MaterialLoad, SourceProfile], at: Carriage.SlotLocator)(implicit ctx: host.CTX): UnloadOperationOutcome = {
+	private def trayDischargeEffect(to: Channel.Start[MaterialLoad, SourceProfile], at: SlotLocator)(implicit ctx: host.CTX): UnloadOperationOutcome = {
 		_currentLocation = at.idx
 		tray match {
 			case None => UnloadOperationOutcome.ErrorTrayEmpty
