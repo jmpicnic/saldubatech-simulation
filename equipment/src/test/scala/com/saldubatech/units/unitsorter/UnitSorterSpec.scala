@@ -191,7 +191,7 @@ class UnitSorterSpec
 				var releasedToSinkCount = 0
 				var foundAtSinkCount = 0
 				def isDone = fromSenderCount == 200 && acknowledgedLoadCount == 200 && foundAtSinkCount == 200 && releasedToSinkCount == 200
-				testMonitorProbe.fishForMessage(3 second){
+				testMonitorProbe.fishForMessage(6 second){
 					case msg: String if loads.map{case (idx, load) => s"FromSender: ${load.lid}"}.contains(msg) =>
 						fromSenderCount += 1
 						if(isDone) FishingOutcome.Complete
@@ -213,7 +213,7 @@ class UnitSorterSpec
 				var sorterLoadsReceived = 0
 				var sorterCompletedCommands = 0
 				def isSorterDone = sorterCompletedCommands == 200 && sorterLoadsReceived == 200
-				xcManagerProbe.fishForMessage(3 seconds){
+				xcManagerProbe.fishForMessage(6 seconds){
 					case (tick, UnitSorter.LoadArrival(load, channel)) =>
 						sorterLoadsReceived += 1
 						if(isSorterDone) FishingOutcome.Complete

@@ -347,7 +347,7 @@ class VolumeGTPSpec
 					globalClock ! Clock.Enqueue(source, Processor.ProcessCommand(source, 70L, TestProbeMessage(s"InboundLoad#$count", job.load)))
 				}
 				var completedCommands = 0
-				systemManagerProbe.fishForMessage(5 seconds) {
+				systemManagerProbe.fishForMessage(10 seconds) {
 					case (tick, Shuttle.CompletedCommand(cmd)) =>
 						completedCommands += 1
 						println(s">>> nCommands = $completedCommands")
