@@ -5,7 +5,6 @@
 package com.saldubatech.units.lift
 
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Processor.DelayedDomainRun
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
@@ -87,7 +86,7 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 	private var manager: Processor.Ref = _
 	private var currentCommand: Option[ExternalCommand] = None
 
-	private def inboundSink(chOps: Channel.Ops[MaterialLoad, _, XSwitchSignal])(implicit ctx: CTX): Channel.End[MaterialLoad, XSwitchSignal] =
+	private def inductSink(chOps: Channel.Ops[MaterialLoad, _, XSwitchSignal])(implicit ctx: CTX): Channel.End[MaterialLoad, XSwitchSignal] =
 		new Channel.Sink[MaterialLoad, XSwitchSignal] {
 			override val ref: Processor.Ref = ctx.aCtx.self
 
@@ -157,8 +156,8 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 				config match {
 					case XSwitch.NoConfigure =>
 						manager = ctx.from
-						inboundRouting = new RoutingGroup(configuration.inboundInduction.map{case (idx, ch) => idx -> inboundSink(ch)}, configuration.inboundDischarge.map{case (idx, ch) => idx -> outboundSource(ch)})
-						outboundRouting = new RoutingGroup(configuration.outboundInduction.map{case (idx, ch) => idx -> inboundSink(ch)}, configuration.outboundDischarge.map{case (idx, ch) => idx -> outboundSource(ch)})
+						inboundRouting = new RoutingGroup(configuration.inboundInduction.map{case (idx, ch) => idx -> inductSink(ch)}, configuration.inboundDischarge.map{case (idx, ch) => idx -> outboundSource(ch)})
+						outboundRouting = new RoutingGroup(configuration.outboundInduction.map{case (idx, ch) => idx -> inductSink(ch)}, configuration.outboundDischarge.map{case (idx, ch) => idx -> outboundSource(ch)})
 						ctx.configureContext.signal(manager, CompletedConfiguration(ctx.aCtx.self))
 						IDLE
 				}
