@@ -49,10 +49,6 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 
 	import UnitSorter._
 
-	private case class PendingSortCommand(toDischarge: Int, sort: Sort)
-
-	private val receivedCommands: mutable.Map[MaterialLoad, PendingSortCommand] = mutable.Map.empty
-
 	private var manager: Processor.Ref = _
 	private var discharges: Map[Int, Channel.Start[MaterialLoad, UnitSorterSignal]] = _
 	private var dischargeIndex: Map[String, Int] = _
@@ -77,10 +73,11 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 
 	private def inductSink(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, _, UnitSorterSignal], host: Processor.Ref) =
 		new InductSink(manager, chOps, host) {
+
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, endpoint.channelName))
-				cycleAndSignalNext
+				stopCycle//cycleAndSignalNext
 				Processor.DomainRun.same
 			}
 
@@ -96,125 +93,73 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 
 		}.start
 
-	private val loadedTrays = mutable.Map.empty[Int, MaterialLoad]
-	/*
-	Unload all the "full" trays that have arrived to their destination and send CompleteCommand notifications to the manager.
-	 */
-	//import Ordering._
-	private val pendingCommands = mutable.Map.empty[MaterialLoad, PendingSortCommand]
-	private val scheduledDeliveries = mutable.Map.empty[MaterialLoad, PendingSortCommand]
-	private def dischargeArrivals(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
-		//log.info(s"Discharging: Time is ${ctx.now} with currentZero: ${sorterAt.slotAtZero}")
-		//log.info(s"Discharging: Loaded Trays: $loadedTrays at ${loadedTrays.map(tk => sorterAt.indexForSlot(tk._1))}")
-		//log.info(s"Discharging: pending commands: $pendingCommands")
-		val candidates = for {
-			(dischargeIdx, discharge) <- discharges
-			tray = sorterAt.slotAtIndex(dischargeIdx)
-			load <- loadedTrays.get(tray)
-			cmd <- scheduledDeliveries.get(load).filter(_.toDischarge == dischargeIdx).map(_.sort)
-		} yield {
-			//log.info(s"Candidate Discharge load($load) from Tray($tray) at position($dischargeIdx) through channel(${discharge.channelName} with command($cmd)")
-			println(s"### Load Ready to send $load from tray $tray into ${discharge.channelName}")
-			if (discharge.send(load)) {
-				println(s"### Sending load $load from tray $tray into ${discharge.channelName}")
-				loadedTrays -= tray
-				scheduledDeliveries -= load
-				ctx.signal(manager, CompletedCommand(cmd))
-				None
-			} else {
-				println(s"### Cannot send load $load fron tray $tray into ${discharge.channelName}, taking turn around.")
-				Some(configuration.physics.oneTurnTime)
-			}
-		}
-		//log.info(s"DischargeArrivals Candidates: $candidates")
-		if(candidates isEmpty) None else candidates.min
-	}
+	private case class PendingSortCommand(toDischarge: Int, sort: Sort)
+	private val receivedCommands: mutable.Map[MaterialLoad, PendingSortCommand] = mutable.Map.empty
 
+	private val loadedTrays = mutable.Map.empty[Int, Sort]
 
-
-	/*
-	Reconcile all pending routing commands with any available loads in inducts that have not been matched yet.
-	 */
-	private def assignCommands(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
-		val candidates = for {
-			trayPosition <- (0 until configuration.physics.nSlots).filter(!loadedTrays.contains(_)).map(sorterAt.indexForSlot) // positions of empty trays
-			(availableLoadPosition, load) <- inducts.flatMap{ case (i, induct) => induct.peekNext.map(i -> _._1)}
-			pendingCmd <- receivedCommands.get(load)
-		} yield (trayPosition, availableLoadPosition, pendingCmd)
-		//log.info(s"AssignCommands PickupCandidates: $candidates")
-		if(candidates nonEmpty) {
-			val (trayPosition, pickupPosition, pendingCommand) = candidates.minBy(entry => (entry._2+configuration.physics.nSlots - entry._1)%configuration.physics.nSlots)
-			receivedCommands -= pendingCommand.sort.load
-			pendingCommands += pendingCommand.sort.load -> pendingCommand
-			val nextTime =
-				if(trayPosition == pickupPosition) None
-				else Some(configuration.physics.travelTime(trayPosition, pickupPosition))
-			//log.info(s">>>>> Found Candidate: $pendingCommand for tray at Position $trayPosition to pick up at $pickupPosition, next event at: $nextTime")
-			nextTime
-		} else None
-	}
-	/*
-	Induct any loads in Inducts that:
-	1. Have a command pending for them.
-	2. Have an empty tray in front of them.
-	Collect "Deliver" Event candidates.
-	 */
-	private def inductPickups(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Unit =
-		for{
-			(idx, induct) <- inducts
-			(load, _) <- induct.peekNext
-			tray = sorterAt.slotAtIndex(idx)
-			pendingCmd <- pendingCommands.get(load) if (!loadedTrays.contains(tray))
-		} {
-			loadedTrays += tray -> load
-			println(s"### Loading tray $tray with $load")
-			induct.getNext
-			//log.info(s"InductPickups: Loading Tray $tray at $idx with $load")
-		}
-
-	private def inTransitLoadDischarges(sorterAt: configuration.physics.Position)(implicit ctx: CTX): Option[Delay] = {
-		val candidates = for{
-			(tr, load) <- loadedTrays
-			pendingCmd <- pendingCommands.get(load)
-		} yield {
-			println(s"### InTransitLoad $load in tray $tr with cmd: $pendingCmd")
-			pendingCommands -= load
-			scheduledDeliveries += load -> pendingCmd
-			configuration.physics.travelTime(sorterAt.indexForSlot(tr), pendingCmd.toDischarge)
-		}
-		//log.info(s"inTransitLoads Candidates: $candidates")
-		if (candidates isEmpty) None else Some(candidates.min)
-	}
-	private def cycleAndSignalNext(implicit ctx: CTX) = {
-		val currentPosition = new configuration.physics.Position(ctx.now)
-		val nextArrival = dischargeArrivals(currentPosition)
-		val nextCommandFirstPass = assignCommands(currentPosition)
-		inductPickups(currentPosition)
-		val nextCommandSecondPass = assignCommands(currentPosition)
-		val nextDischargeFromInTransit = inTransitLoadDischarges(currentPosition)
-		val candidates = Seq(
-			nextArrival, nextCommandFirstPass, nextCommandSecondPass, nextDischargeFromInTransit
-		).flatten
-		//log.info(s"CycleAndSignal: Target Times Candidates: $candidates")
-		if(candidates nonEmpty) {
-			val target = candidates.min
-			if(target == 0) throw new IllegalStateException(s"A delay of 0 should not happen")
-			ctx.signalSelf(Arrive(s"With Delay: $target"), target)
-		}
-	}
-
-	lazy val RUNNING: RUNNER = endpointListener orElse {
+	private lazy val RUNNING: RUNNER = endpointListener orElse {
 		implicit ctx: CTX => {
 			case sortCmd@Sort(load, destination) =>
 				//log.info(s"Got Command $sortCmd at ${ctx.now}")
 				assert(dischargeIndex contains destination, s"$destination is not a known discharge channel")
 				if (receivedCommands.size < configuration.maxRoutingMap) receivedCommands += load -> PendingSortCommand(dischargeIndex(destination), sortCmd)
 				else ctx.reply(MaxRoutingReached(sortCmd))
-				cycleAndSignalNext
+				stopCycle//cycleAndSignalNext
 				RUNNING
 			case Arrive(_) =>
-				cycleAndSignalNext
+				stopCycle//cycleAndSignalNext
 				RUNNING
 		}
 	}
+
+	private def doDischarges(sorterAt: configuration.physics.Position)(implicit ctx: CTX) = {
+		for{
+			(dischargeIdx, ep) <- discharges
+			tray = sorterAt.slotAtIndex(dischargeIdx)
+			cmd <- loadedTrays.filter(t => dischargeIndex(t._2.destination) == dischargeIdx).get(tray)
+		} if(ep.send(cmd.load)) {
+			receivedCommands.remove(cmd.load)
+			loadedTrays -= tray
+			ctx.signal(manager, CompletedCommand(cmd))
+		}
+	}
+	private def doInducts(sorterAt: configuration.physics.Position)(implicit ctx: CTX) = {
+		for{
+			(inductIdx, ep) <- inducts
+			tray = sorterAt.slotAtIndex(inductIdx)
+			(load, _) <- ep.peekNext
+			cmd <- receivedCommands.get(load)
+		} if(!loadedTrays.contains(tray)) {
+			loadedTrays += tray -> cmd.sort
+			ep.getNext
+		}
+	}
+	private def nextStop(sorterAt: configuration.physics.Position)(implicit ctx: CTX) = {
+		val dischargeTimes = for{
+			(tray, cmd) <- loadedTrays
+			trayIdx = sorterAt.indexForSlot(tray)
+			dischargeIdx <- dischargeIndex.get(cmd.destination)
+		} yield if(trayIdx == dischargeIdx) configuration.physics.oneTurnTime else configuration.physics.travelTime(trayIdx, dischargeIdx)
+		val inductTimes = for{
+			emptyTraySlot <- (0 until configuration.physics.nSlots).filter(idx => !loadedTrays.contains(idx))
+			(inductIdx, ep) <- inducts.filter(_._2.peekNext nonEmpty)
+			cmd <- ep.peekNext.flatMap(t => receivedCommands.get(t._1))
+			trayIdx = sorterAt.indexForSlot(emptyTraySlot)
+		} yield if(trayIdx == inductIdx) configuration.physics.oneTurnTime else configuration.physics.travelTime(trayIdx, inductIdx)
+		val candidates = dischargeTimes ++ inductTimes
+		if(candidates nonEmpty) {
+			val delay = candidates.min
+			ctx.signalSelf(Arrive(s"with Delay $delay"), delay)
+		}
+	}
+
+	private def stopCycle(implicit ctx: CTX) = {
+		val sorterAt = new configuration.physics.Position(ctx.now)
+		doDischarges(sorterAt)
+		doInducts(sorterAt)
+		nextStop(sorterAt)
+	}
+
+
 }
