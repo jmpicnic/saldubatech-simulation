@@ -122,7 +122,7 @@ object VolumeGTPSpec {
 						ctx.signal(cmd.lift, cmd.liftCmd)
 						true
 					} else {
-						testHost.fail(s"Load $ld from channel $chName received by ${ctx.from} expecting command $cmd")
+						testHost.fail(s"Load $ld from channel $chName received from ${ctx.from.path.name} with command $cmd")
 						loadsPending += chName -> ld
 						false
 					}
@@ -339,7 +339,7 @@ class VolumeGTPSpec
 		}
 		"B. Filling the storage" when {
 			"B01. Executing the commands" in {
-/*				var count = 0
+				var count = 0
 				inboundJobs.foreach {job =>
 					globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(sorterManager, 20, job.sorterCmd))
 					val source = sourceRefs(count%2)
@@ -365,7 +365,7 @@ class VolumeGTPSpec
 				var sorterLoadsReceived = 0
 				var sorterCompletedCommands = 0
 				def isSorterDone = sorterCompletedCommands == inboundJobs.size && sorterLoadsReceived == inboundJobs.size
-				sorterManagerProbe.fishForMessage(3 seconds){
+				sorterManagerProbe.fishForMessage(1 seconds){
 					case (tick, UnitSorter.LoadArrival(load, channel)) =>
 						sorterLoadsReceived += 1
 						if(isSorterDone) FishingOutcome.Complete
@@ -396,7 +396,7 @@ class VolumeGTPSpec
 				sorterManagerProbe.expectNoMessage(500 millis)
 				systemManagerProbe.expectNoMessage(500 millis)
 				simControllerProbe.expectNoMessage(500 millis)
-				testMonitorProbe.expectNoMessage(500 millis)*/
+				testMonitorProbe.expectNoMessage(500 millis)
 			}
 		}
 	}
