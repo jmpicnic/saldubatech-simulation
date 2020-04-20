@@ -149,10 +149,25 @@ class FanInSpec
 				val probeLoad = MaterialLoad("First Load")
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 240L, probeLoadMessage)
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
-				testMonitorProbe.expectMessage("FromSender: First Load")
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
-				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
+				var found = 0
+				testMonitorProbe.fishForMessage(500 millis) {
+					case "Load MaterialLoad(First Load) released on channel Discharge" =>
+						found += 1
+						if(found == 4) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case "FromSender: First Load"=>
+						found += 1
+						if(found == 4) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case "Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)" =>
+						found += 1
+						if(found == 4) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case "Load MaterialLoad(First Load) arrived to Sink via channel Discharge" =>
+						found += 1
+						if(found == 4) FishingOutcome.Complete
+						else FishingOutcome.Continue
+				}
 				xcManagerProbe.expectMessage(272L -> XSwitch.CompletedCommand(transferCmd))
 			}
 		}
