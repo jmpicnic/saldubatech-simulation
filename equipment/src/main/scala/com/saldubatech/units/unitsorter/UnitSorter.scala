@@ -77,7 +77,7 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, endpoint.channelName))
-				stopCycle//cycleAndSignalNext
+				stopCycle
 				Processor.DomainRun.same
 			}
 
@@ -88,8 +88,10 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 
 	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, _], host: Processor.Ref) =
 		new DischargeSource(manager, chOps, host) {
-			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, UnitSorterSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER =
+			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, UnitSorterSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
+				stopCycle
 				Processor.DomainRun.same
+			}
 
 		}.start
 
@@ -105,10 +107,10 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 				assert(dischargeIndex contains destination, s"$destination is not a known discharge channel")
 				if (receivedCommands.size < configuration.maxRoutingMap) receivedCommands += load -> PendingSortCommand(dischargeIndex(destination), sortCmd)
 				else ctx.reply(MaxRoutingReached(sortCmd))
-				stopCycle//cycleAndSignalNext
+				stopCycle
 				RUNNING
 			case Arrive(_) =>
-				stopCycle//cycleAndSignalNext
+				stopCycle
 				RUNNING
 		}
 	}
@@ -153,12 +155,15 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 			ctx.signalSelf(Arrive(s"with Delay $delay"), delay)
 		}
 	}
-
+	var lastUpdate: Tick = 0
 	private def stopCycle(implicit ctx: CTX) = {
-		val sorterAt = new configuration.physics.Position(ctx.now)
-		doDischarges(sorterAt)
-		doInducts(sorterAt)
-		nextStop(sorterAt)
+		if(ctx.now != lastUpdate) {
+			lastUpdate = ctx.now
+			val sorterAt = new configuration.physics.Position(ctx.now)
+			doDischarges(sorterAt)
+			doInducts(sorterAt)
+			nextStop(sorterAt)
+		}
 	}
 
 

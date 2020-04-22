@@ -296,7 +296,7 @@ class Shuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage, Downstr
 				outboundChannels.get(chName) match {
 					case Some(discharge) =>
 						carriageComponent.dischargeTo(discharge, outboundSlots(chName))
-						channelListener orElse carriageComponent.DISCHARGING(afterUnloading)
+						channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(discharge, outboundSlots(chName)))
 					case None => failFull(s"Outbound Channel $chName does not exist")
 				}
 			}
@@ -307,7 +307,7 @@ class Shuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage, Downstr
 		implicit ctx => {
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
-				carriageComponent.DISCHARGING(afterUnloading) orElse channelListener
+				carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => failEmpty("Trying to load from an empty Source")
@@ -339,7 +339,7 @@ class Shuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage, Downstr
 		implicit ctx => {
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
-				carriageComponent.DISCHARGING(afterUnloading) orElse channelListener
+				carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitingForLoad = WaitInductingToDischarge(ch, loc)
 				DomainRun.same
