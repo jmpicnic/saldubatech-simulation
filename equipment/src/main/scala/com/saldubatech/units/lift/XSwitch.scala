@@ -26,6 +26,7 @@ object XSwitch {
 	sealed abstract class Notification extends Identification.Impl() with EquipmentManager.Notification
 	case class CompletedCommand(cmd: ExternalCommand) extends Notification
 	case class FailedBusy(cmd: ExternalCommand, msg: String) extends Notification
+	case class FailedWaiting(msg: String) extends Notification
 	case class NotAcceptedCommand(cmd: ExternalCommand, msg: String) extends Notification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Notification
 	case class CompletedConfiguration(self: Processor.Ref) extends Notification
@@ -95,12 +96,16 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 					case NoLoadWait =>
 						ctx.signal(manager, LoadArrival(fromEp.channelName, ld))
 						Processor.DomainRun.same
-					case WaitInducting(ep, toLoc) =>
+					case WaitInducting(ep, toLoc) if (ep.channelName == fromEp.channelName) =>
 						val loc =
 							(inboundRouting.inductByName(fromEp.channelName) orElse outboundRouting.inductByName(fromEp.channelName)).map(t => At(t._1))
 						if(loc isEmpty) throw new RuntimeException(s"Undefined induct ${fromEp.channelName} for XSwitch($name)")
 						loc.foreach(carriageComponent.inductFrom(fromEp, _))
 						busyGuard orElse channelListener orElse carriageComponent.INDUCTING(dischargeAfterInducting(ep, toLoc))
+					case w: WaitInducting =>
+						ctx.signal(manager, FailedWaiting(s"Received On Unexpected Channel: ${fromEp.channelName} while waiting on ${w.ep.channelName} for command $currentCommand"))
+						currentCommand = None
+						IDLE
 				}
 			}
 			override def loadReleased(endpoint: Channel.End[MaterialLoad, XSwitchSignal], load: MaterialLoad, at: Option[Distance])(implicit ctx: CTX): RUNNER = Processor.DomainRun.same
@@ -126,7 +131,7 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 		}.start
 
 
-	private class RoutingGroup(inducts: Map[Int, Channel.End[MaterialLoad, XSwitchSignal]], discharges: Map[Int, Channel.Start[MaterialLoad, XSwitchSignal]]) {
+	private case class RoutingGroup(inducts: Map[Int, Channel.End[MaterialLoad, XSwitchSignal]], discharges: Map[Int, Channel.Start[MaterialLoad, XSwitchSignal]]) {
 		private val inductsByName = inducts.map{case (idx, ch) => ch.channelName -> (idx, ch)}
 		private val dischargesByName = discharges.map{case (idx, ch) => ch.channelName -> (idx, ch)}
 		lazy val loadListener: RUNNER = if(inducts isEmpty) Processor.DomainRun.noOp else inducts.values.map(_.loadReceiver).reduce((l,r) => l orElse r)
@@ -140,6 +145,7 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 				induct <- inductByLoc(from)
 				discharge <- dischargeByLoc(to)
 			} yield induct -> discharge
+
 		def route(from: String, to: String): Option[((Int, Channel.End[MaterialLoad, XSwitchSignal]), (Int, Channel.Start[MaterialLoad, XSwitchSignal]))] =
 			for{
 				induct <- inductByName(from)
@@ -187,8 +193,7 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 		implicit ctx: CTX => {
 			case cmd @ Transfer(from, to) => executeCommand(cmd) {
 				val route: Option[((At, Channel.End[MaterialLoad, XSwitchSignal]), (At, Channel.Start[MaterialLoad, XSwitchSignal]))] =
-					(inboundRouting.route(from, to) orElse outboundRouting.route(from, to))
-					.map{case ((inductIdx, i), (dischargeIdx, d)) =>
+					(inboundRouting.route(from, to) orElse outboundRouting.route(from, to)).map{case ((inductIdx, i), (dischargeIdx, d)) =>
 						((At(inductIdx), i), (At(dischargeIdx), d))}
 				route match {
 					case Some(((inductLoc, induct), (dischargeLoc, discharge))) =>

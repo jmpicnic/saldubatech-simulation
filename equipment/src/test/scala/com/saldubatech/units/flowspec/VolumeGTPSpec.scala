@@ -35,9 +35,10 @@ object VolumeGTPSpec {
 	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, override val liftCmd: XSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: Shuttle.Retrieve) extends Job
 
 	case object ManagerConfigure extends EquipmentManager.ManagerSignal
+	case object SWITCH_TO_OUTBOUND extends EquipmentManager.ManagerSignal
 	case class ConfigurationComplete(from: Processor.Ref) extends Identification.Impl() with EquipmentManager.Notification
 
-	class ReactiveShuttleCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite) extends LogEnabled {
+	class ReactiveShuttleCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite) extends LogEnabled {
 		private val obJobIt = outboundJobs.iterator
 		private var _manager: Processor.Ref = _
 		lazy val configurer: Processor.DomainConfigure[EquipmentManager.ManagerSignal] = new Processor.DomainConfigure[EquipmentManager.ManagerSignal] {
@@ -47,12 +48,12 @@ object VolumeGTPSpec {
 					case ManagerConfigure =>
 						_manager = ctx.from
 						configCountDown -= 1
-						if(configCountDown == 0) RUNNING else configurer
+						if(configCountDown == 0) RUNNING_INBOUND else configurer
 					case shuttleCfg: Shuttle.CompletedConfiguration =>
 						ctx.configureContext.signal(_manager, shuttleCfg)
 						ctx.configureContext.signal(_manager, ConfigurationComplete(ctx.aCtx.self))
 						configCountDown -= 1
-						if(configCountDown == 0) RUNNING else configurer
+						if(configCountDown == 0) RUNNING_INBOUND else configurer
 				}
 			}
 		}
@@ -68,28 +69,48 @@ object VolumeGTPSpec {
 			}
 		}
 
-		val RUNNING: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
+		def RUNNING_INBOUND: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
 			var busy = false
 			val loadsPending = mutable.Queue.empty[MaterialLoad]
+			var cmdsCompleted = 0
 			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
 				case cmd: Shuttle.CompletedCommand =>
-					if(outboundJobs.values.exists(j => j.shuttleCmd == cmd.cmd) && obJobIt.hasNext) ctx.signal(ctx.from, obJobIt.next._2.shuttleCmd)
-					else if(loadsPending isEmpty) busy = false
+					cmdsCompleted += 1
+					if (loadsPending isEmpty) busy = false
 					else busy = runLoad(loadsPending.dequeue)
 					ctx.signal(_manager, cmd)
-					Processor.DomainRun.same
+					if (cmdsCompleted == inboundJobs.size) Processor.DomainRun.same
+					else Processor.DomainRun.same
 				case Shuttle.LoadArrival(chName, ld) =>
 					inboundJobs.get(ld) match {
 						case None => testHost.fail(s"Unexpected load $ld at shuttle: ${ctx.from.path.name}")
 						case Some(cmd) =>
 							loadsPending += ld
-							if(!busy) busy = runLoad(loadsPending.dequeue)
+							if (!busy) busy = runLoad(loadsPending.dequeue)
 					}
+					Processor.DomainRun.same
+				case SWITCH_TO_OUTBOUND =>
+					if(obJobIt.hasNext) {
+						val jb = obJobIt.next
+						ctx.signal(jb.shuttle, jb.shuttleCmd)
+					}
+					RUNNING_OUTBOUND
+			}
+		}
+		val RUNNING_OUTBOUND: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
+			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
+				case cmd: Shuttle.CompletedCommand =>
+					if(obJobIt.hasNext) {
+						val jb = obJobIt.next
+						ctx.signal(jb.shuttle, jb.shuttleCmd)
+					}
+					ctx.signal(_manager, cmd)
 					Processor.DomainRun.same
 			}
 		}
+
 	}
-	def reactiveShuttleController(name: String, simController: SimulationController.Ref, inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite)(implicit clock: Clock.Ref, processorCreator: Processor.ProcessorCreator)  =
+	def reactiveShuttleController(name: String, simController: SimulationController.Ref, inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite)(implicit clock: Clock.Ref, processorCreator: Processor.ProcessorCreator)  =
 		processorCreator.spawn(new Processor(name, clock, simController, new ReactiveShuttleCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
 
 	class ReactiveLiftCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite) extends LogEnabled {
@@ -113,7 +134,7 @@ object VolumeGTPSpec {
 
 		private def runLoad(loadsPending: mutable.Queue[(String, MaterialLoad)])(implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal]): Boolean = {
 			val (chName, ld) = loadsPending.dequeue
-			val jobs = if (chName.contains("aisle_sorter")) outboundJobs else inboundJobs
+			val jobs = if (chName.contains("sorter")) inboundJobs else outboundJobs
 			jobs.get(ld) match {
 				case None =>
 					testHost.fail(s"Unexpected load $ld at lift: ${ctx.from.path.name}")
@@ -158,7 +179,7 @@ class VolumeGTPSpec
 		with LogEnabled {
 
 	import VolumeGTPSpec._
-	val nJobs = 150
+	val nJobs = 160
 	val nCards = 4
 	val cards = (0 until nCards).map(i => s"c$i").toSet
 
@@ -265,7 +286,7 @@ class VolumeGTPSpec
 
 		val inboundJobsMap = inboundJobs.map(j => j.load -> j).toMap
 		val outboundJobsMap = outboundJobs.map(j => j.load -> j).toMap
-		val shuttleManager = (name: String) => reactiveShuttleController(name+"_controller", simController, inboundJobsMap, outboundJobsMap, this)
+		val shuttleManager = (name: String) => reactiveShuttleController(name+"_controller", simController, inboundJobsMap, outboundJobs.filter(jb => jb.shuttle.path.name.startsWith(name)), this)
 		val liftManager = (name: String) => reactiveLiftController(name+"_controller", simController, inboundJobsMap, outboundJobsMap, this)
 		val allShuttles =	aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
 		val shuttleManagers = allShuttles.map(sh => sh -> shuttleManager(sh.path.name)).toMap
@@ -337,8 +358,8 @@ class VolumeGTPSpec
 				actorsToConfigure.isEmpty should be(true)
 			}
 		}
-		"B. Filling the storage" when {
-			"B01. Executing the commands" in {
+		"B. Execute the commands" when {
+			"B01. Filling the Store" in {
 				var count = 0
 				inboundJobs.foreach {job =>
 					globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(sorterManager, 20, job.sorterCmd))
@@ -350,13 +371,13 @@ class VolumeGTPSpec
 				systemManagerProbe.fishForMessage(20 seconds) {
 					case (tick, Shuttle.CompletedCommand(cmd)) =>
 						completedCommands += 1
-						println(s">>> nCommands = $completedCommands")
+						//println(s">>> nCommands = $completedCommands")
 						if(!inboundJobs.exists(_.shuttleCmd == cmd)) FishingOutcome.Fail(s"Unknown Shuttle Command: $cmd at $tick")
 						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
 						else FishingOutcome.Continue
 					case (tick, XSwitch.CompletedCommand(cmd)) =>
 						completedCommands += 1
-						println(s">>> nCommands = $completedCommands")
+						//println(s">>> nCommands = $completedCommands")
 						if(!inboundJobs.exists(_.liftCmd == cmd)) FishingOutcome.Fail(s"Unknown Lift Command: $cmd at $tick")
 						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
 						else FishingOutcome.Continue
@@ -397,6 +418,57 @@ class VolumeGTPSpec
 				systemManagerProbe.expectNoMessage(500 millis)
 				simControllerProbe.expectNoMessage(500 millis)
 				testMonitorProbe.expectNoMessage(500 millis)
+			}
+			"B01. Then emptying it." in {
+				outboundJobs.foreach {job =>
+					globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(sorterManager, 3000L, job.sorterCmd))
+				}
+				shuttleManagers.values.foreach{mngr => globalClock ! Clock.Enqueue(mngr, Processor.ProcessCommand(systemManager, 3100L, SWITCH_TO_OUTBOUND))}
+				var completedCommands = 0
+				var sorterLoadsReceived = 0
+				var sorterCompletedCommands = 0
+				def isSorterDone = sorterCompletedCommands == inboundJobs.size && sorterLoadsReceived == inboundJobs.size
+				sorterManagerProbe.fishForMessage(20 seconds){
+					case (tick, UnitSorter.LoadArrival(load, channel)) =>
+						sorterLoadsReceived += 1
+						if(isSorterDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case (tick, UnitSorter.CompletedCommand(cmd)) =>
+						sorterCompletedCommands += 1
+						if(isSorterDone) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case other => FishingOutcome.Fail(s"Unexpected Received $other")
+				}
+				sorterManagerProbe.expectNoMessage(500 millis)
+				systemManagerProbe.fishForMessage(3 seconds) {
+					case (tick, Shuttle.CompletedCommand(cmd)) =>
+						completedCommands += 1
+//						println(s">>>Commands = $completedCommands")
+						if(!outboundJobs.exists(_.shuttleCmd == cmd)) FishingOutcome.Fail(s"Unknown Shuttle Command: $cmd at $tick")
+						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case (tick, XSwitch.CompletedCommand(cmd)) =>
+						completedCommands += 1
+//						println(s">>> nCommands = $completedCommands")
+						if(!outboundJobs.exists(_.liftCmd == cmd)) FishingOutcome.Fail(s"Unknown Lift Command: $cmd at $tick")
+						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case other => FishingOutcome.Fail(s"Unexpected signal $other")
+				}
+				systemManagerProbe.expectNoMessage(500 millis)
+				var loadsReceived = 0
+				testMonitorProbe.fishForMessage(500 millis){
+					case msg: String if msg.contains("arrived to Sink via channel") =>
+						loadsReceived += 1
+						if(loadsReceived == 2*outboundJobs.size) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case msg: String if msg.contains("released on channel") =>
+						loadsReceived += 1
+						if(loadsReceived == 2*outboundJobs.size) FishingOutcome.Complete
+						else FishingOutcome.Continue
+				}
+				testMonitorProbe.expectNoMessage(500 millis)
+				simControllerProbe.expectNoMessage(500 millis)
 			}
 		}
 	}

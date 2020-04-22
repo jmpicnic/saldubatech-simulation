@@ -67,6 +67,8 @@ object Channel {
 		def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean
 		def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean
 		def ackReceiver: Processor.DomainRun[SourceProfile]
+
+		override def toString = s"ChannelStart($channelName)"
 	}
 
 
@@ -82,6 +84,7 @@ object Channel {
 		def peek(l: LOAD): Option[(LOAD, String)]
 		def peek(idx: Int): Option[(LOAD, String)]
 		def loadReceiver: Processor.DomainRun[SinkProfile]
+		override def toString = s"ChannelEnd($channelName)"
 	}
 
 	trait Sink[L <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] {
@@ -254,4 +257,6 @@ abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnectio
 
 	def acknowledgeBuilder(channel: String, load: LOAD, resource: String): AckSignal
 
+
+	override def toString = s"Channel($name)"
 }
