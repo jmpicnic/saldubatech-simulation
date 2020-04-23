@@ -14,14 +14,15 @@ object ChannelConnections {
 	trait DummySinkMessageType
 	trait DummyChannelMessageType
 
-	trait ChannelSourceMessage extends DummySourceMessageType with DummyChannelMessageType
+	trait ChannelSourceSink extends DummyChannelMessageType
 		with Shuttle.ShuttleSignal
 		with XSwitch.XSwitchSignal
 		with UnitSorterSignal
 
-	trait ChannelDestinationMessage extends DummySinkMessageType with DummyChannelMessageType
-		with Shuttle.ShuttleSignal
-		with XSwitch.XSwitchSignal
-		with UnitSorterSignal
+
+
+	trait ChannelSourceMessage extends ChannelSourceSink with DummySourceMessageType
+
+	trait ChannelDestinationMessage extends ChannelSourceSink with DummySinkMessageType
 
 }

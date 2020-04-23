@@ -419,7 +419,7 @@ class VolumeGTPSpec
 				simControllerProbe.expectNoMessage(500 millis)
 				testMonitorProbe.expectNoMessage(500 millis)
 			}
-			"B01. Then emptying it." in {
+			"B02. Then emptying it." in {
 				outboundJobs.foreach {job =>
 					globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(sorterManager, 3000L, job.sorterCmd))
 				}
