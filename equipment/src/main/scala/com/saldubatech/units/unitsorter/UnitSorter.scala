@@ -6,7 +6,7 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.{Delay, Tick}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.transport.{Channel, MaterialLoad}
-import com.saldubatech.units.`abstract`.{EquipmentManager, EquipmentUnit}
+import com.saldubatech.units.abstractions.{EquipmentManager, EquipmentUnit}
 import com.saldubatech.util.LogEnabled
 
 import scala.collection.{SortedMap, mutable}
@@ -15,41 +15,37 @@ trait UnitSorterSignal extends Identification
 
 
 
-object UnitSorter extends EquipmentUnit.Definitions[UnitSorterSignal, UnitSorterSignal, UnitSorterSignal] {
+object UnitSorter {//extends EquipmentUnit[UnitSorterSignal] {
 
 	abstract class ConfigurationCommand extends Identification.Impl() with UnitSorterSignal
 	case object NoConfigure extends ConfigurationCommand
 
-	abstract class ExternalCommand extends Identification.Impl() with UnitSorterSignal
-
+	sealed abstract class ExternalCommand extends Identification.Impl() with UnitSorterSignal
 	case class Sort(load: MaterialLoad, destination: String) extends ExternalCommand
 
-	abstract class Notification extends Identification.Impl() with EquipmentManager.Notification
+	sealed abstract class Notification extends Identification.Impl() with EquipmentManager.Notification
 	case class CompletedConfiguration(self: Processor.Ref) extends Notification
 	case class CompletedCommand(cmd: ExternalCommand) extends Notification
-	case class MaxRoutingReached(cmd: Sort) extends Notification
+	case class MaxCommandsReached(cmd: ExternalCommand) extends Notification
 	case class LoadArrival(load: MaterialLoad, channel: String) extends Notification
 
 	abstract class InternalSignal extends Identification.Impl() with UnitSorterSignal
 	case class Arrive(msg: String) extends InternalSignal
-	case class Deliver(load: MaterialLoad, dest: Int, cmd: ExternalCommand) extends InternalSignal
-	case class EmptyArrive(at: Int) extends InternalSignal
 
-	case class Configuration(name: String, maxRoutingMap: Int,
+	case class Configuration(maxRoutingMap: Int,
 	                         inducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]],
 	                         discharges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]],
 	                         physics: CircularPathTravel)
 
 
-	def buildProcessor(configuration: Configuration)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref): Processor[UnitSorterSignal] =
-		new Processor[UnitSorterSignal](configuration.name, clockRef, simController, new UnitSorter(configuration).configurer)
+	def buildProcessor(name: String, configuration: Configuration)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref): Processor[UnitSorterSignal] =
+		new Processor[UnitSorterSignal](name, clockRef, simController, new UnitSorter(name, configuration).configurer)
 }
 
-class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
+class UnitSorter(override val name: String, configuration: UnitSorter.Configuration) extends EquipmentUnit[UnitSorterSignal] with LogEnabled {
 
 	import UnitSorter._
 
-	private var manager: Processor.Ref = _
 	private var discharges: Map[Int, Channel.Start[MaterialLoad, UnitSorterSignal]] = _
 	private var dischargeIndex: Map[String, Int] = _
 	private var dischargeListener: RUNNER = _
@@ -60,7 +56,8 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 
 	private def configurer: Processor.DomainConfigure[UnitSorterSignal] = new Processor.DomainConfigure[UnitSorterSignal] {
 		override def configure(config: UnitSorterSignal)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): Processor.DomainMessageProcessor[UnitSorterSignal] = {
-			manager = ctx.from
+			installManager(ctx.from)
+			installSelf(ctx.aCtx.self)
 			inducts = configuration.inducts.map { case (idx, ch) => idx -> inductSink(manager, ch, ctx.aCtx.self) }
 			inductListener = inducts.values.map(_.loadReceiver).reduce(_ orElse _)
 			discharges = configuration.discharges.map { case (idx, ch) => idx -> dischargeSource(manager, ch, ctx.aCtx.self) }
@@ -72,7 +69,7 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 	}
 
 	private def inductSink(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, _, UnitSorterSignal], host: Processor.Ref) =
-		new InductSink(manager, chOps, host) {
+		new EquipmentUnit.InductSink(chOps, host) {
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
@@ -87,12 +84,11 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 		}.end
 
 	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, _], host: Processor.Ref) =
-		new DischargeSource(manager, chOps, host) {
+		new EquipmentUnit.DischargeSource(chOps, host) {
 			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, UnitSorterSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				stopCycle
 				Processor.DomainRun.same
 			}
-
 		}.start
 
 	private case class PendingSortCommand(toDischarge: Int, sort: Sort)
@@ -106,7 +102,7 @@ class UnitSorter(configuration: UnitSorter.Configuration) extends LogEnabled {
 				//log.info(s"Got Command $sortCmd at ${ctx.now}")
 				assert(dischargeIndex contains destination, s"$destination is not a known discharge channel")
 				if (receivedCommands.size < configuration.maxRoutingMap) receivedCommands += load -> PendingSortCommand(dischargeIndex(destination), sortCmd)
-				else ctx.reply(MaxRoutingReached(sortCmd))
+				else ctx.reply(MaxCommandsReached(sortCmd))
 				stopCycle
 				RUNNING
 			case Arrive(_) =>

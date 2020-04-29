@@ -14,7 +14,52 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.util.LogEnabled
 
 import scala.collection.mutable
-
+/**
+@startuml
+actor simController
+boundary sender
+participant clock
+boundary receiver
+ == Simulation Message ==
+ sender -> receiver: [time = at] domainMessage
+ == Implementation: Sending a Message ==
+ sender -> clock: Enqueue(receiver, Action(from, at, domainMessage))
+ alt at == now
+ clock -> receiver: Action(from, at, domainMessage)
+ receiver -> clock: StartOnReceiver(action)
+ hnote over receiver
+ do something
+ end hnote
+ receiver -> clock: EndOnReceiver(action)
+ clock -> clock: maybeAdvance
+ else at > now
+ hnote over clock
+ enqueue for later
+ end hnote
+ clock -> clock: maybeAdvance
+ else at < now
+ clock -> clock: Throw Exception
+ end
+ == After Maybe Advance ==
+ alt morework == true
+ loop now = nextTime;\nforeach(action => action.at == now)
+ clock -> receiver: action
+ receiver -> clock: start
+ hnote over receiver
+  Do something
+  with action
+ end hnote
+ end
+ else moreWork == false
+ hnote over clock
+ Done
+ end hnote
+ end
+ == After All work is DONE ==
+ clock -> simController: NoMoreWork
+ simController -> clock: EndSimulation
+@enduml
+ */
 object Clock {
 	type Tick = Long
 	type Delay = Long

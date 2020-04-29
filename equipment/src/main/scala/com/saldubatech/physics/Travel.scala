@@ -23,5 +23,4 @@ class Travel(distancePerTick: Speed, rampUpLength: Delay, rampDownLength: Delay)
 		if (d >= rampLength) maxRampTime + Math.round((d - rampLength)/distancePerTick)
 		else Math.round(maxRampTime * Math.sqrt(d / rampLength.toDouble))
 	}
-
 }

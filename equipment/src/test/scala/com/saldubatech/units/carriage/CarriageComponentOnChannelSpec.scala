@@ -13,7 +13,8 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.Host.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
+import com.saldubatech.units.abstractions.CarriageUnit
+import com.saldubatech.units.abstractions.CarriageUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.carriage.SlotLocator
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -130,7 +131,7 @@ object CarriageComponentOnChannelSpec {
 	case class Unload(override val loc: SlotLocator) extends UnloadCmd(loc) with MockSignal
 	case class Induct(override val from: Channel.End[MaterialLoad, MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with MockSignal
 	case class Discharge(override val to: Channel.Start[MaterialLoad, MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with MockSignal
-	class MOCK_HOST(monitor: ActorRef[MockNotification]) extends Host[MockSignal] {
+	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[MockSignal] {
 		override val name = "MockHOST"
 
 
@@ -143,7 +144,7 @@ object CarriageComponentOnChannelSpec {
 		override type DISCHARGE_SIGNAL = Discharge
 		override def discharger(to: Channel.Start[MaterialLoad, MockSignal], at: SlotLocator) = Discharge(to, at)
 
-		override type HOST = MOCK_HOST
+		override type HOST = MOCK_CarriageUnit
 		override type EXTERNAL_COMMAND = MockSignal
 		override type NOTIFICATION = Nothing
 
@@ -154,8 +155,8 @@ object CarriageComponentOnChannelSpec {
 
 	class Harness(monitor: ActorRef[MockNotification], physics: CarriageTravel, inbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal],
 	              outbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal]) extends LogEnabled {
-		val host = new MOCK_HOST(monitor)
-		val carriage = new CarriageComponent[MockSignal, MOCK_HOST](physics, host)
+		val host = new MOCK_CarriageUnit(monitor)
+		val carriage = new CarriageComponent[MockSignal, MOCK_CarriageUnit](physics, host)
 		var _ref: Option[Processor.Ref] = None
 		var manager: Processor.Ref = _
 

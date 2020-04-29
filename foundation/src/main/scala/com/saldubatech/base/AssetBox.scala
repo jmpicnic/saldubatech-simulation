@@ -10,6 +10,7 @@ import scala.collection.mutable
 
 object AssetBox {
 	def ofStrings(capacity: Int, name: String = java.util.UUID.randomUUID.toString): AssetBox[String] = AssetBox[String]((1 to capacity).map(_ => java.util.UUID.randomUUID().toString).toSet, name)
+
 }
 
 case class AssetBox[ASSET](initialAssets: Set[ASSET], name: String)

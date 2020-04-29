@@ -12,9 +12,12 @@ object Identification {
 
 		//override def toString: String = uid
 	}
+
 }
 
 trait Identification {
+	import Identification._
 	protected def givenId: Option[String]
 	lazy val uid: String = if(givenId isDefined) givenId.get else java.util.UUID.randomUUID().toString
+
 }

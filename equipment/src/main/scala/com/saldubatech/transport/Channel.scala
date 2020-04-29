@@ -171,14 +171,6 @@ object Channel {
 				override def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
 					var r = delivered.get(idx)
 					if (r nonEmpty) {
-						/*if (pending nonEmpty) {
-							val next = pending.dequeue
-							delivered += idx -> next
-							sink.loadArrived(this, next._1, Some(idx) )
-						} else {
-							delivered -= idx
-							openSlots.enqueue(idx)
-						}*/
 						delivered -= idx
 						openSlots.enqueue(idx)
 						ctx.signalSelf(ch.loadPullBuilder(r.head._1, r.head._2, idx))

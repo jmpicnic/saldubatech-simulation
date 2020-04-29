@@ -94,7 +94,7 @@ class UnitSorterSpec
 		val chDis2 = new OutboundChannelImpl(() => Some(10L), () => Some(3L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_1")
 		val discharges = Map(15 -> new Channel.Ops(chDis1), 45 -> new Channel.Ops(chDis2))
 
-		val config = UnitSorter.Configuration("underTest", 200, inducts, discharges, physics)
+		val config = UnitSorter.Configuration(200, inducts, discharges, physics)
 
 
 		// Sources & sinks
@@ -108,7 +108,7 @@ class UnitSorterSpec
 		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", globalClock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 
-		val underTestProcessor = UnitSorter.buildProcessor(config)(globalClock, simController)
+		val underTestProcessor = UnitSorter.buildProcessor("underTest", config)(globalClock, simController)
 		val underTest = testKit.spawn(underTestProcessor.init, underTestProcessor.processorName)
 
 

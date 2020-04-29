@@ -4,6 +4,7 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor
 import com.saldubatech.ddes.Processor.CommandContext
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.units.abstractions.CarriageUnit
 import com.saldubatech.units.carriage.{OnRight, SlotLocator}
 
 import scala.collection.mutable
@@ -28,7 +29,7 @@ object CarriageComponent {
 	}
 
 }
-class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Host[HS]]
+class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: CarriageUnit[HS]]
 (travelPhysics: CarriageTravel, val host: HOST) {
 	import CarriageComponent._
 
@@ -38,6 +39,7 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Host
 	}
 	def withInventory(inv: Map[SlotLocator, MaterialLoad]): CarriageComponent[HS, HOST] = {
 		contents ++= inv
+		reverseContents ++= inv.map{case (s, l) => l -> s}
 		this
 	}
 
@@ -45,7 +47,15 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Host
 	private var _currentLocation: Int = 0
 	private var tray: Option[MaterialLoad] = None
 	def inspect(loc: SlotLocator) = contents.get(loc)
+	def whereIs(load: MaterialLoad) = reverseContents.get(load)
 	private val contents = mutable.Map.empty[SlotLocator, MaterialLoad]
+	private val reverseContents = mutable.Map.empty[MaterialLoad, SlotLocator]
+	private def add(s: SlotLocator, l: MaterialLoad) = {
+		contents += s -> l
+		reverseContents += l -> s
+	}
+	private def remove(s: SlotLocator) = contents.remove(s).foreach(reverseContents.remove)
+	private def remove(l: MaterialLoad) = reverseContents.remove(l).foreach(contents.remove)
 
 	def loadFrom(loc: SlotLocator)(implicit ctx: host.CTX): LoadOperationOutcome = {
 //		println(s"### Traveling and Loading from $currentLocation to $loc within ${travelPhysics.timeToPickup(At(currentLocation), loc)} ticks")
@@ -61,12 +71,12 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Host
 
 	private def trayLoadingEffect(loc: SlotLocator): LoadOperationOutcome = {
 		_currentLocation = loc.idx
-		(contents.get(loc), tray) match {
+		(inspect(loc), tray) match {
 			case (_, Some(_)) => LoadOperationOutcome.ErrorTrayFull
 			case (None, _) => LoadOperationOutcome.ErrorTargetEmpty
-			case (ldo@Some(_), None) =>
+			case (ldo@Some(ld), None) =>
 				tray = ldo
-				contents -= loc
+				remove(loc)
 				LoadOperationOutcome.Loaded
 		}
 	}
@@ -84,11 +94,11 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Host
 
 	private def trayUnloadingEffect(loc: SlotLocator): UnloadOperationOutcome = {
 		_currentLocation = loc.idx
-		(contents.get(loc), tray) match {
+		(inspect(loc), tray) match {
 			case (_, None) => UnloadOperationOutcome.ErrorTrayEmpty
 			case (Some(_), _) => UnloadOperationOutcome.ErrorTargetFull
 			case (None, Some(ld)) =>
-				contents += loc -> ld
+				add(loc, ld)
 				tray = None
 				UnloadOperationOutcome.Unloaded
 		}

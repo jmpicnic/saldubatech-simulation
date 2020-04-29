@@ -1,12 +1,12 @@
-package com.saldubatech.units.carriage
+package com.saldubatech.units.abstractions
 
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor
-import com.saldubatech.ddes.Processor.CommandContext
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.units.carriage.SlotLocator
 
-object Host {
+object CarriageUnit {
 
 	class LoadCmd(val loc: SlotLocator) extends Identification.Impl()
 
@@ -19,47 +19,36 @@ object Host {
 	sealed trait WaitForLoad
 	sealed trait WaitForChannel
 
-	def inductSink[HS >: ChannelConnections.ChannelSourceSink, H <: Host[HS]]
+	def inductSink[HS >: ChannelConnections.ChannelSourceSink, H <: CarriageUnit[HS]]
 	(host: H)(loadArrivalBehavior: (host.INDUCT, MaterialLoad, Option[Distance], host.CTX) => PartialFunction[WaitForLoad, host.RUNNER])
 	(inboundSlot: SlotLocator, chOps: Channel.Ops[MaterialLoad, _, HS])=
-		new Channel.Sink[MaterialLoad, HS] {
-			override lazy val ref: Processor.Ref = host.self
-
+		new EquipmentUnit.InductSink[HS](chOps, host.self) {
 			override def loadArrived(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = loadArrivalBehavior(endpoint, load, at, ctx)(host.waitingForLoad)
 
 			override def loadReleased(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = Processor.DomainRun.same
-			val end: host.INDUCT = chOps.registerEnd(this)
 		}.end
 
-	def dischargeSource[HS >: ChannelConnections.ChannelSourceSink, H <: Host[HS]]
+	def dischargeSource[HS >: ChannelConnections.ChannelSourceSink, H <: CarriageUnit[HS]]
 	(host: H)(slot: SlotLocator, manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, HS, _])
 	(channelFreeBehavior: (host.DISCHARGE, MaterialLoad, host.CTX) => PartialFunction[WaitForChannel, host.RUNNER])=
-		new Channel.Source[MaterialLoad, HS] {
-			override lazy val ref: Processor.Ref = host.self
-			val start = chOps.registerStart(this)
-
+		new EquipmentUnit.DischargeSource[HS](chOps, host.self) {
 			override def loadAcknowledged(endpoint: host.DISCHARGE, load: MaterialLoad)(implicit ctx: host.CTX): host.RUNNER = channelFreeBehavior(endpoint, load, ctx)(host.waitingForChannel)
 		}.start
 }
 
-trait Host[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink] {
-	import Host._
+trait CarriageUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink] extends EquipmentUnit[HOST_SIGNAL] {
+	import CarriageUnit._
 
-	lazy val self: Processor.Ref = _self
-	private var _self: Processor.Ref = null
-	def installSelf(s: Processor.Ref) = _self = s
-	val name: String
-	private var _manager: Processor.Ref = _
-	protected lazy val manager: Processor.Ref = _manager
-	def installManager(m: Processor.Ref) = _manager = m
 
 	protected case object NoLoadWait extends WaitForLoad
-	protected case class WaitInductingToDischarge(induct: INDUCT, discharge: DISCHARGE, toLoc: SlotLocator) extends WaitForLoad
-	protected case class WaitInductingToStore(induct: INDUCT, toLoc: SlotLocator) extends WaitForLoad
+	protected case class WaitInducting(induct: INDUCT*) extends WaitForLoad
+	protected case class WaitInductingToDischarge(discharge: DISCHARGE, toLoc: SlotLocator, induct: INDUCT*) extends WaitForLoad
+	protected case class WaitInductingToStore(toLoc: SlotLocator, induct: INDUCT*) extends WaitForLoad
 	private var _waitingForLoad: WaitForLoad = NoLoadWait
 	def waitingForLoad: WaitForLoad = _waitingForLoad
-	protected def waitInductingToDischarge(induct: INDUCT, discharge: DISCHARGE, toLoc: SlotLocator) = _waitingForLoad = WaitInductingToDischarge(induct, discharge, toLoc)
-	protected def waitInductingToStore(induct: INDUCT, toLoc: SlotLocator) = _waitingForLoad = WaitInductingToStore(induct, toLoc)
+	protected def waitInducting(induct: INDUCT*) = _waitingForLoad = WaitInducting(induct: _*)
+	protected def waitInductingToDischarge(discharge: DISCHARGE, toLoc: SlotLocator, induct: INDUCT*) = _waitingForLoad = WaitInductingToDischarge(discharge, toLoc, induct: _*)
+	protected def waitInductingToStore(toLoc: SlotLocator, induct: INDUCT*) = _waitingForLoad = WaitInductingToStore( toLoc, induct: _*)
 	protected def endLoadWait = _waitingForLoad = NoLoadWait
 
 	protected case object NoChannelWait extends WaitForChannel
@@ -69,16 +58,8 @@ trait Host[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink] {
 	protected def waitDischarging(ch: DISCHARGE, loc: SlotLocator) = _waitingForChannel = WaitDischarging(ch, loc)
 	protected def endChannelWait = _waitingForChannel = NoChannelWait
 
-	type HOST <: Host[HOST_SIGNAL]
-	type EXTERNAL_COMMAND <: HOST_SIGNAL
-	type NOTIFICATION
-
-	type CTX = Processor.SignallingContext[HOST_SIGNAL]
-	type RUNNER = Processor.DomainRun[HOST_SIGNAL]
 	type INDUCT = Channel.End[MaterialLoad, HOST_SIGNAL]
 	type DISCHARGE = Channel.Start[MaterialLoad, HOST_SIGNAL]
-
-	val cs: Channel.Start[MaterialLoad, HOST_SIGNAL] = null
 
 	type LOAD_SIGNAL <: HOST_SIGNAL with LoadCmd
 	def loader(loc: SlotLocator): LOAD_SIGNAL

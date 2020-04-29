@@ -12,7 +12,7 @@ import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.shuttle.Shuttle
 import com.saldubatech.units.UnitsFixture.{DownstreamConfigure, SinkFixture, SourceFixture, TestProbeMessage, UpstreamConfigure, configurer}
-import com.saldubatech.units.`abstract`.EquipmentManager
+import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft}
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
@@ -80,8 +80,8 @@ class ShuttleLiftSorterFlowInboundSpec
 		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
-		val sorterConfig = UnitSorter.Configuration("sorter", 250, sorterInducts, sorterDischarges, sorterPhysics)
-		val sorter: Processor.Ref = UnitSorterBuilder.build(sorterConfig)
+		val sorterConfig = UnitSorter.Configuration(250, sorterInducts, sorterDischarges, sorterPhysics)
+		val sorter: Processor.Ref = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}

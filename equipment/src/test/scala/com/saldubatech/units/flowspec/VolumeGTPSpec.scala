@@ -12,7 +12,7 @@ import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
-import com.saldubatech.units.`abstract`.EquipmentManager
+import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.units.shuttle.Shuttle
@@ -231,8 +231,8 @@ class VolumeGTPSpec
 		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
-		val sorterConfig = UnitSorter.Configuration("sorter", 200, sorterInducts, sorterDischarges, sorterPhysics)
-		val sorter: Processor.Ref = UnitSorterBuilder.build(sorterConfig)
+		val sorterConfig = UnitSorter.Configuration(200, sorterInducts, sorterDischarges, sorterPhysics)
+		val sorter: Processor.Ref = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.map(chOps => new SourceFixture(chOps)(testMonitor, this))
 
