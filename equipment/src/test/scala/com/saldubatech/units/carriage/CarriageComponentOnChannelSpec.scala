@@ -13,6 +13,8 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.units.abstractions.CarriageUnit
+import com.saldubatech.units.abstractions.CarriageUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.carriage.SlotLocator
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -125,12 +127,13 @@ object CarriageComponentOnChannelSpec {
 	case class EDischarge(to: Channel.Start[MaterialLoad, MockSignal], at: SlotLocator) extends MockSignal
 
 
-	case class Load(override val loc: SlotLocator) extends CarriageComponent.LoadCmd(loc) with MockSignal
-	case class Unload(override val loc: SlotLocator) extends CarriageComponent.UnloadCmd(loc) with MockSignal
-	case class Induct(override val from: Channel.End[MaterialLoad, MockSignal], override val at: SlotLocator) extends CarriageComponent.InductCmd(from, at) with MockSignal
-	case class Discharge(override val to: Channel.Start[MaterialLoad, MockSignal], override val at: SlotLocator) extends CarriageComponent.DischargeCmd(to, at) with MockSignal
-	class MOCK_HOST(monitor: ActorRef[MockNotification]) extends CarriageComponent.Host[MockSignal, MockSignal] {
-		override type HOST_SIGNAL = MockSignal
+	case class Load(override val loc: SlotLocator) extends LoadCmd(loc) with MockSignal
+	case class Unload(override val loc: SlotLocator) extends UnloadCmd(loc) with MockSignal
+	case class Induct(override val from: Channel.End[MaterialLoad, MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with MockSignal
+	case class Discharge(override val to: Channel.Start[MaterialLoad, MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with MockSignal
+	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[MockSignal] {
+		override val name = "MockHOST"
+
 
 		override type LOAD_SIGNAL = Load
 		override def loader(loc: SlotLocator) = Load(loc)
@@ -141,13 +144,19 @@ object CarriageComponentOnChannelSpec {
 		override type DISCHARGE_SIGNAL = Discharge
 		override def discharger(to: Channel.Start[MaterialLoad, MockSignal], at: SlotLocator) = Discharge(to, at)
 
+		override type HOST = MOCK_CarriageUnit
+		override type EXTERNAL_COMMAND = MockSignal
+		override type NOTIFICATION = Nothing
+
+		override protected def notAcceptedNotification(cmd: EXTERNAL_COMMAND, msg: String) = throw new IllegalStateException("Should not be called")
+		override protected def completedCommandNotification(cmd: EXTERNAL_COMMAND) = throw new IllegalStateException("Should not be called")
 	}
 
 
 	class Harness(monitor: ActorRef[MockNotification], physics: CarriageTravel, inbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal],
 	              outbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal]) extends LogEnabled {
-		val host = new MOCK_HOST(monitor)
-		val carriage = new CarriageComponent[MockSignal, MockSignal, MOCK_HOST](physics, host)
+		val host = new MOCK_CarriageUnit(monitor)
+		val carriage = new CarriageComponent[MockSignal, MOCK_CarriageUnit](physics, host)
 		var _ref: Option[Processor.Ref] = None
 		var manager: Processor.Ref = _
 
@@ -276,6 +285,8 @@ object CarriageComponentOnChannelSpec {
 				case Configure(loc, inventory) =>
 					_ref = Some(ctx.aCtx.self)
 					manager = ctx.from
+					host.installManager(manager)
+					host.installSelf(ctx.aCtx.self)
 					carriage.atLocation(loc).withInventory(inventory)
 					ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
 					ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")

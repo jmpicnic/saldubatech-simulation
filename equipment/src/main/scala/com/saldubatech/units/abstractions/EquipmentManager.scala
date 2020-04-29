@@ -1,4 +1,4 @@
-package com.saldubatech.units.`abstract`
+package com.saldubatech.units.abstractions
 
 import com.saldubatech.base.Identification
 

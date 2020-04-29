@@ -34,8 +34,8 @@ package object flowspec {
 
 	object UnitSorterBuilder {
 		import com.saldubatech.units.unitsorter.UnitSorter
-		def build(config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): Processor.Ref =
-			actorCreator.spawn(UnitSorter.buildProcessor(config).init, config.name)
+		def build(name: String, config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: Processor.ProcessorCreator): Processor.Ref =
+			actorCreator.spawn(UnitSorter.buildProcessor(name, config).init, name)
 
 		def configure(lift: Processor.Ref)(implicit ctx: Processor.SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter.NoConfigure)
 	}
