@@ -5,7 +5,8 @@
 import sbt._
 
 object DependenciesSpecification {
-  val configuredScalaVersion = "2.12.10"
+  //val configuredScalaVersion = "2.13.2"
+  val configuredScalaVersion = "2.12.11"
 
   trait Package {
     val deps: Seq[ModuleID]

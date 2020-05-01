@@ -9,6 +9,7 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.util.LogEnabled
@@ -59,10 +60,11 @@ class UnitSorterSpec
 		with Matchers
 		with WordSpecLike
 		with BeforeAndAfterAll
+		with ClockEnabled
 		with LogEnabled {
 	import UnitSorterSpec._
 
-	val testKit = ActorTestKit()
+	override val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {}
 
@@ -72,12 +74,11 @@ class UnitSorterSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	implicit val globalClock = testKit.spawn(Clock())
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, UnitSorter.Notification)]
-	val xcManagerProcessor = new ProcessorSink(xcManagerProbe.ref, globalClock)
+	val xcManagerProcessor = new ProcessorSink(xcManagerProbe.ref, clock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "XCManager")
 
 
@@ -100,15 +101,15 @@ class UnitSorterSpec
 		// Sources & sinks
 		val sources = config.inducts.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
-		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceRefs = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
 
 		val destinations: Seq[SinkFixture[UnitSorterSignal]] =  config.discharges.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)}
-		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", globalClock, simController, configurer(dstSink)(testMonitor))}
+		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 
-		val underTestProcessor = UnitSorter.buildProcessor("underTest", config)(globalClock, simController)
+		val underTestProcessor = UnitSorter.buildProcessor("underTest", config)(clock, simController)
 		val underTest = testKit.spawn(underTestProcessor.init, underTestProcessor.processorName)
 
 
@@ -116,7 +117,7 @@ class UnitSorterSpec
 
 			"A01. Time is started they register for Configuration" in {
 				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs ++ Seq(underTest): _*)
-				globalClock ! Clock.StartTime()
+				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
@@ -130,15 +131,15 @@ class UnitSorterSpec
 				actorsToRegister.isEmpty should be(true)
 			}
 			"A02. Process its configuration" in {
-				underTest ! Processor.ConfigurationCommand(xcManager, 0L, UnitSorter.NoConfigure)
+				enqueueConfigure(underTest, xcManager, 0L, UnitSorter.NoConfigure)
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
 				xcManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
-				sourceRefs.foreach(act => act ! Processor.ConfigurationCommand(xcManager, 0L, UpstreamConfigure))
+				sourceRefs.foreach(act => enqueueConfigure(act, xcManager, 0L, UpstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
-				destinationRefs.foreach(ref => ref ! Processor.ConfigurationCommand(xcManager, 0L, DownstreamConfigure))
+				destinationRefs.foreach(ref => enqueueConfigure(ref, xcManager, 0L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs: _*)
@@ -159,13 +160,13 @@ class UnitSorterSpec
 			val probeLoad = MaterialLoad("First Load")
 			"B01. it receives the load in one induct" in {
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
-				sourceRefs.head ! Processor.ProcessCommand(sourceRefs.head, 55L, probeLoadMessage)
+				enqueue(sourceRefs.head, xcManager, 55L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				xcManagerProbe.expectMessage(68L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
 			}
 			"B02. and then it receives a Transfer command" in {
 				val transferCmd = UnitSorter.Sort(probeLoad, chDis1.name)
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 130, transferCmd))
+				enqueue(underTest, xcManager, 130L, transferCmd)
 				testMonitorProbe.expectMessage("Received Load Acknowledgement through Channel: Inbound1 with MaterialLoad(First Load) at 130")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge_0 at 203")
 				xcManagerProbe.expectMessage(190L -> UnitSorter.CompletedCommand(transferCmd))
@@ -179,12 +180,12 @@ class UnitSorterSpec
 				case (idx, load) => UnitSorter.Sort(load, s"Discharge_${(idx%4)/2}")
 			}
 			"C01. Sending all commands first" in {
-				commands.foreach(cmd => globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(xcManager, 500, cmd)))
+				commands.foreach(cmd => enqueue(underTest, xcManager, 500, cmd))
 				xcManagerProbe.expectNoMessage(500 millis)
 			}
 			"C02. Then sending the loads" in {
 				loads.foreach {
-					case (idx, load) => sourceRefs(idx%2) ! Processor.ProcessCommand(sourceRefs(idx%2), 600+idx, TestProbeMessage(load.lid, load))
+					case (idx, load) => enqueue(sourceRefs(idx%2), xcManager, 600+idx, TestProbeMessage(load.lid, load))
 				}
 				var fromSenderCount = 0
 				var acknowledgedLoadCount = 0

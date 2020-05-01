@@ -12,6 +12,7 @@ import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.util.LogEnabled
@@ -133,6 +134,7 @@ class ShuttleRejectedCommandsSpec
 		with Matchers
 		with WordSpecLike
 		with BeforeAndAfterAll
+		with ClockEnabled
 		with LogEnabled {
 	import ShuttleRejectedCommandsSpec._
 	val testKit = ActorTestKit()
@@ -149,15 +151,13 @@ class ShuttleRejectedCommandsSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	implicit val globalClock = testKit.spawn(Clock())
 	val testControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = testControllerProbe.ref
 
 	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, Shuttle.Notification)]
 	val shuttleLevelManagerRef = shuttleLevelManagerProbe.ref
-	val shuttleLevelManagerProcessor = new ProcessorSink(shuttleLevelManagerRef, globalClock)
+	val shuttleLevelManagerProcessor = new ProcessorSink(shuttleLevelManagerRef, clock)
 	val shuttleLevelManager = testKit.spawn(shuttleLevelManagerProcessor.init, "ShuttleLevelManager")
-
 
 	"A Shuttle Level" should {
 
@@ -183,13 +183,14 @@ class ShuttleRejectedCommandsSpec
 		val config = Shuttle.Configuration("underTest", 20, physics, ib, ob)
 		// Sources & sinks
 		val sources = config.inbound.map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
-		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
 		val sinks = config.outbound.map(obOps => new SinkFixture(obOps)(testMonitor, this))
-		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
+		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sinkActors = sinkProcessors.zip(Seq("d1", "d2")).map(t => testKit.spawn(t._1.init, t._2))
 
+		implicit val clk = clock
 		val shuttleLevelProcessor = Shuttle.buildProcessor(config, initial)
 		val underTest = testKit.spawn(shuttleLevelProcessor.init, "underTest")
 
@@ -198,7 +199,7 @@ class ShuttleRejectedCommandsSpec
 
 			"A01. Time is started they register for Configuration" in {
 				val actorsToRegister: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
-				globalClock ! Clock.StartTime(0L)
+				startTime()
 				testControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
@@ -213,18 +214,18 @@ class ShuttleRejectedCommandsSpec
 				testControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				underTest ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, Shuttle.NoConfigure)
+				enqueueConfigure(underTest, shuttleLevelManager, 0L, Shuttle.NoConfigure)
 				testControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
 				val msg = shuttleLevelManagerProbe.receiveMessage()
 				msg should be(0L -> Shuttle.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
-				sourceActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, UpstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
-				sinkActors.foreach(act => act ! Processor.ConfigurationCommand(shuttleLevelManager, 0L, DownstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
+				sourceActors.foreach(act => enqueueConfigure(act, shuttleLevelManager, 0L, UpstreamConfigure))
+				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
+				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
+				sinkActors.foreach(act => enqueueConfigure(act, shuttleLevelManager, 0L, DownstreamConfigure))
+				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
+				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
@@ -245,18 +246,18 @@ class ShuttleRejectedCommandsSpec
 			"B01. Storing a Load" in {
 				val probeLoad = MaterialLoad("First Load")
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
-				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 2L, probeLoadMessage)
+				enqueue(sourceActors.head, sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				shuttleLevelManagerProbe.expectMessage(15L -> Shuttle.LoadArrival(chIb1.name, probeLoad))
 				val storeCmd = Shuttle.Store("Inbound1", OnLeft(2))
 				log.info(s"Queuing Store Command: $storeCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 100L, storeCmd))
+				enqueue(underTest, shuttleLevelManager, 100L, storeCmd)
 				shuttleLevelManagerProbe.expectMessage((100L -> Shuttle.FailedEmpty(storeCmd, "Target Location to Store (OnLeft(2)) is Full")))
 			}
 			"B02. Grooming a load" in {
 				val groomCmd = Shuttle.Groom(OnLeft(2), OnRight(5))
 				log.info(s"Queuing Groom Command: $groomCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 130L, groomCmd))
+				enqueue(underTest, shuttleLevelManager, 130L, groomCmd)
 				shuttleLevelManagerProbe.expectMessage((130L -> Shuttle.FailedEmpty(groomCmd, "Target Location to Store (OnRight(5)) is not empty")))
 			}
 		}
@@ -264,13 +265,13 @@ class ShuttleRejectedCommandsSpec
 			"C01. Retrieving a load" in {
 				val retrieveCmd = Shuttle.Retrieve(OnLeft(7), "Outbound2")
 				log.info(s"Queuing Retrieve Command: $retrieveCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 155, retrieveCmd))
+				enqueue(underTest, shuttleLevelManager, 155, retrieveCmd)
 				shuttleLevelManagerProbe.expectMessage((155L -> Shuttle.FailedEmpty(retrieveCmd, "Source Location (OnLeft(7)) to Retrieve is Empty")))
 			}
 			"C02. Grooming a Load" in {
 				val groomCmd = Shuttle.Groom(OnRight(4), OnLeft(7))
 				log.info(s"Queuing Groom Command: $groomCmd")
-				globalClock ! Clock.Enqueue(underTest, Processor.ProcessCommand(shuttleLevelManager, 160, groomCmd))
+				enqueue(underTest, shuttleLevelManager, 160, groomCmd)
 				shuttleLevelManagerProbe.expectMessage((160L -> Shuttle.FailedEmpty(groomCmd, "Source Location (OnRight(4)) to Retrieve is Empty")))
 			}
 		}

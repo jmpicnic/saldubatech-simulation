@@ -1,13 +1,10 @@
 package com.saldubatech.units.carriage
 
-import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Processor
-import com.saldubatech.ddes.Processor.CommandContext
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.abstractions.CarriageUnit
-import com.saldubatech.units.carriage.{OnRight, SlotLocator}
+import com.saldubatech.units.abstractions.{CarriageUnit, EquipmentUnit, InductDischargeUnit}
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object CarriageComponent {
 	sealed trait OperationOutcome
@@ -29,7 +26,7 @@ object CarriageComponent {
 	}
 
 }
-class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: CarriageUnit[HS]]
+class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: EquipmentUnit[HS]  with InductDischargeUnit[HS]]
 (travelPhysics: CarriageTravel, val host: HOST) {
 	import CarriageComponent._
 
@@ -63,7 +60,7 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Carr
 		OperationOutcome.InTransit
 	}
 
-	def LOADING(continuation: host.CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, host.RUNNER]): host.RUNNER = {
+	def LOADING(continuation: host.CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, host.RUNNER])(implicit lsCT: ClassTag[host.LOAD_SIGNAL]): host.RUNNER = {
 		implicit ctx: host.CTX => {
 			case cmd: host.LOAD_SIGNAL => continuation(ctx)(trayLoadingEffect(cmd.loc))
 		}
@@ -86,7 +83,7 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Carr
 		ctx.signalSelf(host.unloader(loc), travelPhysics.timeToDeliver(At(_currentLocation), loc))
 		OperationOutcome.InTransit
 	}
-	def UNLOADING(continuation: host.CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, host.RUNNER]): host.RUNNER = {
+	def UNLOADING(continuation: host.CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, host.RUNNER])(implicit ulsCT: ClassTag[host.UNLOAD_SIGNAL]): host.RUNNER = {
 		implicit ctx: host.CTX => {
 			case cmd: host.UNLOAD_SIGNAL => continuation(ctx)(trayUnloadingEffect(cmd.loc))
 		}
@@ -110,7 +107,7 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Carr
 		OperationOutcome.InTransit
 	}
 
-	def INDUCTING(continuation: host.CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, host.RUNNER]): host.RUNNER = {
+	def INDUCTING(continuation: host.CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, host.RUNNER])(implicit usCT: ClassTag[host.INDUCT_SIGNAL]): host.RUNNER = {
 		implicit ctx: host.CTX => {
 			case cmd: host.INDUCT_SIGNAL => continuation(ctx)(trayInductEffect(cmd.from, cmd.at))
 		}
@@ -134,7 +131,7 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Carr
 		OperationOutcome.InTransit
 	}
 
-	def DISCHARGING(continuation: host.CTX => PartialFunction[UnloadOperationOutcome, host.RUNNER]): host.RUNNER = {
+	def DISCHARGING(continuation: host.CTX => PartialFunction[UnloadOperationOutcome, host.RUNNER])(implicit dsCT: ClassTag[host.DISCHARGE_SIGNAL]): host.RUNNER = {
 		implicit ctx: host.CTX => {
 			case cmd: host.DISCHARGE_SIGNAL => continuation(ctx)(trayDischargeEffect(cmd.to, cmd.at))
 		}

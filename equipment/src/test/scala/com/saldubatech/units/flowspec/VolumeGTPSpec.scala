@@ -10,6 +10,7 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.BaseSpec.TestProbeExt
+import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.units.abstractions.EquipmentManager
@@ -176,6 +177,7 @@ class VolumeGTPSpec
 		with Matchers
 		with WordSpecLike
 		with BeforeAndAfterAll
+		with ClockEnabled
 		with LogEnabled {
 
 	import VolumeGTPSpec._
@@ -183,7 +185,7 @@ class VolumeGTPSpec
 	val nCards = 4
 	val cards = (0 until nCards).map(i => s"c$i").toSet
 
-	implicit val testKit = ActorTestKit()
+	implicit override val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {}
 
@@ -193,16 +195,16 @@ class VolumeGTPSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	implicit val globalClock = testKit.spawn(Clock())
+//	implicit val globalClock = testKit.spawn(Clock())
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManager.Notification)]
-	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, globalClock)
+	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, clock)
 	val systemManager = testKit.spawn(systemManagerProcessor.init, "systemManager")
 
 	val sorterManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManager.Notification)]
-	val sorterManagerProcessor = new ProcessorSink(sorterManagerProbe.ref, globalClock)
+	val sorterManagerProcessor = new ProcessorSink(sorterManagerProbe.ref, clock)
 	val sorterManager = testKit.spawn(sorterManagerProcessor.init, "sorterManager")
 
 	"A GTP BackEnd" should {
@@ -214,6 +216,7 @@ class VolumeGTPSpec
 		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_A"))
 		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_B"))
 
+		implicit val clk = clock
 		val aisleA = buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2, 5))
 		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2, 5))
 		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(50 -> aisleASorter, 0 -> aisleBSorter)
@@ -236,14 +239,14 @@ class VolumeGTPSpec
 
 		val sources = inboundInducts.values.map(chOps => new SourceFixture(chOps)(testMonitor, this))
 
-		val sourceProcessors = sources.zip(Seq("Inbound1", "Inbound2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("Inbound1", "Inbound2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 
 		val sourceRefs: Seq[Processor.Ref] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName)).toList
 
 		val destinations = outboundDischarges.values.toSeq.map {
 			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)
 		}
-		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new Processor(s"discharge_$idx", globalClock, simController, configurer(dstSink)(testMonitor)) }
+		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor)) }
 		val destinationRefs: Seq[Processor.Ref] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 
 		val slotDimension = (0 until 20)
@@ -296,7 +299,7 @@ class VolumeGTPSpec
 			"A01. Time is started they register for Configuration" in {
 				val actors = sourceRefs ++ shuttleManagers.values ++ liftManagers.values ++ destinationRefs ++ Seq(sorter, aisleA._1, aisleB._1) ++ aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
 				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(actors: _*)
-				globalClock ! Clock.StartTime()
+				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
@@ -311,16 +314,16 @@ class VolumeGTPSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Process the configuration of its elements" in {
-				shuttleManagers.values.foreach(_ ! Processor.ConfigurationCommand(systemManager, 0L, ManagerConfigure))
-				liftManagers.values.foreach(_ ! Processor.ConfigurationCommand(systemManager, 0L, ManagerConfigure))
-				sorter ! Processor.ConfigurationCommand(sorterManager, 0L, UnitSorter.NoConfigure)
+				shuttleManagers.values.foreach(enqueueConfigure(_,systemManager, 0L, ManagerConfigure))
+				liftManagers.values.foreach(enqueueConfigure(_, systemManager, 0L, ManagerConfigure))
+				enqueueConfigure(sorter, sorterManager, 0L, UnitSorter.NoConfigure)
 				sorterManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(sorter))
 				val systemManagerProbeExt = new TestProbeExt(systemManagerProbe)
-				aisleA._1 ! Processor.ConfigurationCommand(liftManagers(aisleA._1), 6L, XSwitch.NoConfigure)
-				aisleB._1 ! Processor.ConfigurationCommand(liftManagers(aisleB._1), 6L, XSwitch.NoConfigure)
-				allShuttles.foreach(sh => sh ! Processor.ConfigurationCommand(shuttleManagers(sh), 10L, Shuttle.NoConfigure))
+				enqueueConfigure(aisleA._1, liftManagers(aisleA._1), 6L, XSwitch.NoConfigure)
+				enqueueConfigure(aisleB._1, liftManagers(aisleB._1), 6L, XSwitch.NoConfigure)
+				allShuttles.foreach(sh => enqueueConfigure(sh, shuttleManagers(sh), 10L, Shuttle.NoConfigure))
 
-				val shuttleCompletes = allShuttles.map(sh => (10L -> Shuttle.CompletedConfiguration(sh))).toList
+				val shuttleCompletes = allShuttles.map(sh => 10L -> Shuttle.CompletedConfiguration(sh)).toList
 				val shuttleManagerCompletes = shuttleManagers.values.map(shm => (10L -> ConfigurationComplete(shm)))
 				val liftManagerCompletes = liftManagers.values.map(lm => (6L -> ConfigurationComplete(lm)))
 				systemManagerProbeExt.expectMessages(
@@ -338,10 +341,10 @@ class VolumeGTPSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A03. Sinks and Sources accept Configuration" in {
-				sourceRefs.foreach(act => act ! Processor.ConfigurationCommand(sorterManager, 0L, UpstreamConfigure))
+				sourceRefs.foreach(act => enqueueConfigure(act, sorterManager, 10L, UpstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
-				destinationRefs.foreach(ref => ref ! Processor.ConfigurationCommand(sorterManager, 0L, DownstreamConfigure))
+				destinationRefs.foreach(ref => enqueueConfigure(ref, sorterManager, 10L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs: _*)
@@ -362,10 +365,10 @@ class VolumeGTPSpec
 			"B01. Filling the Store" in {
 				var count = 0
 				inboundJobs.foreach {job =>
-					globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(sorterManager, 20, job.sorterCmd))
+					enqueue(sorter, sorterManager, 20, job.sorterCmd)
 					val source = sourceRefs(count%2)
 					count += 1
-					globalClock ! Clock.Enqueue(source, Processor.ProcessCommand(source, 70L, TestProbeMessage(s"InboundLoad#$count", job.load)))
+					enqueue(source, source, 70L, TestProbeMessage(s"InboundLoad#$count", job.load))
 				}
 				var completedCommands = 0
 				systemManagerProbe.fishForMessage(20 seconds) {
@@ -420,10 +423,9 @@ class VolumeGTPSpec
 				testMonitorProbe.expectNoMessage(500 millis)
 			}
 			"B02. Then emptying it." in {
-				outboundJobs.foreach {job =>
-					globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(sorterManager, 3000L, job.sorterCmd))
+				outboundJobs.foreach {job => enqueue(sorter, sorterManager, 3000L, job.sorterCmd)
 				}
-				shuttleManagers.values.foreach{mngr => globalClock ! Clock.Enqueue(mngr, Processor.ProcessCommand(systemManager, 3100L, SWITCH_TO_OUTBOUND))}
+				shuttleManagers.values.foreach{mngr => enqueue(mngr, systemManager, 3100L, SWITCH_TO_OUTBOUND)}
 				var completedCommands = 0
 				var sorterLoadsReceived = 0
 				var sorterCompletedCommands = 0

@@ -8,8 +8,8 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.abstractions.{EquipmentManager, CarriageUnit}
-import com.saldubatech.units.abstractions.CarriageUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
+import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
+import com.saldubatech.units.abstractions.{CarriageUnit, EquipmentManager, InductDischargeUnit}
 import com.saldubatech.units.carriage.{At, CarriageComponent, CarriageTravel, SlotLocator}
 import com.saldubatech.util.LogEnabled
 
@@ -52,7 +52,7 @@ object XSwitch {
 class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
 	OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
 (override val name: String, configuration: XSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
-	extends Identification.Impl(name) with CarriageUnit[XSwitch.XSwitchSignal] with LogEnabled {
+	extends Identification.Impl(name) with CarriageUnit[XSwitch.XSwitchSignal] with InductDischargeUnit[XSwitch.XSwitchSignal] with LogEnabled {
 	import XSwitch._
 
 	sealed trait CarriageSignal extends XSwitchSignal
@@ -79,7 +79,7 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 	protected override def notAcceptedNotification(cmd: ExternalCommand, msg: String) = NotAcceptedCommand(cmd, msg)
 	protected override def completedCommandNotification(cmd: ExternalCommand) = CompletedCommand(cmd)
 
-	val loadArrivalBehavior: (INDUCT, MaterialLoad, Option[Distance], CTX) => PartialFunction[CarriageUnit.WaitForLoad, RUNNER] =
+	val loadArrivalBehavior: (INDUCT, MaterialLoad, Option[Distance], CTX) => PartialFunction[InductDischargeUnit.WaitForLoad, RUNNER] =
 		(induct: INDUCT, load: MaterialLoad, idx: Option[Distance], ctx: CTX) => {
 			case NoLoadWait =>
 				ctx.signal(manager, LoadArrival(induct.channelName, load))
@@ -95,7 +95,7 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 					cmd => FailedWaiting(s"Received On Unexpected Channel: ${induct.channelName} while waiting on ${w.discharge.channelName} for command $currentCommand"))(ctx)
 		}
 
-	private val channelFreeBehavior: (DISCHARGE, MaterialLoad, CTX) => PartialFunction[CarriageUnit.WaitForChannel, RUNNER] = {
+	private val channelFreeBehavior: (DISCHARGE, MaterialLoad, CTX) => PartialFunction[InductDischargeUnit.WaitForChannel, RUNNER] = {
 		(toCh: DISCHARGE, ld: MaterialLoad, ctx: CTX) => {
 			case NoChannelWait => Processor.DomainRun.same
 			case WaitDischarging(ch, loc) =>
@@ -141,12 +141,12 @@ class XSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, In
 						installSelf(ctx.aCtx.self)
 						inboundRouting = new RoutingGroup(
 							configuration.inboundInduction.map{
-								case (idx, ch) => idx -> CarriageUnit.inductSink[XSwitchSignal, HOST](XSwitch.this)(loadArrivalBehavior)(At(idx), ch)},
-							configuration.inboundDischarge.map{case (idx, ch) => idx -> CarriageUnit.dischargeSource[XSwitchSignal, HOST](XSwitch.this)(At(idx), manager, ch)(channelFreeBehavior)})
+								case (idx, ch) => idx -> InductDischargeUnit.inductSink[XSwitchSignal, HOST](XSwitch.this)(loadArrivalBehavior)(At(idx), ch)},
+							configuration.inboundDischarge.map{case (idx, ch) => idx -> InductDischargeUnit.dischargeSource[XSwitchSignal, HOST](XSwitch.this)(At(idx), manager, ch)(channelFreeBehavior)})
 						outboundRouting = new RoutingGroup(
 							configuration.outboundInduction.map{
-								case (idx, ch) => idx -> CarriageUnit.inductSink[XSwitchSignal, HOST](XSwitch.this)(loadArrivalBehavior)(At(idx),ch)},
-							configuration.outboundDischarge.map{case (idx, ch) => idx -> CarriageUnit.dischargeSource[XSwitchSignal, HOST](XSwitch.this)(At(idx), manager, ch)(channelFreeBehavior)})
+								case (idx, ch) => idx -> InductDischargeUnit.inductSink[XSwitchSignal, HOST](XSwitch.this)(loadArrivalBehavior)(At(idx),ch)},
+							configuration.outboundDischarge.map{case (idx, ch) => idx -> InductDischargeUnit.dischargeSource[XSwitchSignal, HOST](XSwitch.this)(At(idx), manager, ch)(channelFreeBehavior)})
 						ctx.configureContext.signal(manager, CompletedConfiguration(ctx.aCtx.self))
 						IDLE
 				}

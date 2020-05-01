@@ -10,6 +10,7 @@ import com.saldubatech.{ddes, transport}
 import com.saldubatech.ddes.Processor.SignallingContext
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.{Clock, Processor}
+import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.ChannelConnections.{DummySinkMessageType, DummySourceMessageType}
 import com.saldubatech.util.LogEnabled
 import org.apache.commons.math3.ode.sampling.DummyStepHandler
@@ -36,10 +37,11 @@ class ChannelSpec extends WordSpec
 	with Matchers
 	with WordSpecLike
 	with BeforeAndAfterAll
-	with LogEnabled  {
+	with LogEnabled
+	with ClockEnabled {
 	import ChannelSpec._
 
-	val testKit = ActorTestKit()
+	override val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {
 
@@ -53,7 +55,7 @@ class ChannelSpec extends WordSpec
 
 
 	val testActor = testKit.createTestProbe[String]
-	val globalClock = testKit.spawn(Clock())
+
 	val testController = testKit.createTestProbe[ControllerMessage]
 	val underTest = new Channel[ProbeLoad, DummySourceMessageType, DummySinkMessageType](() => Some(7), () => Some(3), Set("card1", "card2"), 1, "underTest"){
 		override type TransferSignal = Channel.TransferLoad[ProbeLoad] with DummySinkMessageType
@@ -118,21 +120,24 @@ class ChannelSpec extends WordSpec
 			}
 		}
 
-	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType], ctx: SignallingContext[DummySourceMessageType]): Processor.DomainRun[DummySourceMessageType] =
-		ops.start.ackReceiver orElse Processor.DomainRun[DummySourceMessageType]{
-			case SenderProcessType(msg, load) =>
-				log.info(s"Got Domain Message in Sender $msg")
+	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType]): Processor.DomainRun[DummySourceMessageType] =
+		ops.start.ackReceiver orElse {
+			implicit ctx: SignallingContext[DummySourceMessageType] => {
+				case SenderProcessType (msg, load) =>
+				log.info (s"Got Domain Message in Sender $msg")
 				testActor.ref ! s"FromSender: $msg"
-				ops.start.send(load)
-				log.info(s"Sent $load through channel ${ops.start.channelName}")
+				ops.start.send (load)
+				log.info (s"Sent $load through channel ${ops.start.channelName}")
 				senderRunner
-			case other =>
-				fail(s"Unexpected Message $other");
+				case other =>
+				fail (s"Unexpected Message $other");
 				senderRunner
+			}
 		}
 
 
-	val sender = new Processor("sender", globalClock, testController.ref, senderConfigurer)
+
+	val sender = new Processor("sender", clock, testController.ref, senderConfigurer)
 
 
 	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, DummySourceMessageType, DummySinkMessageType], ctx: SignallingContext[DummySinkMessageType]): Processor.DomainRun[DummySinkMessageType] =
@@ -155,7 +160,7 @@ class ChannelSpec extends WordSpec
 			}
 		}
 
-	val receiver = new Processor("receiver", globalClock, testController.ref, receiverConfigurer)
+	val receiver = new Processor("receiver", clock, testController.ref, receiverConfigurer)
 
 	val mockProcessorOrigin = testKit.createTestProbe[Processor.ProcessorMessage]
 
@@ -165,10 +170,10 @@ class ChannelSpec extends WordSpec
 			val s = testKit.spawn(sender.init, "Sender")
 			val r = testKit.spawn(receiver.init, "Receiver")
 			"A1. Allow for Start and End registration" in {
-				globalClock ! Clock.StartTime(0L)
-				s ! Processor.ConfigurationCommand[SenderConfigType](mockProcessorOrigin.ref, 0L, SenderConfigType("ConfigureSender"))
+				startTime()
+				enqueueConfigure(s, mockProcessorOrigin.ref, 0L, SenderConfigType("ConfigureSender"))
 				testActor.expectMessage("ConfigureSender")
-				r ! Processor.ConfigurationCommand[ReceiverConfigType](mockProcessorOrigin.ref, 0L, ReceiverConfigType("ConfigureReceiver"))
+				enqueueConfigure(r, mockProcessorOrigin.ref, 0L, ReceiverConfigType("ConfigureReceiver"))
 				testActor.expectMessage("From Receiver-Cfg: ConfigureReceiver")
 				testActor.ref ! "DoneConfiguring"
 			}
@@ -176,9 +181,7 @@ class ChannelSpec extends WordSpec
 				testActor.expectMessage("DoneConfiguring")
 				val probe1 = ProbeLoad("probe1")
 				val msg1 = Processor.ProcessCommand(mockProcessorOrigin.ref, 5L, SenderProcessType("probe1", probe1))
-				globalClock ! Clock.Enqueue(s,msg1)
-//				globalClock ! Clock.Enqueue(r, 15, Processor.ProcessCommand(mockProcessorOrigin.ref, 15, ReceiverProcessType("probe1-release", probe1)))
-
+				enqueue(s, mockProcessorOrigin.ref, 5L, SenderProcessType("probe1", probe1))
 
 				testActor.expectMessage("FromSender: probe1")
 				testActor.expectMessage("probe1-Received")
