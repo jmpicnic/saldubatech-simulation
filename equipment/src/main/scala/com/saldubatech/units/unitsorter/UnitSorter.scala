@@ -69,8 +69,9 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 	}
 
 	private def inductSink(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, _, UnitSorterSignal], host: Processor.Ref) =
-		new EquipmentUnit.InductSink(chOps, host) {
-
+		new Channel.Sink[MaterialLoad, UnitSorterSignal] {
+			lazy override val ref = host
+			lazy val end = chOps.registerEnd(this)
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, endpoint.channelName))
@@ -84,7 +85,9 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 		}.end
 
 	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, _], host: Processor.Ref) =
-		new EquipmentUnit.DischargeSource(chOps, host) {
+		new Channel.Source[MaterialLoad, UnitSorterSignal] {
+			override lazy val ref = host
+			lazy val start = chOps.registerStart(this)
 			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, UnitSorterSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[UnitSorterSignal]): RUNNER = {
 				stopCycle
 				Processor.DomainRun.same

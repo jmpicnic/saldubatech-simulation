@@ -13,8 +13,8 @@ import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.abstractions.CarriageUnit
-import com.saldubatech.units.abstractions.CarriageUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
+import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
+import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.carriage.SlotLocator
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -131,7 +131,7 @@ object CarriageComponentOnChannelSpec {
 	case class Unload(override val loc: SlotLocator) extends UnloadCmd(loc) with MockSignal
 	case class Induct(override val from: Channel.End[MaterialLoad, MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with MockSignal
 	case class Discharge(override val to: Channel.Start[MaterialLoad, MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with MockSignal
-	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[MockSignal] {
+	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[MockSignal] with InductDischargeUnit[MockSignal]{
 		override val name = "MockHOST"
 
 

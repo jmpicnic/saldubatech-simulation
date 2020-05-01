@@ -18,7 +18,7 @@ object ChannelConnections {
 		with Shuttle.ShuttleSignal
 		with XSwitch.XSwitchSignal
 		with UnitSorterSignal
-		with LoadAwareShuttle.LoadShuttleSignal
+		with LoadAwareShuttle.LoadAwareShuttleSignal
 
 
 

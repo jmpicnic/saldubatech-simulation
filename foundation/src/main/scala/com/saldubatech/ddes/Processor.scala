@@ -72,6 +72,8 @@ object Processor {
 	//trait DomainRun[DomainMessage] extends PartialFunction[DomainMessage, Function1[CommandContext[DomainMessage],DomainRun[DomainMessage]]]
 	trait DomainRun[DomainMessage] extends Function[SignallingContext[DomainMessage], PartialFunction[DomainMessage,DomainRun[DomainMessage]]] with DomainMessageProcessor[DomainMessage] {
 		def orElse(other: DomainRun[DomainMessage]): DomainRun[DomainMessage] = (ctx: SignallingContext[DomainMessage]) => this (ctx) orElse other(ctx)
+
+		def isDefinedAt(s: DomainMessage) = (ctx: SignallingContext[DomainMessage]) => this(ctx).isDefinedAt(s)
 	}
 	object DomainRun {
 		def apply[DomainMessage](runLogic: PartialFunction[DomainMessage, DomainRun[DomainMessage]]): DomainRun[DomainMessage] = {
@@ -125,36 +127,36 @@ class Processor[DomainMessage](val processorName: String,
 			case cmd: ConfigurationCommand[DomainMessage] =>
 				ctx.log.debug(s"Configuring with $cmd")
 				clock ! StartActionOnReceive(cmd)
-				val next = c.configure(cmd.cm)(CommandContext(cmd.from, cmd.at, ctx)(clock))
+				val next = c.configure(cmd.cm)(ConfigureContext(cmd.from, cmd.at, ctx)(clock))
 				clock ! CompleteAction(cmd)
 				next match {
 					case configurer: DomainConfigure[DomainMessage] =>
 						doConfigure(configurer)
 					case runner: DomainRun[DomainMessage] =>
 						controller ! CompleteConfiguration(ref)
-						behaviorizeRunner[DomainMessage](runner)(clock)
+						behaviorizeRunner(runner)(clock)
 				}
 
 		}
 	}
-	private def behaviorizeRunner[DomainMessage](runner: DomainRun[DomainMessage])(implicit clock: ActorRef[ClockMessage]): Behavior[ProcessorMessage] =
+	private def behaviorizeRunner(runner: DomainRun[DomainMessage])(implicit clock: ActorRef[ClockMessage]): Behavior[ProcessorMessage] =
 		Behaviors.receive[ProcessorMessage]{
 			(ctx, msg) =>
 				msg match {
-					case cmd: ProcessCommand[DomainMessage] =>
-//						ctx.log.info(s"MSC: ${cmd.from.path.name} -> ${ctx.self.path.name}: [${cmd.at}] ${cmd.dm}")
-						ctx.log.debug(s"Processing Command: ${cmd.dm} at ${cmd.at}")
-						clock ! StartActionOnReceive(cmd)
-						val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)
-//						ctx.log.debug(s"Done Processing Command: ${cmd.dm} at ${cmd.at} by ${ctx.self}")
-						clock ! CompleteAction(cmd)
-						next match {
-							case r: DomainRun.Same[DomainMessage] =>
-//								log.debug(s"Repeating DomainRun")
-								behaviorizeRunner(runner)
-							case other => behaviorizeRunner(next)
-						}
+					case cmd: ProcessCommand[DomainMessage] => doProcessCommand(runner)(cmd)(clock, ctx)
 					//case Shutdown => do something
 				}
 		}
+
+	private def doProcessCommand(runner: DomainRun[DomainMessage])(cmd: ProcessCommand[DomainMessage])(implicit clock: ActorRef[ClockMessage], ctx: ActorContext[ProcessorMessage]): Behavior[ProcessorMessage] = {
+		ctx.log.debug(s"Processing Command: ${cmd.dm} at ${cmd.at}")
+		clock ! StartActionOnReceive(cmd)
+		val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.at, ctx)(clock))(cmd.dm)
+		clock ! CompleteAction(cmd)
+		next match {
+			case r: DomainRun.Same[DomainMessage] =>
+				behaviorizeRunner(runner)
+			case other => behaviorizeRunner(next)
+		}
+	}
 }
