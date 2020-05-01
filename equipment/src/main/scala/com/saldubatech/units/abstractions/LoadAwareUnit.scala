@@ -75,13 +75,13 @@ trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Ident
 
 	private var working: Option[(Tick, EXTERNAL_COMMAND)] = None
 
-	protected def commandListener(runner: RUNNER, isApplicable: EXTERNAL_COMMAND => Boolean = _ => true)
+	protected def continueCommand(runner: RUNNER, isApplicable: EXTERNAL_COMMAND => Boolean = _ => true)
 	                             (implicit extTag: ClassTag[EXTERNAL_COMMAND], prioTag: ClassTag[PRIORITY_COMMAND], ldCmd: ClassTag[INBOUND_LOAD_COMMAND]): RUNNER = {
 		val cmdHandler: RUNNER = {
 			implicit ctx: CTX => {
 				case cmd: EXTERNAL_COMMAND =>
 					this += ctx.now -> cmd
-					triggerNext(runner, isApplicable) orElse commandListener(runner, isApplicable)
+					triggerNext(Processor.DomainRun.same, isApplicable) //orElse commandContinue(runner, isApplicable)
 			}
 		}
 		cmdHandler orElse runner
@@ -109,11 +109,11 @@ trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Ident
 		}
 	}
 
-	protected def completeCommand(next: => RUNNER, notifier: EXTERNAL_COMMAND => NOTIFICATION)(implicit ctx: CTX, prioCT: ClassTag[PRIORITY_COMMAND]): RUNNER = {
+	protected def completeCommand(next: => RUNNER, notifier: EXTERNAL_COMMAND => NOTIFICATION)(implicit ctx: CTX, extTag: ClassTag[EXTERNAL_COMMAND], prioCT: ClassTag[PRIORITY_COMMAND], ldCmd: ClassTag[INBOUND_LOAD_COMMAND]): RUNNER = {
 		if (working nonEmpty) {
 			ctx.signal(manager, notifier(working.head._2))
 			working = None
-			triggerNext(next)
+			triggerNext(continueCommand(next))
 		} else Processor.DomainRun.same
 	}
 	protected def maxCommandsReached(cmd: EXTERNAL_COMMAND): NOTIFICATION
