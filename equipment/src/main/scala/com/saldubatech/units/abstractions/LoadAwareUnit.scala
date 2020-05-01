@@ -64,11 +64,9 @@ trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Ident
 					case pCmd: PRIORITY_COMMAND => priority += tick -> pCmd
 					case _ => ready += tick -> cmd
 				}
-				println(s"### Matched cmd: $cmd to load $entry._2")
 				unmatchedCommands -= cmdTick -> cmd
 			} isEmpty) {
 				ctx.signal(manager, loadArrival(onChannel, entry._2))
-				println(s"### Unmatched Load: ${entry._2}")
 				unmatchedLoads += entry
 		}
 	}

@@ -6,24 +6,23 @@ package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.Clock.Enqueue
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.CarriageTravel
-import com.saldubatech.units.lift.XSwitch
+import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object FanInWaitingForSlotSpec {
+object LoadAwareFanInWaitingForSlotSpec {
 
 }
 
-class FanInWaitingForSlotSpec
+class LoadAwareFanInWaitingForSlotSpec
 	extends WordSpec
 		with Matchers
 		with WordSpecLike
@@ -31,7 +30,7 @@ class FanInWaitingForSlotSpec
 		with ClockEnabled
 		with LogEnabled {
 	import XSwitchFixtures._
-	import XSwitchHelpers._
+	import LoadAwareHelpers._
 
 
 	val testKit = ActorTestKit()
@@ -51,7 +50,7 @@ class FanInWaitingForSlotSpec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, XSwitch.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, LoadAwareXSwitch.Notification)]
 	val xcManagerRef = xcManagerProbe.ref
 	val xcManagerProcessor = new ProcessorSink(xcManagerRef, clock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "FanInManager")
@@ -62,13 +61,13 @@ class FanInWaitingForSlotSpec
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1 = new InboundChannelImpl[LoadAwareXSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl[LoadAwareXSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
 		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[LoadAwareXSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1"), 1, "Discharge"))))
 
-		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
+		val config = LoadAwareXSwitch.Configuration(physics, 5, Map.empty, Map.empty, obInduct, obDischarge, 0)
 
 
 		// Sources & sinks
@@ -81,7 +80,7 @@ class FanInWaitingForSlotSpec
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
 		implicit val clk = clock
-		val underTestProcessor = XSwitch.buildProcessor("underTest", config)
+		val underTestProcessor = LoadAwareXSwitch.buildProcessor("underTest", config)
 		val underTest = testKit.spawn(underTestProcessor.init, "underTest")
 
 
@@ -103,9 +102,9 @@ class FanInWaitingForSlotSpec
 				actorsToRegister.isEmpty should be(true)
 			}
 			"A02. Register its Lift when it gets Configured" in {
-				enqueueConfigure(underTest, xcManager, 0L, XSwitch.NoConfigure)
+				enqueueConfigure(underTest, xcManager, 0L, LoadAwareXSwitch.NoConfigure)
 				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
-				xcManagerProbe.expectMessage(0L -> XSwitch.CompletedConfiguration(underTest))
+				xcManagerProbe.expectMessage(0L -> LoadAwareXSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => enqueueConfigure(act, xcManager, 0L, UpstreamConfigure))
@@ -135,51 +134,48 @@ class FanInWaitingForSlotSpec
 				val probeLoadMessage = TestProbeMessage("First Load", firstLoad)
 				enqueue(sourceActors.head, sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
-				xcManagerProbe.expectMessage(15L -> XSwitch.LoadArrival(chIb1.name, firstLoad))
+				xcManagerProbe.expectMessage(15L -> LoadAwareXSwitch.LoadArrival(chIb1.name, firstLoad))
 			}
 			"B02. and then it receives a Transfer command" in {
-				val transferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
+				val transferCommand = LoadAwareXSwitch.Transfer(firstLoad, "Discharge")
 				enqueue(underTest, xcManager, 155, transferCommand)
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
-				xcManagerProbe.expectMessage(174L -> XSwitch.CompletedCommand(transferCommand))
+				xcManagerProbe.expectMessage(174L -> LoadAwareXSwitch.CompletedCommand(transferCommand))
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived to Sink via channel Discharge")
 			}
 		}
 		"C. Transfer a second load from one induct to the discharge" when {
-			val secondTransferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
-			val thirdTransferCommand = XSwitch.Transfer(chIb1.name, "Discharge")
+			val secondLoad = MaterialLoad("Second Load")
+			val secondTransferCommand = LoadAwareXSwitch.Transfer(secondLoad, "Discharge")
+			val thirdLoad = MaterialLoad("Third Load")
+			val thirdTransferCommand = LoadAwareXSwitch.Transfer(thirdLoad, "Discharge")
 			"C01. it receives the command first" in {
 				enqueue(underTest, xcManager, 190L, secondTransferCommand)
 			}
 			"C02. and then receives the load in the origin channel, waiting for a free discharge card" in {
-				val probeLoad = MaterialLoad("Second Load")
-				val probeLoadMessage = TestProbeMessage("Second Load", probeLoad)
+				val probeLoadMessage = TestProbeMessage("Second Load", secondLoad)
 				enqueue(sourceActors.head, sourceActors.head, 240L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Second Load")
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Second Load)")
 			}
 			"C03. One more load to force the carriage to error out and the Lift to waitforslot" in {
-				val thirdLoad = MaterialLoad("Third Load")
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Third Load")
 				enqueue(underTest, xcManager, 288L, thirdTransferCommand)
-				xcManagerProbe.expectMessage(288L -> XSwitch.NotAcceptedCommand(thirdTransferCommand, "XSwitch(underTest) is busy"))
-				xcManagerProbe.expectMessage(288L -> XSwitch.LoadArrival("Inbound1", thirdLoad))
 			}
 			"C04. and then the discharge consumes load, second load is sent and third command is complete" in {
 				enqueue(dischargeActor, dischargeActor, 305L, ConsumeLoad)
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
+				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Third Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
-				xcManagerProbe.expectMessage(313L -> XSwitch.CompletedCommand(secondTransferCommand))
+				xcManagerProbe.expectMessage(313L -> LoadAwareXSwitch.CompletedCommand(secondTransferCommand))
 				enqueue(dischargeActor, dischargeActor, 327L, ConsumeLoad)
+				xcManagerProbe.expectMessage(335L -> LoadAwareXSwitch.CompletedCommand(thirdTransferCommand))
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
-				enqueue(underTest, xcManager, 330L, thirdTransferCommand)
-				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(Third Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) arrived to Sink via channel Discharge")
-				xcManagerProbe.expectMessage(352L -> XSwitch.CompletedCommand(thirdTransferCommand))
 				enqueue(dischargeActor, dischargeActor, 365L, ConsumeLoad)
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) released on channel Discharge")

@@ -183,10 +183,9 @@ class LoadAwareXSwitch[InboundInductSignal >: ChannelConnections.ChannelSourceMe
 			case cmd@Transfer(load, to) =>
 				val routingResult = for {
 					fromInduct <- inboundRouting.inducts.find { case (idx, induct) => induct.peekNext.exists(_._1.uid == load.uid)} orElse outboundRouting.inducts.find { case (idx, induct) => induct.peekNext.exists(_._1.uid == load.uid)}
-					from = {println(s"#### Found Induct: ${fromInduct._2.channelName}");fromInduct._2.channelName}
+					from = fromInduct._2.channelName
 					route <- inboundRouting.route(from, to) orElse outboundRouting.route(from, to)
 				} yield {
-					println(s"### Found route: $route")
 					((At(route._1._1) -> route._1._2, At(route._2._1) -> route._2._2)) match {
 						case ((inductLoc, induct), (dischargeLoc, discharge)) =>
 							carriageComponent.inductFrom(induct, inductLoc)

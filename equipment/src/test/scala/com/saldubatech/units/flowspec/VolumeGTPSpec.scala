@@ -273,7 +273,6 @@ class VolumeGTPSpec
 			}
 
 		val inboundJobs = candidateInboundJobs.take(nJobs)
-		//println(s"### InboundJobs:\n\t###${inboundJobs.mkString("\n\t###")}")
 		var j = -1
 		val outboundJobs = inboundJobs.map {
 			ij => {

@@ -15,7 +15,6 @@ import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
-import com.saldubatech.units.carriage.SlotLocator
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
