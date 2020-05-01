@@ -3,7 +3,9 @@
 )*/
 import DependenciesSpecification._
 
-
+ThisBuild / fork := true
+ThisBuild / run / javaOptions += "-Xmx4G -Xms1024M "
+ThisBuild / classLoaderLayeringStrategy := ClassLoaderLayeringStrategy.ScalaLibrary
 ThisBuild / organization := "com.saldubatech"
 ThisBuild / organizationName := "Salduba Technologies"
 ThisBuild / scalaVersion := configuredScalaVersion
