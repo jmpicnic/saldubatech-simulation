@@ -309,16 +309,10 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 
 	private def afterUnloading: CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, RUNNER] = {
 		implicit ctx => {
-			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
-				waitInducting(inboundChannels.values.toSeq:_*)
-				completeCommand(idleListener, completedCommandNotification)
+			case CarriageComponent.UnloadOperationOutcome.Unloaded => completeCommand(idleListener, completedCommandNotification)
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
-			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
-				endLoadWait
-				completeCommand(trayFullListener, failFullNotification(_, s"Target destination is Full"))
-			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty =>
-				waitInducting(inboundChannels.values.toSeq:_*)
-				completeCommand(idleListener, failEmptyNotification(_, "Trying to unload an empty Tray"))
+			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull => completeCommand(trayFullListener, failFullNotification(_, s"Target destination is Full"))
+			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to unload an empty Tray"))
 		}
 	}
 
