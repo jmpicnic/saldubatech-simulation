@@ -11,11 +11,11 @@ import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.shuttle.Shuttle
-import com.saldubatech.units.UnitsFixture.{DownstreamConfigure, SinkFixture, SourceFixture, TestProbeMessage, UpstreamConfigure, configurer}
+import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft}
-import com.saldubatech.units.lift.XSwitch
+import com.saldubatech.units.lift.LoadAwareXSwitch
+import com.saldubatech.units.shuttle.LoadAwareShuttle
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
@@ -24,19 +24,18 @@ import org.scalatest.{BeforeAndAfterAll, Matchers}
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object ShuttleLiftSorterFlowInboundSpec {
+object LoadAwareShuttleLiftSorterFlowOutboundSpec {
 
 }
 
-class ShuttleLiftSorterFlowInboundSpec
+class LoadAwareShuttleLiftSorterFlowOutboundSpec
 	extends AnyWordSpec
 		with AnyWordSpecLike
 		with Matchers
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
-	import AddressBased._
-
+	import LoadAware._
 	implicit val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {}
@@ -54,20 +53,21 @@ class ShuttleLiftSorterFlowInboundSpec
 	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, clock)
 	val systemManager = testKit.spawn(systemManagerProcessor.init, "XCManager")
 
-	import ShuttleLiftSorterFlowOutboundSpec._
-
 	"A GTP BackEnd" should {
 		val liftPhysics = new CarriageTravel(2, 6, 4, 8, 8)
 		val shuttlePhysics = new CarriageTravel(2, 6, 4, 8, 8)
 
-		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_A"))
-		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"sorter_aisle_B"))
-		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_A"))
-		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), Set("c1", "c2", "c3", "c4", "c5"), 1, s"aisle_sorter_B"))
+		val cards = (0 until 5).map(i => s"c$i").toSet
+		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20L), () => Some(3), cards, 1, s"sorter_aisle_A"))
+		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20L), () => Some(3), cards, 1, s"sorter_aisle_B"))
+		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), cards, 1, s"aisle_sorter_A"))
+		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), cards, 1, s"aisle_sorter_B"))
 
+		val probeLoad = MaterialLoad("InitialLoad")
 		implicit val clk = clock
-		val aisleA = buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2,5))
-		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2,5))
+		val aisleA =
+			buildAisle("AisleA", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2,5), Map(2 -> Map(OnLeft(8) -> probeLoad)))
+		val aisleB = buildAisle("AisleB", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2,5))
 		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(45 -> aisleASorter, 0 -> aisleBSorter)
 		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
 
@@ -83,7 +83,7 @@ class ShuttleLiftSorterFlowInboundSpec
 		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
-		val sorterConfig = UnitSorter.Configuration(250, sorterInducts, sorterDischarges, sorterPhysics)
+		val sorterConfig = UnitSorter.Configuration(40, sorterInducts, sorterDischarges, sorterPhysics)
 		val sorter: Processor.Ref = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.toSeq.map{
@@ -121,14 +121,14 @@ class ShuttleLiftSorterFlowInboundSpec
 				enqueueConfigure(sorter, systemManager, 0L, UnitSorter.NoConfigure)
 				systemManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(sorter))
 				val systemManagerProbeExt = new TestProbeExt(systemManagerProbe)
-				enqueueConfigure(aisleA._1,systemManager, 6L, XSwitch.NoConfigure)
-				enqueueConfigure(aisleB._1, systemManager, 6L, XSwitch.NoConfigure)
+				enqueueConfigure(aisleA._1, systemManager, 6L, LoadAwareXSwitch.NoConfigure)
+				enqueueConfigure(aisleB._1, systemManager, 6L, LoadAwareXSwitch.NoConfigure)
 				val shuttles = aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
-				shuttles.foreach(sh => enqueueConfigure(sh, systemManager, 10L, Shuttle.NoConfigure))
+				shuttles.foreach(sh => enqueueConfigure(sh, systemManager, 10L, LoadAwareShuttle.NoConfigure))
 
-				val shuttleCompletes = shuttles.map(sh => (10L -> Shuttle.CompletedConfiguration(sh))).toList
+				val shuttleCompletes = shuttles.map(sh => (10L -> LoadAwareShuttle.CompletedConfiguration(sh))).toList
 				systemManagerProbeExt.expectMessages(
-					(6L -> XSwitch.CompletedConfiguration(aisleA._1)) :: (6L -> XSwitch.CompletedConfiguration(aisleB._1)) :: shuttleCompletes: _*
+					(6L -> LoadAwareXSwitch.CompletedConfiguration(aisleA._1)) :: (6L -> LoadAwareXSwitch.CompletedConfiguration(aisleB._1)) :: shuttleCompletes: _*
 				)
 				val actorsToConfigure = mutable.Set((Seq(sorter, aisleA._1, aisleB._1) ++ shuttles): _*)
 				simControllerProbe.fishForMessage(1000 millis) {
@@ -136,13 +136,7 @@ class ShuttleLiftSorterFlowInboundSpec
 						actorsToConfigure -= pr
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: Processor.CompleteConfiguration =>
-						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
-						else FishingOutcome.Complete
-					case msg: Processor.RegisterProcessor =>
-						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
-						else FishingOutcome.Complete
-					case other => FishingOutcome.Fail(s"Unexpected message: $other with remaining actors to configure $actorsToConfigure")
+					case other => FishingOutcome.Fail(s"Unexpected message: $other with remaining to configure: $actorsToConfigure")
 				}
 				simControllerProbe.expectNoMessage(500 millis)
 			}
@@ -167,26 +161,22 @@ class ShuttleLiftSorterFlowInboundSpec
 				actorsToConfigure.isEmpty should be(true)
 			}
 		}
-		"B. Transfer a load from one of its inbound sources" when {
-			val probeLoad = MaterialLoad("FirstLoad")
-			val sorterCommand = UnitSorter.Sort(probeLoad, sorterAisleA.ch.name)
-			val liftCommand = XSwitch.Transfer(sorterAisleA.ch.name, "shuttle_AisleA_2_in")
-			val shuttleCommand = Shuttle.Store("shuttle_AisleA_2_in", OnLeft(7))
-			"B01. Receives commands in advance of the load" in {
+		"B. Transfer a load from one of its locations to an outbound Sink" when {
+			val sorterCommand = UnitSorter.Sort(probeLoad, outboundDischarges(15).ch.name)
+			val liftCommand = LoadAwareXSwitch.Transfer(probeLoad, aisleASorter.ch.name)
+			val shuttleCommand = LoadAwareShuttle.Retrieve(probeLoad, "shuttle_AisleA_2_out")
+			"B01. Receives commands of the load" in {
 				enqueue(sorter, systemManager, 64L, sorterCommand)
 				enqueue(aisleA._1, systemManager, 64L, liftCommand)
 				enqueue(aisleA._2.head._2, systemManager, 64L, shuttleCommand)
-				systemManagerProbe.expectNoMessage(500 millis)
-			}
-			"B02. The Load is sent to the sorter" in  {
-				val probeLoadMessage = TestProbeMessage("FirstLoad", probeLoad)
-				enqueue(sourceRefs.head ,sourceRefs.head, 75L, probeLoadMessage)
-				testMonitorProbe.expectMessage("FromSender: FirstLoad")
-				systemManagerProbe.expectMessage(88L -> UnitSorter.LoadArrival(probeLoad, chIb1.name))
-				systemManagerProbe.expectMessage(108L -> UnitSorter.CompletedCommand(sorterCommand))
-				systemManagerProbe.expectMessage(151L -> XSwitch.CompletedCommand(liftCommand))
-				systemManagerProbe.expectMessage(184L -> Shuttle.CompletedCommand(shuttleCommand))
-				systemManagerProbe.expectNoMessage(500 millis)
+				systemManagerProbe.expectMessage(98L -> LoadAwareShuttle.CompletedCommand(shuttleCommand))
+				systemManagerProbe.expectMessage(130L -> LoadAwareXSwitch.CompletedCommand(liftCommand))
+				systemManagerProbe.expectMessage(153L -> UnitSorter.LoadArrival(probeLoad, aisleASorter.ch.name))
+				systemManagerProbe.expectMessage(273L -> UnitSorter.CompletedCommand(sorterCommand))
+				testMonitorProbe.expectMessage("Load MaterialLoad(InitialLoad) arrived to Sink via channel Discharge_1 at 286")
+				testMonitorProbe.expectMessage("Load MaterialLoad(InitialLoad) released on channel Discharge_1")
+				testMonitorProbe.expectNoMessage(500 millis)
+				simControllerProbe.expectNoMessage(500 millis)
 			}
 		}
 	}

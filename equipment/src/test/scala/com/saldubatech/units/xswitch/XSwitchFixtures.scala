@@ -5,12 +5,27 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.lift.XSwitch
+import com.saldubatech.units.lift
+import com.saldubatech.units.lift.{LoadAwareXSwitch, XSwitch}
 import com.saldubatech.units.unitsorter.UnitSorterSignal
 import com.saldubatech.util.LogEnabled
 import org.scalatest.WordSpec
 
+import scala.reflect.ClassTag
+
 object XSwitchFixtures {
+
+	object XSwitchHelpers {
+		implicit val tsBuilderXS = (channel: String, load: MaterialLoad, resource: String) => new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
+		implicit val psBuilderXS = (load: MaterialLoad, resource: String, idx: Int, channel: String) => new Channel.PulledLoadImpl[MaterialLoad](load, resource, idx, channel) with XSwitch.XSwitchSignal
+		implicit val ackBuilderXS = (channel: String, load: MaterialLoad, resource: String) => new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
+	}
+
+	object LoadAwareHelpers {
+		implicit val tsBuilderLAXS = (channel: String, load: MaterialLoad, resource: String) => new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with LoadAwareXSwitch.XSwitchSignal
+		implicit val psBuilderLAXS = (load: MaterialLoad, resource: String, idx: Int, channel: String) => new Channel.PulledLoadImpl[MaterialLoad](load, resource, idx, channel) with lift.LoadAwareXSwitch.XSwitchSignal
+		implicit val ackBuilderLAXS = (channel: String, load: MaterialLoad, resource: String) => new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with lift.LoadAwareXSwitch.XSwitchSignal
+	}
 
 	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
 	case object DownstreamConfigure extends Identification.Impl() with DownstreamSignal
@@ -21,14 +36,16 @@ object XSwitchFixtures {
 
 	case object ConsumeLoad extends Identification.Impl() with ChannelConnections.DummySinkMessageType
 
-	class InboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, XSwitch.XSwitchSignal](delay, deliveryTime, cards, configuredOpenSlots, name) {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with XSwitch.XSwitchSignal
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with XSwitch.XSwitchSignal
+	class InboundChannelImpl[SIGNAL >: ChannelConnections.ChannelSourceSink]
+	(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+	(implicit tsBuilder: (String, MaterialLoad, String) => Channel.TransferLoad[MaterialLoad] with SIGNAL, psBuilder: (MaterialLoad, String, Int, String) => Channel.PulledLoad[MaterialLoad] with SIGNAL)
+		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, SIGNAL](delay, deliveryTime, cards, configuredOpenSlots, name) {
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with SIGNAL
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with SIGNAL
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = tsBuilder(channel, load, resource)
 
-		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with XSwitch.XSwitchSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal =  psBuilder(ld, card, idx, this.name)
 
 		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with UnitSorterSignal
 		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with UnitSorterSignal
@@ -36,11 +53,13 @@ object XSwitchFixtures {
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
 	}
 
-	class OutboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, XSwitch.XSwitchSignal, ChannelConnections.DummySinkMessageType](delay, deliveryTime, cards, configuredOpenSlots, name) {
+	class OutboundChannelImpl[SIGNAL >: ChannelConnections.ChannelSourceSink]
+	(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
+	(implicit ackBuilder: (String, MaterialLoad, String) => Channel.AcknowledgeLoad[MaterialLoad] with SIGNAL)
+		extends Channel[MaterialLoad, SIGNAL, ChannelConnections.DummySinkMessageType](delay, deliveryTime, cards, configuredOpenSlots, name) {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with XSwitch.XSwitchSignal
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with SIGNAL
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
 
 		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
@@ -48,14 +67,14 @@ object XSwitchFixtures {
 		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with ChannelConnections.DummySinkMessageType
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with XSwitch.XSwitchSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = ackBuilder(channel, load, resource)
 	}
 
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[Processor.Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, XSwitch.XSwitchSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture[SIGNAL >: ChannelConnections.ChannelDestinationMessage](ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, SIGNAL])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: Processor.Ref = _ref.head
@@ -84,7 +103,7 @@ object XSwitchFixtures {
 			}
 	}
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, XSwitch.XSwitchSignal, ChannelConnections.DummySinkMessageType], controlled: Boolean)(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture[SIGNAL >: ChannelConnections.ChannelSourceMessage](ops: Channel.Ops[MaterialLoad, SIGNAL, ChannelConnections.DummySinkMessageType], controlled: Boolean)(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: Processor.Ref = _ref.head
 

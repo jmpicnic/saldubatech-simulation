@@ -9,6 +9,7 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.BaseSpec.TestProbeExt
+import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
@@ -18,7 +19,8 @@ import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.units.shuttle.Shuttle
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, Matchers}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -28,12 +30,13 @@ object ShuttleLiftSorterFlowOutboundSpec {
 }
 
 class ShuttleLiftSorterFlowOutboundSpec
-	extends WordSpec
+	extends AnyWordSpec
+		with AnyWordSpecLike
 		with Matchers
-		with WordSpecLike
 		with BeforeAndAfterAll
+		with ClockEnabled
 		with LogEnabled {
-
+	import AddressBased._
 	implicit val testKit = ActorTestKit()
 
 	override def beforeAll: Unit = {}
@@ -44,12 +47,11 @@ class ShuttleLiftSorterFlowOutboundSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	implicit val globalClock = testKit.spawn(Clock())
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManager.Notification)]
-	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, globalClock)
+	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, clock)
 	val systemManager = testKit.spawn(systemManagerProcessor.init, "XCManager")
 
 	import ShuttleLiftSorterFlowOutboundSpec._
@@ -65,6 +67,7 @@ class ShuttleLiftSorterFlowOutboundSpec
 		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20L), () => Some(3), cards, 1, s"aisle_sorter_B"))
 
 		val probeLoad = MaterialLoad("InitialLoad")
+		implicit val clk = clock
 		val aisleA =
 			buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2,5), Map(2 -> Map(OnLeft(8) -> probeLoad)))
 		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2,5))
@@ -88,13 +91,13 @@ class ShuttleLiftSorterFlowOutboundSpec
 
 		val sources = inboundInducts.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
-		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, globalClock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceRefs: Seq[Processor.Ref] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
 
 		val destinations =  outboundDischarges.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)
 		}
-		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", globalClock, simController, configurer(dstSink)(testMonitor))}
+		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs: Seq[Processor.Ref] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 
 
@@ -103,7 +106,7 @@ class ShuttleLiftSorterFlowOutboundSpec
 			"A01. Time is started they register for Configuration" in {
 				val actors = sourceRefs ++ destinationRefs ++ Seq(sorter, aisleA._1, aisleB._1) ++ aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
 				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(actors: _*)
-				globalClock ! Clock.StartTime()
+				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
@@ -118,13 +121,13 @@ class ShuttleLiftSorterFlowOutboundSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A02. Process the configuration of its elements" in {
-				sorter ! Processor.ConfigurationCommand(systemManager, 0L, UnitSorter.NoConfigure)
+				enqueueConfigure(sorter, systemManager, 0L, UnitSorter.NoConfigure)
 				systemManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(sorter))
 				val systemManagerProbeExt = new TestProbeExt(systemManagerProbe)
-				aisleA._1 ! Processor.ConfigurationCommand(systemManager, 6L, XSwitch.NoConfigure)
-				aisleB._1 ! Processor.ConfigurationCommand(systemManager, 6L, XSwitch.NoConfigure)
+				enqueueConfigure(aisleA._1, systemManager, 6L, XSwitch.NoConfigure)
+				enqueueConfigure(aisleB._1, systemManager, 6L, XSwitch.NoConfigure)
 				val shuttles = aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
-				shuttles.foreach(sh => sh ! Processor.ConfigurationCommand(systemManager, 10L, Shuttle.NoConfigure))
+				shuttles.foreach(sh => enqueueConfigure(sh, systemManager, 10L, Shuttle.NoConfigure))
 
 				val shuttleCompletes = shuttles.map(sh => (10L -> Shuttle.CompletedConfiguration(sh))).toList
 				systemManagerProbeExt.expectMessages(
@@ -141,10 +144,10 @@ class ShuttleLiftSorterFlowOutboundSpec
 				simControllerProbe.expectNoMessage(500 millis)
 			}
 			"A03. Sinks and Sources accept Configuration" in {
-				sourceRefs.foreach(act => act ! Processor.ConfigurationCommand(systemManager, 0L, UpstreamConfigure))
+				sourceRefs.foreach(act => enqueueConfigure(act, systemManager, 10L, UpstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
-				destinationRefs.foreach(ref => ref ! Processor.ConfigurationCommand(systemManager, 0L, DownstreamConfigure))
+				destinationRefs.foreach(ref => enqueueConfigure(ref, systemManager, 10L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs: _*)
@@ -166,9 +169,9 @@ class ShuttleLiftSorterFlowOutboundSpec
 			val liftCommand = XSwitch.Transfer("shuttle_AisleA_2_out", aisleASorter.ch.name)
 			val shuttleCommand = Shuttle.Retrieve(OnLeft(8), "shuttle_AisleA_2_out")
 			"B01. Receives commands of the load" in {
-				globalClock ! Clock.Enqueue(sorter, Processor.ProcessCommand(systemManager, 64L, sorterCommand))
-				globalClock ! Clock.Enqueue(aisleA._1, Processor.ProcessCommand(systemManager, 64L, liftCommand))
-				globalClock ! Clock.Enqueue(aisleA._2.head._2, Processor.ProcessCommand(systemManager, 64L, shuttleCommand))
+				enqueue(sorter, systemManager, 64L, sorterCommand)
+				enqueue(aisleA._1, systemManager, 64L, liftCommand)
+				enqueue(aisleA._2.head._2, systemManager, 64L, shuttleCommand)
 				systemManagerProbe.expectMessage(98L -> Shuttle.CompletedCommand(shuttleCommand))
 				systemManagerProbe.expectMessage(126L -> XSwitch.CompletedCommand(liftCommand))
 				systemManagerProbe.expectMessage(149L -> UnitSorter.LoadArrival(probeLoad, aisleASorter.ch.name))

@@ -15,8 +15,8 @@ import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
-import com.saldubatech.units.lift.XSwitch
-import com.saldubatech.units.shuttle.Shuttle
+import com.saldubatech.units.lift.LoadAwareXSwitch
+import com.saldubatech.units.shuttle.LoadAwareShuttle
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
 import com.saldubatech.util.LogEnabled
 import org.scalatest._
@@ -25,16 +25,16 @@ import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 import scala.collection.mutable
 import scala.concurrent.duration._
 
-object VolumeGTPSpec {
+object LoadAwareVolumeGTPSpec {
 
 	trait Job {
 		val lift: Processor.Ref
-		val liftCmd: XSwitch.Transfer
+		val liftCmd: LoadAwareXSwitch.Transfer
 		val shuttle: Processor.Ref
-		val shuttleCmd: Shuttle.ExternalCommand
+		val shuttleCmd: LoadAwareShuttle.ExternalCommand
 	}
-	case class InboundJob(inbound: Processor.Ref, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, levelIdx: Int, override val liftCmd: XSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: Shuttle.Store) extends Job
-	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, override val liftCmd: XSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: Shuttle.Retrieve) extends Job
+	case class InboundJob(inbound: Processor.Ref, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, levelIdx: Int, override val liftCmd: LoadAwareXSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: LoadAwareShuttle.Store) extends Job
+	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, override val liftCmd: LoadAwareXSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: LoadAwareShuttle.Retrieve) extends Job
 
 	case object ManagerConfigure extends EquipmentManager.ManagerSignal
 	case object SWITCH_TO_OUTBOUND extends EquipmentManager.ManagerSignal
@@ -51,7 +51,7 @@ object VolumeGTPSpec {
 						_manager = ctx.from
 						configCountDown -= 1
 						if(configCountDown == 0) RUNNING_INBOUND else configurer
-					case shuttleCfg: Shuttle.CompletedConfiguration =>
+					case shuttleCfg: LoadAwareShuttle.CompletedConfiguration =>
 						ctx.configureContext.signal(_manager, shuttleCfg)
 						ctx.configureContext.signal(_manager, ConfigurationComplete(ctx.aCtx.self))
 						configCountDown -= 1
@@ -76,14 +76,14 @@ object VolumeGTPSpec {
 			val loadsPending = mutable.Queue.empty[MaterialLoad]
 			var cmdsCompleted = 0
 			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
-				case cmd: Shuttle.CompletedCommand =>
+				case cmd: LoadAwareShuttle.CompletedCommand =>
 					cmdsCompleted += 1
 					if (loadsPending isEmpty) busy = false
 					else busy = runLoad(loadsPending.dequeue)
 					ctx.signal(_manager, cmd)
 					if (cmdsCompleted == inboundJobs.size) Processor.DomainRun.same
 					else Processor.DomainRun.same
-				case Shuttle.LoadArrival(chName, ld) =>
+				case LoadAwareShuttle.LoadArrival(chName, ld) =>
 					inboundJobs.get(ld) match {
 						case None => testHost.fail(s"Unexpected load $ld at shuttle: ${ctx.from.path.name}")
 						case Some(cmd) =>
@@ -101,7 +101,7 @@ object VolumeGTPSpec {
 		}
 		val RUNNING_OUTBOUND: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
 			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
-				case cmd: Shuttle.CompletedCommand =>
+				case cmd: LoadAwareShuttle.CompletedCommand =>
 					if(obJobIt.hasNext) {
 						val jb = obJobIt.next
 						ctx.signal(jb.shuttle, jb.shuttleCmd)
@@ -125,7 +125,7 @@ object VolumeGTPSpec {
 						_manager = ctx.from
 						configCountDown -= 1
 						if(configCountDown == 0) RUNNING else configurer
-					case liftCfg: XSwitch.CompletedConfiguration =>
+					case liftCfg: LoadAwareXSwitch.CompletedConfiguration =>
 						ctx.configureContext.signal(_manager, liftCfg)
 						ctx.configureContext.signal(_manager, ConfigurationComplete(ctx.aCtx.self))
 						configCountDown -= 1
@@ -156,12 +156,12 @@ object VolumeGTPSpec {
 			var busy = false
 			val loadsPending: mutable.Queue[(String, MaterialLoad)] = mutable.Queue.empty
 			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
-				case cmd: XSwitch.CompletedCommand =>
+				case cmd: LoadAwareXSwitch.CompletedCommand =>
 					ctx.signal(_manager, cmd)
 					if(loadsPending isEmpty) busy = false
 					else busy = runLoad(loadsPending)
 					Processor.DomainRun.same
-				case XSwitch.LoadArrival(chName, ld) =>
+				case LoadAwareXSwitch.LoadArrival(chName, ld) =>
 					loadsPending += chName -> ld
 					if(!busy) busy = runLoad(loadsPending)
 					Processor.DomainRun.same
@@ -173,15 +173,15 @@ object VolumeGTPSpec {
 
 }
 
-class VolumeGTPSpec
+class LoadAwareVolumeGTPSpec
 	extends AnyWordSpec
 		with Matchers
 		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
-	import AddressBased._
-	import VolumeGTPSpec._
+	import LoadAware._
+	import LoadAwareVolumeGTPSpec._
 	val nJobs = 160
 	val nCards = 4
 	val cards = (0 until nCards).map(i => s"c$i").toSet
@@ -218,8 +218,8 @@ class VolumeGTPSpec
 		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_B"))
 
 		implicit val clk = clock
-		val aisleA = buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2, 5))
-		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2, 5))
+		val aisleA = buildAisle("AisleA", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2, 5))
+		val aisleB = buildAisle("AisleB", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2, 5))
 		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(50 -> aisleASorter, 0 -> aisleBSorter)
 		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
 
@@ -270,7 +270,7 @@ class VolumeGTPSpec
 				val slot = side(slotIdx)
 				val load = MaterialLoad(s"${aisle}_${levelIdx}_${slot}::$i")
 				val shuttleChannelName = s"shuttle_Aisle${aisle}_${levelIdx}_in"
-				InboundJob(sourceRefs(i % 2), load, UnitSorter.Sort(load, inboundChannel.ch.name), lift, levelIdx, XSwitch.Transfer(inboundChannel.ch.name, shuttleChannelName), shuttle, Shuttle.Store(shuttleChannelName, slot))
+				InboundJob(sourceRefs(i % 2), load, UnitSorter.Sort(load, inboundChannel.ch.name), lift, levelIdx, LoadAwareXSwitch.Transfer(load, shuttleChannelName), shuttle, LoadAwareShuttle.Store(load, slot))
 			}
 
 		val inboundJobs = candidateInboundJobs.take(nJobs)
@@ -283,7 +283,7 @@ class VolumeGTPSpec
 				val shuttleChannelName = s"shuttle_Aisle${aisle}_${ij.levelIdx}_out"
 				val outboundChannel = if (j % 2 == 0) outboundDischarges.values.head.ch.name else outboundDischarges.values.tail.head.ch.name
 				val liftChannelName = s"aisle_sorter_$aisle"
-				OutboundJob(expectedDischarge, ij.load, UnitSorter.Sort(ij.load, outboundChannel), ij.lift, XSwitch.Transfer(shuttleChannelName, liftChannelName), ij.shuttle, Shuttle.Retrieve(ij.shuttleCmd.to, shuttleChannelName))
+				OutboundJob(expectedDischarge, ij.load, UnitSorter.Sort(ij.load, outboundChannel), ij.lift, LoadAwareXSwitch.Transfer(ij.load, liftChannelName), ij.shuttle, LoadAwareShuttle.Retrieve(ij.load, shuttleChannelName))
 			}
 		}
 
@@ -319,15 +319,15 @@ class VolumeGTPSpec
 				enqueueConfigure(sorter, sorterManager, 0L, UnitSorter.NoConfigure)
 				sorterManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(sorter))
 				val systemManagerProbeExt = new TestProbeExt(systemManagerProbe)
-				enqueueConfigure(aisleA._1, liftManagers(aisleA._1), 6L, XSwitch.NoConfigure)
-				enqueueConfigure(aisleB._1, liftManagers(aisleB._1), 6L, XSwitch.NoConfigure)
-				allShuttles.foreach(sh => enqueueConfigure(sh, shuttleManagers(sh), 10L, Shuttle.NoConfigure))
+				enqueueConfigure(aisleA._1, liftManagers(aisleA._1), 6L, LoadAwareXSwitch.NoConfigure)
+				enqueueConfigure(aisleB._1, liftManagers(aisleB._1), 6L, LoadAwareXSwitch.NoConfigure)
+				allShuttles.foreach(sh => enqueueConfigure(sh, shuttleManagers(sh), 10L, LoadAwareShuttle.NoConfigure))
 
-				val shuttleCompletes = allShuttles.map(sh => 10L -> Shuttle.CompletedConfiguration(sh)).toList
+				val shuttleCompletes = allShuttles.map(sh => 10L -> LoadAwareShuttle.CompletedConfiguration(sh)).toList
 				val shuttleManagerCompletes = shuttleManagers.values.map(shm => (10L -> ConfigurationComplete(shm)))
 				val liftManagerCompletes = liftManagers.values.map(lm => (6L -> ConfigurationComplete(lm)))
 				systemManagerProbeExt.expectMessages(
-					(6L -> XSwitch.CompletedConfiguration(aisleA._1)) :: (6L -> XSwitch.CompletedConfiguration(aisleB._1))
+					(6L -> LoadAwareXSwitch.CompletedConfiguration(aisleA._1)) :: (6L -> LoadAwareXSwitch.CompletedConfiguration(aisleB._1))
 						:: shuttleCompletes ++ shuttleManagerCompletes ++ liftManagerCompletes : _*
 				)
 				val actorsToConfigure = mutable.Set((Seq(sorter, aisleA._1, aisleB._1) ++ allShuttles ++ liftManagers.values ++ shuttleManagers.values): _*)
@@ -372,13 +372,13 @@ class VolumeGTPSpec
 				}
 				var completedCommands = 0
 				systemManagerProbe.fishForMessage(20 seconds) {
-					case (tick, Shuttle.CompletedCommand(cmd)) =>
+					case (tick, LoadAwareShuttle.CompletedCommand(cmd)) =>
 						completedCommands += 1
 						//println(s">>> nCommands = $completedCommands")
 						if(!inboundJobs.exists(_.shuttleCmd == cmd)) FishingOutcome.Fail(s"Unknown Shuttle Command: $cmd at $tick")
 						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
 						else FishingOutcome.Continue
-					case (tick, XSwitch.CompletedCommand(cmd)) =>
+					case (tick, LoadAwareXSwitch.CompletedCommand(cmd)) =>
 						completedCommands += 1
 						//println(s">>> nCommands = $completedCommands")
 						if(!inboundJobs.exists(_.liftCmd == cmd)) FishingOutcome.Fail(s"Unknown Lift Command: $cmd at $tick")
@@ -443,13 +443,13 @@ class VolumeGTPSpec
 				}
 				sorterManagerProbe.expectNoMessage(500 millis)
 				systemManagerProbe.fishForMessage(3 seconds) {
-					case (tick, Shuttle.CompletedCommand(cmd)) =>
+					case (tick, LoadAwareShuttle.CompletedCommand(cmd)) =>
 						completedCommands += 1
 //						println(s">>>Commands = $completedCommands")
 						if(!outboundJobs.exists(_.shuttleCmd == cmd)) FishingOutcome.Fail(s"Unknown Shuttle Command: $cmd at $tick")
 						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
 						else FishingOutcome.Continue
-					case (tick, XSwitch.CompletedCommand(cmd)) =>
+					case (tick, LoadAwareXSwitch.CompletedCommand(cmd)) =>
 						completedCommands += 1
 //						println(s">>> nCommands = $completedCommands")
 						if(!outboundJobs.exists(_.liftCmd == cmd)) FishingOutcome.Fail(s"Unknown Lift Command: $cmd at $tick")

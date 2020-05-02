@@ -2,9 +2,9 @@ name: Scala CI
 
 on:
   push:
-    branches: [ none ]
+    branches: [ master, saldubatech-simulation-33 ]
   pull_request:
-    branches: [ none ]
+    branches: [ master ]
 
 jobs:
   build:

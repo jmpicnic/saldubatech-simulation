@@ -55,7 +55,6 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Equi
 	private def remove(l: MaterialLoad) = reverseContents.remove(l).foreach(contents.remove)
 
 	def loadFrom(loc: SlotLocator)(implicit ctx: host.CTX): LoadOperationOutcome = {
-//		println(s"### Traveling and Loading from $currentLocation to $loc within ${travelPhysics.timeToPickup(At(currentLocation), loc)} ticks")
 		ctx.signalSelf(host.loader(loc), travelPhysics.timeToPickup(At(_currentLocation), loc))
 		OperationOutcome.InTransit
 	}
@@ -79,7 +78,6 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Equi
 	}
 
 	def unloadTo(loc: SlotLocator)(implicit ctx: host.CTX): UnloadOperationOutcome = {
-//		println(s"### Traveling and Unloading from $currentLocation to $loc within ${travelPhysics.timeToDeliver(At(currentLocation), loc)} ticks")
 		ctx.signalSelf(host.unloader(loc), travelPhysics.timeToDeliver(At(_currentLocation), loc))
 		OperationOutcome.InTransit
 	}
@@ -102,7 +100,6 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Equi
 	}
 
 	def inductFrom(from: host.INDUCT, at: SlotLocator)(implicit ctx: host.CTX): LoadOperationOutcome =  {
-//		println(s"### Traveling and Inducting from $currentLocation to $at within ${travelPhysics.timeToPickup(At(currentLocation), at)} ticks")
 		ctx.signalSelf(host.inducter(from, at), travelPhysics.timeToPickup(At(_currentLocation), at))
 		OperationOutcome.InTransit
 	}
@@ -126,7 +123,6 @@ class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: Equi
 	}
 
 	def dischargeTo(to: host.DISCHARGE, at: SlotLocator)(implicit ctx: host.CTX): UnloadOperationOutcome = {
-//		println(s"### Traveling and Discharging from $currentLocation to $at within ${travelPhysics.timeToDeliver(At(currentLocation), at)} ticks")
 		ctx.signalSelf(host.discharger(to, at), travelPhysics.timeToDeliver(At(_currentLocation), at))
 		OperationOutcome.InTransit
 	}

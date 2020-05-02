@@ -5,7 +5,7 @@
 package com.saldubatech.transport
 
 import com.saldubatech.units.shuttle.{LoadAwareShuttle, Shuttle}
-import com.saldubatech.units.lift.XSwitch
+import com.saldubatech.units.lift.{LoadAwareXSwitch, XSwitch}
 import com.saldubatech.units.unitsorter.UnitSorterSignal
 
 object ChannelConnections {
@@ -19,6 +19,7 @@ object ChannelConnections {
 		with XSwitch.XSwitchSignal
 		with UnitSorterSignal
 		with LoadAwareShuttle.LoadAwareShuttleSignal
+		with LoadAwareXSwitch.XSwitchSignal
 
 
 

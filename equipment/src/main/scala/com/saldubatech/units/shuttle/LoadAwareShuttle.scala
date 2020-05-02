@@ -116,14 +116,12 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 					triggerNext(DomainRun.same)
 				case WaitInductingToDischarge(ep, toLoc, from) if from.channelName == induct.channelName =>
 					carriageComponent.inductFrom(induct, inboundSlots(induct.channelName))(ctx)
-					println(s"### ENDING LOAD WAIT TO DISCHARGE")
 					endLoadWait
-					triggerNext(commandListener(channelListener orElse carriageComponent.INDUCTING(dischargeAfterInducing(from, ep, toLoc))))
+					triggerNext(continueCommand(channelListener orElse carriageComponent.INDUCTING(dischargeAfterInducing(from, ep, toLoc))))
 				case WaitInductingToStore(loc, from) if from.channelName == induct.channelName =>
 					carriageComponent.inductFrom(induct, inboundSlots(induct.channelName))(ctx)
-					println(s"### ENDING LOAD WAIT TO STORE")
 					endLoadWait
-					triggerNext(commandListener(channelListener orElse carriageComponent.INDUCTING(storeAfterInducting(from, loc))))
+					triggerNext(continueCommand(channelListener orElse carriageComponent.INDUCTING(storeAfterInducting(from, loc))))
 			}
 		}
 
@@ -135,7 +133,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 			case WaitDischarging(ch, loc) =>
 				implicit val iCtx = ctx
 				carriageComponent.dischargeTo(ch, loc)(ctx)
-				triggerNext(commandListener(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))))
+				triggerNext(continueCommand(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))))
 		}
 	}
 
@@ -173,21 +171,20 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 		}
 	}
 
+
+	private lazy val idleExecutor: RUNNER = continueCommand(idleListener, emptyCmd)
+	private lazy val trayFullExecutor2: RUNNER = continueCommand(trayFullListener, fullCmd)
+
 	private lazy val channelListener = inboundLoadListener orElse outboundAckListener
-
-	private def verifyLocator(l: SlotLocator): Option[SlotLocator] = if (l.idx < configuration.depth && l.idx >= 0) Some(l) else None
-
-	private lazy val idleExecutor: RUNNER = commandListener(channelListener orElse idleListener, emptyCmd)
-	private lazy val trayFullExecutor: RUNNER = commandListener(channelListener orElse trayFullListener orElse idleListener, fullCmd)
-
-	private lazy val idleListener: RUNNER = {
+	private lazy val idleListener: RUNNER = channelListener orElse {
 		implicit ctx: CTX => {
 			case Execute(cmd) => processCmd(ctx)(cmd)
 		}
 	}
-	private lazy val trayFullListener: RUNNER = {
+	private lazy val trayFullListener: RUNNER = channelListener orElse {
 		implicit ctx: CTX => {
 			case Execute(cmd: RecoveryCommand) => processRecovery(ctx)(cmd)
+			case Execute(cmd) => processCmd(ctx)(cmd)
 		}
 	}
 	private def fullCmd(cmd: ExternalCommand) = cmd match {
@@ -196,51 +193,53 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 	}
 	private def emptyCmd(cmd: ExternalCommand) = !fullCmd(cmd)
 
+	private def verifyLocator(l: SlotLocator): Option[SlotLocator] = if (l.idx < configuration.depth && l.idx >= 0) Some(l) else None
+
 	def processCmd(implicit ctx: CTX): PartialFunction[ExternalCommand, RUNNER] = {
 		case cmd@Store(load, toLocator) =>
 			(isLoadAvailable(load), verifyLocator(toLocator)) match {
 				case (Some(induct), Some(toLoc)) =>
 					if (carriageComponent.inspect(toLoc) isEmpty) {
 						carriageComponent.inductFrom(induct, inboundSlots(induct.channelName))
-						channelListener orElse carriageComponent.INDUCTING(storeAfterInducting(induct, toLoc))
-					} else completeCommand(idleExecutor, FailedEmpty(_, s"Target Location to Store ($toLoc) is Full"))
-				case (None, _) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Load($load) not available in induct"))
-				case (_, None) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Destination $toLocator does not exist"))
-				case other => completeCommand(idleExecutor, notAcceptedNotification(_, s"Load($load) and Destination ($other) are incompatible for Store Command: $cmd"))
+						continueCommand(channelListener orElse carriageComponent.INDUCTING(storeAfterInducting(induct, toLoc)))
+					} else completeCommand(idleListener, FailedEmpty(_, s"Target Location to Store ($toLoc) is Full"))
+				case (None, _) => completeCommand(idleListener, notAcceptedNotification(_, s"Load($load) not available in induct"))
+				case (_, None) => completeCommand(idleListener, notAcceptedNotification(_, s"Destination $toLocator does not exist"))
+				case other => completeCommand(idleListener, notAcceptedNotification(_, s"Load($load) and Destination ($other) are incompatible for Store Command: $cmd"))
 			}
 		case cmd@Retrieve(load, toCh) =>
 			(carriageComponent.whereIs(load), outboundChannels.get(toCh)) match {
 				case (Some(loc), Some(discharge)) =>
-					if (carriageComponent.inspect(loc) isEmpty) completeCommand(idleExecutor, FailedEmpty(_, s"Source Location ($loc) to Retrieve is Empty"))
+					if (carriageComponent.inspect(loc) isEmpty) completeCommand(idleListener, FailedEmpty(_, s"Source Location ($loc) to Retrieve is Empty"))
 					else {
 						carriageComponent.loadFrom(loc)
-						channelListener orElse carriageComponent.LOADING(dischargeAfterLoading(discharge, outboundSlots(toCh)))
+						continueCommand(channelListener orElse carriageComponent.LOADING(dischargeAfterLoading(discharge, outboundSlots(toCh))))
 					}
-				case (None, _) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Load $load not in Storage"))
-				case (_, None) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Destination $toCh does not exist"))
-				case other => completeCommand(idleExecutor, notAcceptedNotification(_, s"From or To ($other) are incompatible for Retrieve Command: $cmd"))
+				case (None, _) => completeCommand(idleListener, notAcceptedNotification(_, s"Load $load not in Storage"))
+				case (_, None) => completeCommand(idleListener, notAcceptedNotification(_, s"Destination $toCh does not exist"))
+				case other => completeCommand(idleListener, notAcceptedNotification(_, s"From or To ($other) are incompatible for Retrieve Command: $cmd"))
 			}
 		case cmd@Groom(load, toLocator) =>
 			(carriageComponent.whereIs(load).flatMap(verifyLocator), verifyLocator(toLocator)) match {
 				case (Some(from), Some(to)) =>
-					if (carriageComponent.inspect(to) nonEmpty) completeCommand(idleExecutor, FailedEmpty(_, s"Target Location to Store ($to) is not empty"))
-					else if (carriageComponent.inspect(from) isEmpty) completeCommand(idleExecutor, FailedEmpty(_, s"Source Location ($from) to Retrieve is Empty"))
+					if (carriageComponent.inspect(to) nonEmpty) completeCommand(idleListener, FailedEmpty(_, s"Target Location to Store ($to) is not empty"))
+					else if (carriageComponent.inspect(from) isEmpty) completeCommand(idleListener, FailedEmpty(_, s"Source Location ($from) to Retrieve is Empty"))
 					else {
 						carriageComponent.loadFrom(from)
-						channelListener orElse carriageComponent.LOADING(unloadAfterLoading(to))
+						continueCommand(channelListener orElse carriageComponent.LOADING(unloadAfterLoading(to)))
 					}
-				case (None, _) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Load($load) not in storage"))
-				case (_, None) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Destination $toLocator does not exist"))
-				case other => completeCommand(idleExecutor, notAcceptedNotification(_, s"From or To ($other) are incompatible for Groom Command: $cmd"))
+				case (None, _) => completeCommand(idleListener, notAcceptedNotification(_, s"Load($load) not in storage"))
+				case (_, None) => completeCommand(idleListener, notAcceptedNotification(_, s"Destination $toLocator does not exist"))
+				case other => completeCommand(idleListener, notAcceptedNotification(_, s"From or To ($other) are incompatible for Groom Command: $cmd"))
 			}
 		case cmd@LoopBack(load, toCh) =>
 			(isLoadAvailable(load), outboundChannels.get(toCh)) match {
 				case (Some(induct), Some(to)) =>
 					carriageComponent.inductFrom(induct, inboundSlots(induct.channelName))
-					channelListener orElse carriageComponent.INDUCTING(dischargeAfterInducing(induct, to, outboundSlots(toCh)))
-				case (None, _) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Load($load) not available in induct"))
-				case (_, None) => completeCommand(idleExecutor, notAcceptedNotification(_, s"Destination $toCh does not exist"))
-				case other => completeCommand(idleExecutor, notAcceptedNotification(_, s"From or To ($other) are incompatible for Retrieve Command: $cmd"))
+					continueCommand(channelListener orElse carriageComponent.INDUCTING(dischargeAfterInducing(induct, to, outboundSlots(toCh))))
+				case (None, _) => completeCommand(idleListener, notAcceptedNotification(_, s"Load($load) not available in induct"))
+				case (_, None) => completeCommand(idleListener, notAcceptedNotification(_, s"Destination $toCh does not exist"))
+				case other => completeCommand(idleListener, notAcceptedNotification(_, s"From or To ($other) are incompatible for Retrieve Command: $cmd"))
 			}
 	}
 
@@ -250,77 +249,70 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 				verifyLocator(toLocator) match {
 					case Some(toLoc) =>
 						carriageComponent.unloadTo(toLoc)
-						channelListener orElse carriageComponent.UNLOADING(afterUnloading)
-					case None => completeCommand(trayFullExecutor, failFullNotification(_, s"Destination $toLocator does not exist"))
+						continueCommand(channelListener orElse carriageComponent.UNLOADING(afterUnloading))
+					case None => completeCommand(trayFullListener, failFullNotification(_, s"Destination $toLocator does not exist"))
 				}
 			case cmd@DeliverFromTray(chName) =>
 				outboundChannels.get(chName) match {
 					case Some(discharge) =>
 						carriageComponent.dischargeTo(discharge, outboundSlots(chName))
-						channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(discharge, outboundSlots(chName)))
-					case None => completeCommand(trayFullExecutor, failFullNotification(_, s"Outbound Channel $chName does not exist"))
+						continueCommand(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(discharge, outboundSlots(chName))))
+					case None => completeCommand(trayFullListener, failFullNotification(_, s"Outbound Channel $chName does not exist"))
 				}
-			case cmd: ExternalCommand => completeCommand(idleExecutor, notAcceptedNotification(_, s"Unexpected Command: $cmd"))
+			case cmd: ExternalCommand => completeCommand(idleListener, notAcceptedNotification(_, s"Unexpected Command: $cmd"))
 		}
 	}
 	private def dischargeAfterLoading(ch: DISCHARGE, loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
-				carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener
+				continueCommand(carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener)
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
-			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullExecutor, failFullNotification(_,s"Trying to load to a full Tray"))
-			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleExecutor, failEmptyNotification(_,s"Trying to load from an empty Source"))
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
+			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleListener, failEmptyNotification(_,s"Trying to load from an empty Source"))
 		}
 	}
 	private def unloadAfterLoading(loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.unloadTo(loc)
-				carriageComponent.UNLOADING(afterUnloading) orElse channelListener
+				continueCommand(carriageComponent.UNLOADING(afterUnloading) orElse channelListener)
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
-			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullExecutor, failFullNotification(_,s"Trying to load to a full Tray"))
-			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleExecutor, failEmptyNotification(_, "Trying to load from an empty Source"))
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
+			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to load from an empty Source"))
 		}
 	}
 	private def storeAfterInducting(from: INDUCT, loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.unloadTo(loc)
-				carriageComponent.UNLOADING(afterUnloading) orElse channelListener
+				continueCommand(carriageComponent.UNLOADING(afterUnloading) orElse channelListener)
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToStore(loc, from)
 				DomainRun.same
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
-			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullExecutor, failFullNotification(_,s"Trying to load to a full Tray"))
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 		}
 	}
 	private def dischargeAfterInducing(from: INDUCT, ch: DISCHARGE, loc: SlotLocator): CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
-				channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))
+				continueCommand(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)))
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToDischarge(ch, loc, from)
 				DomainRun.same
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
-			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullExecutor, failFullNotification(_,s"Trying to load to a full Tray"))
+			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 		}
 	}
 
 	private def afterUnloading: CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, RUNNER] = {
 		implicit ctx => {
-			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
-				waitInducting(inboundChannels.values.toSeq:_*)
-				completeCommand(idleExecutor, completedCommandNotification)
+			case CarriageComponent.UnloadOperationOutcome.Unloaded => completeCommand(idleListener, completedCommandNotification)
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
-			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
-				println(s"### ENDING LOAD WAIT ERROR FULL")
-				endLoadWait
-				completeCommand(trayFullExecutor, failFullNotification(_, s"Target destination is Full"))
-			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty =>
-				waitInducting(inboundChannels.values.toSeq:_*)
-				completeCommand(idleExecutor, failEmptyNotification(_, "Trying to unload an empty Tray"))
+			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull => completeCommand(trayFullListener, failFullNotification(_, s"Target destination is Full"))
+			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to unload an empty Tray"))
 		}
 	}
 
@@ -328,12 +320,12 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 		implicit ctx => {
 			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
 				endChannelWait
-				completeCommand(idleExecutor, completedCommandNotification)
+				completeCommand(idleListener, completedCommandNotification)
 			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
 				waitDischarging(ch, loc)
-				channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))
-			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => completeCommand(idleExecutor, failEmptyNotification(_, "Trying to unload an empty Tray"))
+				continueCommand(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)))
+			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to unload an empty Tray"))
 		}
 	}
 }

@@ -59,6 +59,6 @@ workflows:
             branches:
               only:
                 - master
-                - clean_tests
+                - saldubatech-simulation-33
 
 
