@@ -1,0 +1,43 @@
+@startuml
+boundary Processor1
+participant Processor2
+participant Processor3
+participant Clock
+
+Processor1 -> Clock: Signal(id = 2222, to: Processor2, delay = 0, action = InstantAction)
+note over Clock
+register start action
+2222 at time 33
+end note
+Clock -> Processor2: Signal(id = 2222, from: Processor1, now = 33, action = InstantAction)
+Processor2 -> Clock: OpenAction(2222)
+note over Clock
+register action 2222
+at time 33 (idempotent)
+end note
+hnote over Processor2
+do something
+end hnote
+Processor2 -> Clock: Signal(id = 3333, to: Processor3, delay = 5, action = DelayedAction)
+note over Clock
+queue action
+3333 for time 38
+end note
+hnote over Processor2
+complete something
+end hnote
+Processor2 -> Clock: CompleteAction(2222)
+hnote over Clock
+if no more actions pending for now
+advance to next time
+end hnote
+Clock -> Processor3: Signal(id = 3333, from: Processor2, now = 38, action=DelayedAction)
+Processor3 -> Clock: OpenAction(3333)
+note over Clock
+register action 3333
+at time 38 (idempotent)
+end note
+hnote over Processor3
+do something...
+end hnote
+@enduml
