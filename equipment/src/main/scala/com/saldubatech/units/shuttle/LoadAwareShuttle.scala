@@ -4,11 +4,13 @@
 
 package com.saldubatech.units.shuttle
 
+import com.saldubatech
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Tick
 import com.saldubatech.ddes.Processor.DomainRun
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
+import com.saldubatech.transport
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.abstractions.{EquipmentManager, InductDischargeUnit, LoadAwareUnit}
 import com.saldubatech.units.carriage._
@@ -50,6 +52,21 @@ object LoadAwareShuttle {
 
 	sealed trait InternalSignal extends LoadAwareShuttleSignal
 	case class Execute(cmd: ExternalCommand) extends Identification.Impl() with InternalSignal
+
+	trait AfferentChannel[SOURCE_SIGNAL >: ChannelConnections.ChannelSourceMessage] extends Channel[MaterialLoad, SOURCE_SIGNAL, LoadAwareShuttleSignal] { self =>
+		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with LoadAwareShuttleSignal
+		override type PullSignal = Channel.PulledLoad[MaterialLoad] with LoadAwareShuttleSignal
+		override type DeliverSignal = Channel.DeliverLoad[MaterialLoad] with LoadAwareShuttleSignal
+
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with LoadAwareShuttleSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Distance) = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with LoadAwareShuttleSignal
+		override def deliverBuilder(channel: String) = new Channel.DeliverLoadImpl[MaterialLoad](channel) with LoadAwareShuttleSignal
+	}
+
+	trait EfferentChannel[DESTINATION_SIGNAL >: ChannelConnections.ChannelDestinationMessage] extends Channel[MaterialLoad, LoadAwareShuttleSignal, DESTINATION_SIGNAL] {
+		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with LoadAwareShuttleSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with LoadAwareShuttleSignal
+	}
 
 	case class Configuration[UpstreamMessage >: ChannelConnections.ChannelSourceMessage, DownStreamMessage >: ChannelConnections.ChannelDestinationMessage]
 	(maxCommandsQueued: Int,
