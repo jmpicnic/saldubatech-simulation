@@ -53,7 +53,7 @@ object LoadAwareShuttle {
 	sealed trait InternalSignal extends LoadAwareShuttleSignal
 	case class Execute(cmd: ExternalCommand) extends Identification.Impl() with InternalSignal
 
-	trait AfferentChannel[SOURCE_SIGNAL >: ChannelConnections.ChannelSourceMessage] extends Channel[MaterialLoad, SOURCE_SIGNAL, LoadAwareShuttleSignal] { self =>
+	trait AfferentChannel extends Channel.Afferent[MaterialLoad, LoadAwareShuttleSignal] { self =>
 		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with LoadAwareShuttleSignal
 		override type PullSignal = Channel.PulledLoad[MaterialLoad] with LoadAwareShuttleSignal
 		override type DeliverSignal = Channel.DeliverLoad[MaterialLoad] with LoadAwareShuttleSignal
@@ -63,7 +63,7 @@ object LoadAwareShuttle {
 		override def deliverBuilder(channel: String) = new Channel.DeliverLoadImpl[MaterialLoad](channel) with LoadAwareShuttleSignal
 	}
 
-	trait EfferentChannel[DESTINATION_SIGNAL >: ChannelConnections.ChannelDestinationMessage] extends Channel[MaterialLoad, LoadAwareShuttleSignal, DESTINATION_SIGNAL] {
+	trait EfferentChannel extends Channel.Efferent[MaterialLoad, LoadAwareShuttleSignal] {
 		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with LoadAwareShuttleSignal
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with LoadAwareShuttleSignal
 	}

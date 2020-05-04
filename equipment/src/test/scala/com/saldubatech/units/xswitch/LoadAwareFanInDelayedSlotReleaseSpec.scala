@@ -14,7 +14,9 @@ import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft}
 import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -24,9 +26,9 @@ object LoadAswareFanInDelayedSlotReleaseSpec {
 }
 
 class LoadAwareFanInDelayedSlotReleaseSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
@@ -64,10 +66,8 @@ class LoadAwareFanInDelayedSlotReleaseSpec
 		// Channels
 		val chIb1 = new InboundChannelImpl[LoadAwareXSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
 		val chIb2 = new InboundChannelImpl[LoadAwareXSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
-		val ib = Seq(OnLeft(0) -> chIb1, OnLeft(1) -> chIb2)
 
 		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
-
 		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[LoadAwareXSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1"), 1, "Discharge"))))
 
 
@@ -111,10 +111,10 @@ class LoadAwareFanInDelayedSlotReleaseSpec
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => enqueueConfigure(act, xcManager, 0L, UpstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
+				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
+				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				enqueueConfigure(dischargeActor, xcManager, 0L, DownstreamConfigure)
-				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
+				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {

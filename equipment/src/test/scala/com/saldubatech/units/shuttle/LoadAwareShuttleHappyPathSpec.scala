@@ -17,7 +17,8 @@ import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
-import org.scalatest.{BeforeAndAfterAll, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -33,7 +34,7 @@ object LoadAwareShuttleHappyPathSpec {
 
 	class InboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
 		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, LoadAwareShuttle.LoadAwareShuttleSignal](delay, deliveryTime, cards, configuredOpenSlots, name)
-			with LoadAwareShuttle.AfferentChannel[ChannelConnections.DummySourceMessageType] {
+			with LoadAwareShuttle.AfferentChannel {
 		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
 
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): Channel.AcknowledgeLoad[MaterialLoad] = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
@@ -41,7 +42,7 @@ object LoadAwareShuttleHappyPathSpec {
 
 	class OutboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
 		extends Channel[MaterialLoad, LoadAwareShuttle.LoadAwareShuttleSignal, ChannelConnections.DummySinkMessageType](delay, deliveryTime, cards, configuredOpenSlots, name)
-			with LoadAwareShuttle.EfferentChannel[ChannelConnections.DummySinkMessageType] {
+			with LoadAwareShuttle.EfferentChannel {
 		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
 		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType

@@ -12,6 +12,7 @@ import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.units.Conveyance.{LoadAwareLiftToUnitSorter, UnitSorterToLoadAwareLift}
 import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
@@ -19,8 +20,9 @@ import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.units.shuttle.LoadAwareShuttle
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
 import com.saldubatech.util.LogEnabled
-import org.scalatest._
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, TestSuite}
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -212,10 +214,10 @@ class LoadAwareVolumeGTPSpec
 		val liftPhysics = new CarriageTravel(2, 6, 4, 8, 8)
 		val shuttlePhysics = new CarriageTravel(2, 6, 4, 8, 8)
 
-		val sorterAisleA = Channel.Ops(new SorterLiftChannel(() => Some(20), () => Some(3), cards, 1, s"sorter_aisle_A"))
-		val sorterAisleB = Channel.Ops(new SorterLiftChannel(() => Some(20), () => Some(3), cards, 1, s"sorter_aisle_B"))
-		val aisleASorter = Channel.Ops(new LiftSorterChannel(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_A"))
-		val aisleBSorter = Channel.Ops(new LiftSorterChannel(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_B"))
+		val sorterAisleA = Channel.Ops(new UnitSorterToLoadAwareLift(() => Some(20), () => Some(3), cards, 1, s"sorter_aisle_A"))
+		val sorterAisleB = Channel.Ops(new UnitSorterToLoadAwareLift(() => Some(20), () => Some(3), cards, 1, s"sorter_aisle_B"))
+		val aisleASorter = Channel.Ops(new LoadAwareLiftToUnitSorter(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_A"))
+		val aisleBSorter = Channel.Ops(new LoadAwareLiftToUnitSorter(() => Some(20), () => Some(3), cards, 1, s"aisle_sorter_B"))
 
 		implicit val clk = clock
 		val aisleA = buildAisle("AisleA", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2, 5))
