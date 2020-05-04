@@ -56,7 +56,7 @@ object LoadAwareShuttleHappyPathSpec {
 		var _ref: Option[Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, LoadAwareShuttle.LoadAwareShuttleSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture(ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, LoadAwareShuttle.LoadAwareShuttleSignal])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
 
 		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
 			override lazy val ref: Ref = _ref.head
@@ -86,7 +86,7 @@ object LoadAwareShuttleHappyPathSpec {
 	}
 
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, LoadAwareShuttle.LoadAwareShuttleSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
+	class SinkFixture(ops: Channel.Ops[MaterialLoad, LoadAwareShuttle.LoadAwareShuttleSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
 		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
 			override lazy val ref: Ref = _ref.head
 
