@@ -183,6 +183,7 @@ class LoadAwareFanInLargeDischargeBufferSpec
 				enqueue(dischargeActor, dischargeActor, 360L, ConsumeLoad)
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) released on channel Discharge")
+        xcManagerProbe.expectNoMessage(1000 millis)
 			}
 		}
 	}
