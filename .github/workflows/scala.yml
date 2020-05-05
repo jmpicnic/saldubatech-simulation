@@ -2,7 +2,7 @@ name: Scala CI
 
 on:
   push:
-    branches: [ master, saldubatech-simulation-33 ]
+    branches: [ master, saldubatech-simulation-33, issue-36-github-action-timeout ]
   pull_request:
     branches: [ master ]
 
