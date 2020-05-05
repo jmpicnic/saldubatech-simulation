@@ -177,13 +177,13 @@ class LoadAwareFanInLargeDischargeBufferSpec
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
 				enqueue(dischargeActor, dischargeActor, 340L, ConsumeLoad)
 				xcManagerProbe.expectMessage(331L -> LoadAwareXSwitch.CompletedCommand(thirdTransferCommand)) //330?
+        xcManagerProbe.expectNoMessage(1000 millis)
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) arrived to Sink via channel Discharge")
 				enqueue(dischargeActor, dischargeActor, 360L, ConsumeLoad)
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Third Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Third Load) released on channel Discharge")
-        xcManagerProbe.expectNoMessage(1000 millis)
 			}
 		}
 	}
