@@ -7,6 +7,7 @@ package com.saldubatech.units.flowspec
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -30,21 +31,21 @@ import scala.concurrent.duration._
 object LoadAwareVolumeGTPSpec {
 
 	trait Job {
-		val lift: Processor.Ref
+		val lift: SimRef
 		val liftCmd: LoadAwareXSwitch.Transfer
-		val shuttle: Processor.Ref
+		val shuttle: SimRef
 		val shuttleCmd: LoadAwareShuttle.ExternalCommand
 	}
-	case class InboundJob(inbound: Processor.Ref, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, levelIdx: Int, override val liftCmd: LoadAwareXSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: LoadAwareShuttle.Store) extends Job
-	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, override val liftCmd: LoadAwareXSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: LoadAwareShuttle.Retrieve) extends Job
+	case class InboundJob(inbound: SimRef, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: SimRef, levelIdx: Int, override val liftCmd: LoadAwareXSwitch.Transfer, shuttle: SimRef, override val shuttleCmd: LoadAwareShuttle.Store) extends Job
+	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: SimRef, override val liftCmd: LoadAwareXSwitch.Transfer, shuttle: SimRef, override val shuttleCmd: LoadAwareShuttle.Retrieve) extends Job
 
 	case object ManagerConfigure extends Identification.Impl() with EquipmentManagement.MockManagerSignal
 	case object SWITCH_TO_OUTBOUND extends Identification.Impl() with EquipmentManagement.MockManagerSignal
-	case class ConfigurationComplete(from: Processor.Ref) extends Identification.Impl() with EquipmentManagement.EquipmentNotification
+	case class ConfigurationComplete(from: SimRef) extends Identification.Impl() with EquipmentManagement.EquipmentNotification
 
 	class ReactiveShuttleCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite) extends LogEnabled {
 		private val obJobIt = outboundJobs.iterator
-		private var _manager: Processor.Ref = _
+		private var _manager: SimRef = _
 		lazy val configurer: Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] = new Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
 			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Processor.DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
@@ -118,7 +119,7 @@ object LoadAwareVolumeGTPSpec {
 		processorCreator.spawn(new Processor(name, clock, simController, new ReactiveShuttleCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
 
 	class ReactiveLiftCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite) extends LogEnabled {
-		private var _manager: Processor.Ref = null
+		private var _manager: SimRef = null
 		lazy val configurer: Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] = new Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
 			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Processor.DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
@@ -199,7 +200,7 @@ class LoadAwareVolumeGTPSpec
 	implicit val testMonitor = testMonitorProbe.ref
 
 //	implicit val globalClock = testKit.spawn(Clock())
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.EquipmentNotification)]
@@ -238,19 +239,19 @@ class LoadAwareVolumeGTPSpec
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
 		val sorterConfig = UnitSorter.Configuration(200, sorterInducts, sorterDischarges, sorterPhysics)
-		val sorter: Processor.Ref = UnitSorterBuilder.build("sorter", sorterConfig)
+		val sorter: SimRef = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.map(chOps => new SourceFixture(chOps)(testMonitor, this))
 
 		val sourceProcessors = sources.zip(Seq("Inbound1", "Inbound2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 
-		val sourceRefs: Seq[Processor.Ref] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName)).toList
+		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName)).toList
 
 		val destinations = outboundDischarges.values.toSeq.map {
 			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
 		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor)) }
-		val destinationRefs: Seq[Processor.Ref] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
+		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 
 		val slotDimension = (0 until 20)
 		val sideDimension: Seq[Int => SlotLocator] = Seq(OnLeft, OnRight)
@@ -300,7 +301,7 @@ class LoadAwareVolumeGTPSpec
 		"A. Configure itself" when {
 			"A01. Time is started they register for Configuration" in {
 				val actors = sourceRefs ++ shuttleManagers.values ++ liftManagers.values ++ destinationRefs ++ Seq(sorter, aisleA._1, aisleB._1) ++ aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
-				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(actors: _*)
+				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(actors: _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
@@ -349,7 +350,7 @@ class LoadAwareVolumeGTPSpec
 				destinationRefs.foreach(ref => enqueueConfigure(ref, sorterManager, 10L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs: _*)
+				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
 					case Processor.CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {
@@ -361,13 +362,17 @@ class LoadAwareVolumeGTPSpec
 						}
 				}
 				actorsToConfigure.isEmpty should be(true)
+				simControllerProbe.expectNoMessage(500 millis)
 			}
 		}
 		"B. Execute the commands" when {
 			"B01. Filling the Store" in {
-				var count = 0
 				inboundJobs.foreach {job =>
 					enqueue(sorter, sorterManager, 20, job.sorterCmd)
+				}
+				systemManagerProbe.expectNoMessage(500 millis)
+				var count = 0
+				inboundJobs.foreach {job =>
 					val source = sourceRefs(count%2)
 					count += 1
 					enqueue(source, source, 70L, TestProbeMessage(s"InboundLoad#$count", job.load))
@@ -427,6 +432,7 @@ class LoadAwareVolumeGTPSpec
 			"B02. Then emptying it." in {
 				outboundJobs.foreach {job => enqueue(sorter, sorterManager, 3000L, job.sorterCmd)
 				}
+				systemManagerProbe.expectNoMessage(500 millis)
 				shuttleManagers.values.foreach{mngr => enqueue(mngr, systemManager, 3100L, SWITCH_TO_OUTBOUND)}
 				var completedCommands = 0
 				var sorterLoadsReceived = 0
@@ -447,13 +453,11 @@ class LoadAwareVolumeGTPSpec
 				systemManagerProbe.fishForMessage(3 seconds) {
 					case (tick, LoadAwareShuttle.CompletedCommand(cmd)) =>
 						completedCommands += 1
-//						println(s">>>Commands = $completedCommands")
 						if(!outboundJobs.exists(_.shuttleCmd == cmd)) FishingOutcome.Fail(s"Unknown Shuttle Command: $cmd at $tick")
 						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
 						else FishingOutcome.Continue
 					case (tick, LoadAwareXSwitch.CompletedCommand(cmd)) =>
 						completedCommands += 1
-//						println(s">>> nCommands = $completedCommands")
 						if(!outboundJobs.exists(_.liftCmd == cmd)) FishingOutcome.Fail(s"Unknown Lift Command: $cmd at $tick")
 						else if(completedCommands == 2*inboundJobs.size) FishingOutcome.Complete
 						else FishingOutcome.Continue

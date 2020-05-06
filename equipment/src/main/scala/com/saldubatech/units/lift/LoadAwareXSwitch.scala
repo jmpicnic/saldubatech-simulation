@@ -5,9 +5,10 @@
 package com.saldubatech.units.lift
 
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
-import com.saldubatech.protocols.{EquipmentManagement, Equipment}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.abstractions.{InductDischargeUnit, LoadAwareUnit}
@@ -29,7 +30,7 @@ object LoadAwareXSwitch {
 	case class FailedWaiting(msg: String) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class NotAcceptedCommand(cmd: ExternalCommand, msg: String) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
+	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class MaxCommandsReached(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 
 	sealed trait InternalSignal extends Equipment.XSwitchSignal
@@ -50,8 +51,8 @@ object LoadAwareXSwitch {
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Equipment.XSwitchSignal
 	}
 
-	case class Configuration[InboundInductSignal >: Equipment.ChannelSourceSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal,
-		OutboundInductSignal >: Equipment.ChannelSourceSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal]
+	case class Configuration[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal,
+		OutboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(physics: CarriageTravel,
 	 maxPendingCommands: Int,
 	 inboundInduction: Map[Int, Channel.Ops[MaterialLoad, InboundInductSignal, Equipment.XSwitchSignal]],
@@ -61,16 +62,16 @@ object LoadAwareXSwitch {
 	 initialAlignment: Int
 	)
 
-	def buildProcessor[InboundInductSignal >: Equipment.ChannelSourceSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal,
-		OutboundInductSignal >: Equipment.ChannelSourceSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal]
+	def buildProcessor[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal,
+		OutboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(name: String, configuration: Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
 	(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
 		new Processor[Equipment.XSwitchSignal](name, clockRef, simController, new LoadAwareXSwitch(name, configuration).configurer)
 	}
 }
 
-class LoadAwareXSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal,
-	OutboundInductSignal >: Equipment.ChannelSourceSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal]
+class LoadAwareXSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal,
+	OutboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 (override val name: String, configuration: LoadAwareXSwitch.Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
 	extends Identification.Impl(name) with LoadAwareUnit[Equipment.XSwitchSignal] with InductDischargeUnit[Equipment.XSwitchSignal] with LogEnabled {
 	import LoadAwareXSwitch._

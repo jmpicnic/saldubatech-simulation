@@ -26,6 +26,4 @@ object Conveyance {
 		extends Channel[MaterialLoad, Equipment.UnitSorterSignal, Equipment.XSwitchSignal](delay, deliveryTime, cards, configuredOpenSlots, name)
 			with UnitSorter.EfferentChannel
 			with LoadAwareXSwitch.AfferentChannel
-
-
 }

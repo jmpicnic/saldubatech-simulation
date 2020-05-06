@@ -1,14 +1,16 @@
 package com.saldubatech.protocols
 
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.Simulation.DomainSignal
 
 object EquipmentManagement {
-	trait MockManagerSignal extends Identification
+	trait MockManagerSignal extends DomainSignal
 
-	trait ShuttleDemandRequest extends Identification
+	trait ShuttleDemandRequest extends DomainSignal
 
 
-	trait EquipmentNotification extends MockManagerSignal
+	trait EquipmentNotification extends DomainSignal
+		with MockManagerSignal
 
 	trait XSwitchNotification extends EquipmentNotification
 	trait ShuttleNotification extends EquipmentNotification

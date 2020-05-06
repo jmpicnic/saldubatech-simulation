@@ -7,10 +7,9 @@ package com.saldubatech.ddes
 import akka.actor.typed.Behavior
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import com.saldubatech.base.Monitored
+import com.saldubatech.base.{Identification, Monitored}
 import com.saldubatech.ddes.Processor.{ActionCommand, ProcessCommand, ProcessorMessage}
-import com.saldubatech.ddes.Simulation.{Command, Notification}
-import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.ddes.Simulation.{ControllerMessage, Notification, Signal, SimSignal}
 import com.saldubatech.util.LogEnabled
 
 import scala.collection.mutable
@@ -66,53 +65,53 @@ object Clock {
 	trait ClockMessage
 	type Ref = ActorRef[ClockMessage]
 
-	sealed trait ClockCommand extends Command with ClockMessage
+	sealed trait ClockCommand extends Signal with ClockMessage
 
-	sealed trait ClockAction extends ClockCommand
-	case class Enqueue(to: ActorRef[ProcessorMessage], act: ActionCommand) extends ClockAction
+	sealed trait ClockAction[ACTION <: SimSignal] extends ClockCommand
+	case class Enqueue[ACTION <: SimSignal](to: ActorRef[ACTION], act: ACTION) extends Identification.Impl() with ClockAction[ACTION]
 	//case class ActNow(act: Action) extends ClockAction
 
 	sealed trait ClockTimeKeeping extends ClockCommand
-	case class StartActionOnReceive(act: ActionCommand) extends ClockTimeKeeping
-	case class CompleteAction(act: ActionCommand) extends ClockTimeKeeping
-	case object Advance extends ClockTimeKeeping
+	case class StartActionOnReceive(act: SimSignal) extends Identification.Impl() with ClockTimeKeeping
+	case class CompleteAction(act: SimSignal) extends Identification.Impl() with ClockTimeKeeping
+	case object Advance extends Identification.Impl() with ClockTimeKeeping
 
 	sealed trait ClockManagementMessage extends ClockCommand
 	sealed trait ClockControlMessage extends ClockManagementMessage
-	case class StartTime(at: Tick = 0L) extends ClockManagementMessage
-	case object StopTime extends ClockManagementMessage
+	case class StartTime(at: Tick = 0L) extends Identification.Impl() with ClockManagementMessage
+	case object StopTime extends Identification.Impl() with ClockManagementMessage
 
 	sealed trait ClockMonitoringMessage extends ClockManagementMessage
-	case class WhatTimeIsIt(from: ActorRef[TheTimeIs]) extends ClockMonitoringMessage
-	case class RegisterMonitor[M >: ClockNotification](monitor: ActorRef[M]) extends ClockMonitoringMessage
-	case class DeregisterMonitor[M >: ClockNotification](monitor: ActorRef[M]) extends ClockMonitoringMessage
+	case class WhatTimeIsIt(from: ActorRef[TheTimeIs]) extends Identification.Impl() with ClockMonitoringMessage
+	case class RegisterMonitor[M >: ClockNotification](monitor: ActorRef[M]) extends Identification.Impl() with ClockMonitoringMessage
+	case class DeregisterMonitor[M >: ClockNotification](monitor: ActorRef[M]) extends Identification.Impl() with ClockMonitoringMessage
 
-	sealed trait ClockNotification extends Notification with ControllerMessage
-	case class RegisteredClockMonitors(n: Int) extends ClockNotification with ControllerMessage
+	sealed trait ClockNotification extends ControllerMessage
+	case class RegisteredClockMonitors(n: Int) extends Identification.Impl() with ClockNotification with ControllerMessage
 
 	sealed trait ClockStateNotification extends ClockNotification with ControllerMessage
-	case class StartedOn(at: Tick) extends ClockNotification
-	case class NotifyAdvance(from: Tick, to: Tick) extends ClockStateNotification
-	case class NoMoreWork(at: Tick) extends ClockStateNotification
-	case class ClockShuttingDown(at: Tick) extends ClockStateNotification
-	case class TheTimeIs(tick: Tick) extends ClockNotification
+	case class StartedOn(tick: Tick) extends Identification.Impl() with ClockNotification
+	case class NotifyAdvance(from: Tick, to: Tick) extends Identification.Impl() with ClockStateNotification
+	case class NoMoreWork(tick: Tick) extends Identification.Impl() with ClockStateNotification
+	case class ClockShuttingDown(tick: Tick) extends Identification.Impl() with ClockStateNotification
+	case class TheTimeIs(tick: Tick) extends Identification.Impl() with ClockNotification
 
 	def apply() = new Clock().init
 
 }
 
-class Clock private () extends Monitored[Clock.ClockNotification, Clock.RegisteredClockMonitors]
+class Clock[ACTION <: SimSignal] private() extends Monitored[Clock.ClockNotification, Clock.RegisteredClockMonitors]
 	with LogEnabled {
 	import Clock._
 
-	var current: Option[Clock] = None
+	var current: Option[Clock[ACTION]] = None
 
 	val starter: PartialFunction[ClockMessage, Behavior[ClockMessage]] = {
 		case startMsg: StartTime =>
 			start(startMsg.at)
 			run
-		case qAct @ Enqueue(to, actCommand) =>
-			enqueue(actCommand.at, qAct)
+		case qAct: Enqueue[ACTION] =>
+			enqueue(qAct.act.tick, qAct)
 			Behaviors.same
 	}
 	val monitoring: PartialFunction[ClockMessage, Behavior[ClockMessage]] = {
@@ -136,7 +135,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 			msg match {
 				case mngCmd: ClockMonitoringMessage => monitoring(mngCmd)
 				case tk: ClockTimeKeeping => timeKeeper(tk)
-				case act: ClockAction => clkAct(ctx, act)
+				case act: ClockAction[ACTION] => clkAct(ctx, act)
 				case StopTime =>
 					//if(!(epoch isActive) && (futureActions isEmpty)) notifyObservers(ClockShuttingDown(epoch.now))
 					notifyObservers(ClockShuttingDown(now))
@@ -149,12 +148,12 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		obs => RegisteredClockMonitors(obs.size)
 
 
-	private def clkAct(ctx: ActorContext[ClockMessage], act: ClockAction): Behavior[ClockMessage] = {
+	private def clkAct(ctx: ActorContext[ClockMessage], act: ClockAction[ACTION]): Behavior[ClockMessage] = {
 		log.debug(s"Clock Action Received: $act at $now")
 		act match {
 			case qAct @ Enqueue(to, actCommand) =>
-				if(actCommand.at == now) sendNow(to, actCommand)
-				else enqueue(actCommand.at, qAct)
+				if(actCommand.tick == now) sendNow(to, actCommand)
+				else enqueue(actCommand.tick, qAct)
 				maybeAdvance
 		}
 		Behaviors.same[ClockMessage]
@@ -168,7 +167,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		maybeAdvance
 	}
 
-	private def sendNow(to: ActorRef[ProcessorMessage], cmd: ActionCommand): Unit = {
+	private def sendNow(to: ActorRef[ACTION], cmd: ACTION): Unit = {
 		openAction(cmd)
 		cmd match {
 			case pcmd: ProcessCommand[_] => log.info(s"MSC: ${cmd.from.path.name} -> ${to.path.name}: [$now] ${pcmd.dm}")
@@ -178,7 +177,7 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 		to ! cmd
 	}
 
-	private def enqueue(tick: Tick, eq: Enqueue): Behavior[ClockMessage] = {
+	private def enqueue(tick: Tick, eq: Enqueue[ACTION]): Behavior[ClockMessage] = {
 		log.debug(s"Clock: Enqueueing $eq for $tick")
 		if(tick >= now) {
 			actionQueue += tick -> (actionQueue.getOrElse(tick, mutable.ListBuffer.empty) += eq)
@@ -212,14 +211,14 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 			Behaviors.same[ClockMessage]
 		}
 
-	private def openAction(act: ActionCommand): Unit = {
+	private def openAction(act: SimSignal): Unit = {
 		log.debug(s"Open Action: $act")
 		activatedEpoch = true
 		openActions += act.uid
 		Behaviors.same[ClockMessage]
 	}
 
-	private def closeAction(act: ActionCommand): Behavior[ClockMessage] = {
+	private def closeAction(act: SimSignal): Behavior[ClockMessage] = {
 		log.debug(s"Closing Action: $act")
 		if(!openActions.contains(act.uid)) throw new IllegalArgumentException(s"Action Not Open: $act")
 		openActions -= act.uid
@@ -231,6 +230,6 @@ class Clock private () extends Monitored[Clock.ClockNotification, Clock.Register
 	private val openActions = mutable.Set.empty[String]
 
 	private var now: Tick = 0
-	private val actionQueue: mutable.SortedMap[Tick, mutable.ListBuffer[Enqueue]] = mutable.SortedMap.empty
+	private val actionQueue: mutable.SortedMap[Tick, mutable.ListBuffer[Enqueue[ACTION]]] = mutable.SortedMap.empty
 
 }

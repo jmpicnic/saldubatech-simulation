@@ -6,6 +6,7 @@ package com.saldubatech.units.shuttle
 
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor.DomainRun
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -41,9 +42,9 @@ object Shuttle {
 	case class CompletedCommand(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 
-	case class Configuration[UpstreamMessage >: Equipment.ChannelSourceSignal, DownStreamMessage >: Equipment.ChannelSinkSignal]
+	case class Configuration[UpstreamMessage >: Equipment.ChannelSourceSignal <: DomainSignal, DownStreamMessage >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(name: String,
 	 depth: Int,
 	 physics: CarriageTravel,
@@ -52,7 +53,7 @@ object Shuttle {
 
 	case class InitialState(position: Int, inventory: Map[SlotLocator, MaterialLoad])
 
-	def buildProcessor[UpstreamMessageType >: Equipment.ChannelSourceSignal, DownstreamMessageType >: Equipment.ChannelSinkSignal]
+	def buildProcessor[UpstreamMessageType >: Equipment.ChannelSourceSignal <: DomainSignal, DownstreamMessageType >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(configuration: Configuration[UpstreamMessageType, DownstreamMessageType],
 	 initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
 		val domain = new Shuttle(configuration.name, configuration, initial)
@@ -60,7 +61,7 @@ object Shuttle {
 	}
 }
 
-class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal, DownstreamSignal >: Equipment.ChannelSinkSignal]
+class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, DownstreamSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 (override val name: String,
  configuration: Shuttle.Configuration[UpstreamSignal, DownstreamSignal],
  initial: Shuttle.InitialState) extends Identification.Impl(name) with CarriageUnit[Equipment.ShuttleSignal] with InductDischargeUnit[Equipment.ShuttleSignal] with LogEnabled {

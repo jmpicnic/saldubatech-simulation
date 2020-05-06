@@ -3,6 +3,7 @@ package com.saldubatech.units.abstractions
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Tick
 import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.MaterialLoad
 import com.saldubatech.util.LogEnabled
@@ -15,7 +16,7 @@ object LoadAwareUnit {
 	}
 }
 
-trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: Identification]
+trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]
 	extends EquipmentUnit[HOST_SIGNAL] with InductDischargeUnit[HOST_SIGNAL] with LogEnabled {
 
 	import LoadAwareUnit._

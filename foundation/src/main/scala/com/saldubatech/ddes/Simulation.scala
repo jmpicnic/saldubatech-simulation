@@ -9,9 +9,9 @@ import java.util.Comparator
 
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.dispatch.Envelope
-import com.saldubatech.ddes.Clock.{ClockAction, ClockMessage, Ref, Enqueue, Tick}
-import com.saldubatech.ddes.Processor.{ProcessorBehavior, ProcessorMessage, Ref}
-import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.base.Identification
+import com.saldubatech.ddes.Clock.{ClockAction, ClockMessage, Enqueue, Ref, Tick}
+import com.saldubatech.ddes.Processor.{ProcessorBehavior, ProcessorMessage}
 import com.saldubatech.util.Lang.TBD
 
 object Simulation extends App {
@@ -20,13 +20,40 @@ object Simulation extends App {
 	//========================================================================================================
 
 	// Message Taxonomy
-	trait Message
 
-	trait Notification extends Message
+	/**
+	 * Exchanged between elements of the simulation engine implementation to control its workings
+	 *
+	 */
+	trait Signal extends Identification
+	trait EngineSignal extends Signal
 
-	trait Command extends Message
+	/**
+	 * Messages accepted by the Simulation Controller
+	 */
+	trait ControllerMessage extends Identification
 
-	type ControllerRef = ActorRef[ControllerMessage]
+	/**
+	@deprecated
+	 Not needed
+	 */
+	@Deprecated
+	trait Notification extends Signal
+
+	/**
+	Exchanged between simulation agents, carrying domain messages
+	 */
+	trait SimSignal extends Identification {
+		val tick: Tick
+		val from: ActorRef[SimSignal]
+	}
+	type SimRef = ActorRef[SimSignal]
+
+	/**
+	 * Supertype for all Domain Messages
+	 *
+	 */
+	trait DomainSignal extends Identification
 
 	/*
 	Getting it ready to use UnboundedStablePriorityMailbox to ensure that self messages have higher priority.
@@ -43,8 +70,8 @@ object Simulation extends App {
 		private val MAX_PRIO = 100
 
 		private def msgPrio(e: Envelope): Int = e.message match {
-			case m: Enqueue if m.to == m.act.from => MAX_PRIO - 10
-			case m: Enqueue => MAX_PRIO - 20
+			case m: Enqueue[_] if m.to == m.act.from => MAX_PRIO - 10
+			case m: Enqueue[_] => MAX_PRIO - 20
 			case m: ClockMessage => MAX_PRIO
 			case other => 0
 		}

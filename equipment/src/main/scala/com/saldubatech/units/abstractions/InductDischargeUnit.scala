@@ -2,6 +2,7 @@ package com.saldubatech.units.abstractions
 
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -13,35 +14,35 @@ object InductDischargeUnit {
 
 	class UnloadCmd(val loc: SlotLocator) extends Identification.Impl()
 
-	class InductCmd[SinkProfile >: Equipment.ChannelSinkSignal](val from: Channel.End[MaterialLoad, SinkProfile], val at: SlotLocator) extends Identification.Impl()
+	class InductCmd[SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal](val from: Channel.End[MaterialLoad, SinkProfile], val at: SlotLocator) extends Identification.Impl()
 
-	class DischargeCmd[SourceProfile >: Equipment.ChannelSourceSignal](val to: Channel.Start[MaterialLoad, SourceProfile], val at: SlotLocator) extends Identification.Impl()
+	class DischargeCmd[SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal](val to: Channel.Start[MaterialLoad, SourceProfile], val at: SlotLocator) extends Identification.Impl()
 
 	sealed trait WaitForLoad
 	sealed trait WaitForChannel
 
-	def inductSink[HS >: Equipment.ChannelSignal, H <: InductDischargeUnit[HS]]
+	def inductSink[HS >: Equipment.ChannelSignal <: DomainSignal, H <: InductDischargeUnit[HS]]
 	(host: H)(loadArrivalBehavior: (host.INDUCT, MaterialLoad, Option[Distance], host.CTX) => Function1[WaitForLoad, host.RUNNER])
 	(inboundSlot: SlotLocator, chOps: Channel.Ops[MaterialLoad, _, HS])=
 		new 	Channel.Sink[MaterialLoad, HS] {
-			lazy override val ref: Processor.Ref = host.self
+			lazy override val ref: SimRef = host.self
 			lazy val end = chOps.registerEnd(this)
 			override def loadArrived(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = loadArrivalBehavior(endpoint, load, at, ctx)(host.waitingForLoad)
 
 			override def loadReleased(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = Processor.DomainRun.same
 		}.end
 
-	def dischargeSource[HS >: Equipment.ChannelSignal, H <: InductDischargeUnit[HS]]
-	(host: H)(slot: SlotLocator, manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, HS, _])
+	def dischargeSource[HS >: Equipment.ChannelSignal <: DomainSignal, H <: InductDischargeUnit[HS]]
+	(host: H)(slot: SlotLocator, manager: SimRef, chOps: Channel.Ops[MaterialLoad, HS, _])
 	(channelFreeBehavior: (host.DISCHARGE, MaterialLoad, host.CTX) => PartialFunction[WaitForChannel, host.RUNNER])=
 		new Channel.Source[MaterialLoad, HS] {
-			lazy override val ref: Processor.Ref = host.self
+			lazy override val ref: SimRef = host.self
 			lazy val start = chOps.registerStart(this)
 			override def loadAcknowledged(endpoint: host.DISCHARGE, load: MaterialLoad)(implicit ctx: host.CTX): host.RUNNER = channelFreeBehavior(endpoint, load, ctx)(host.waitingForChannel)
 		}.start
 }
 
-trait InductDischargeUnit[HOST_SIGNAL >: Equipment.ChannelSignal]  extends EquipmentUnit[HOST_SIGNAL] {
+trait InductDischargeUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]  extends EquipmentUnit[HOST_SIGNAL] {
 	import InductDischargeUnit._
 
 	type INDUCT = Channel.End[MaterialLoad, HOST_SIGNAL]

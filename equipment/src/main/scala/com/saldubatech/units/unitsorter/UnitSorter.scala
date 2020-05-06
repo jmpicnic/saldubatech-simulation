@@ -2,6 +2,7 @@ package com.saldubatech.units.unitsorter
 
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Tick
+import com.saldubatech.ddes.Simulation.SimRef
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -20,7 +21,7 @@ object UnitSorter {//extends EquipmentUnit[Equipment.UnitSorterSignal] {
 	sealed abstract class ExternalCommand extends Identification.Impl() with Equipment.UnitSorterSignal
 	case class Sort(load: MaterialLoad, destination: String) extends ExternalCommand
 
-	case class CompletedConfiguration(self: Processor.Ref) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
+	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
 	case class CompletedCommand(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
 	case class MaxCommandsReached(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
 	case class LoadArrival(load: MaterialLoad, channel: String) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
@@ -80,7 +81,7 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 		}
 	}
 
-	private def inductSink(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal], host: Processor.Ref) =
+	private def inductSink(manager: SimRef, chOps: Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal], host: SimRef) =
 		new Channel.Sink[MaterialLoad, Equipment.UnitSorterSignal] {
 			lazy override val ref = host
 			lazy val end = chOps.registerEnd(this)
@@ -96,7 +97,7 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 			}
 		}.end
 
-	private def dischargeSource(manager: Processor.Ref, chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _], host: Processor.Ref) =
+	private def dischargeSource(manager: SimRef, chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _], host: SimRef) =
 		new Channel.Source[MaterialLoad, Equipment.UnitSorterSignal] {
 			override lazy val ref = host
 			lazy val start = chOps.registerStart(this)

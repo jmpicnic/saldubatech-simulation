@@ -10,14 +10,14 @@ package com.saldubatech.ddes
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Processor.{CompleteConfiguration, ConfigurationCommand, ProcessCommand, ProcessorControlCommand, ProcessorMessage, RegisterProcessor}
-import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimSignal, DomainSignal}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
-
-
 import com.saldubatech.test.BaseSpec._
+
 import scala.concurrent.duration._
 
 
@@ -43,11 +43,11 @@ class ProcessorSpec
 		val globalClock = testKit.spawn(Clock())
 
 		val testController = testKit.createTestProbe[ControllerMessage]
-		val mockProcessorSender = testKit.createTestProbe[ProcessorMessage]
-		val mockProcessorReceiver = testKit.createTestProbe[ProcessorMessage]
+		val mockProcessorSender = testKit.createTestProbe[SimSignal]
+		val mockProcessorReceiver = testKit.createTestProbe[SimSignal]
 		val testActor = testKit.createTestProbe[String]
 
-		case class DomainType(id: String)
+		case class DomainType(domainId: String) extends Identification.Impl(domainId) with DomainSignal
 
 		val action1UUID = java.util.UUID.randomUUID.toString
 		val action2UUID = java.util.UUID.randomUUID.toString

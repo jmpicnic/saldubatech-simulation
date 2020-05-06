@@ -6,19 +6,21 @@
 package com.saldubatech.ddes
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.{ClockShuttingDown, CompleteAction, DeregisterMonitor, Enqueue, NoMoreWork, NotifyAdvance, RegisterMonitor, RegisteredClockMonitors, StartTime, StartedOn, Tick}
 import com.saldubatech.ddes.Processor.{ProcessCommand, ProcessorMessage}
-import com.saldubatech.ddes.SimulationController.ControllerMessage
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimSignal, DomainSignal}
+import org.scalatest.{BeforeAndAfterAll, Matchers}
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 
 class ClockSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-    with WordSpecLike
+    with AnyWordSpecLike
     with BeforeAndAfterAll {
 	val testKit = ActorTestKit()
-	case class MockDomainMessage(msg: String)
+	case class MockDomainMessage(msg: String) extends Identification.Impl() with DomainSignal
 
   override def beforeAll: Unit = {
 
@@ -33,8 +35,8 @@ class ClockSpec
 
 		val testController = testKit.createTestProbe[ControllerMessage]
 		val testController2 = testKit.createTestProbe[ControllerMessage]
-		val mockProcessorSender = testKit.createTestProbe[ProcessorMessage]
-		val mockProcessorReceiver = testKit.createTestProbe[ProcessorMessage]
+		val mockProcessorSender = testKit.createTestProbe[SimSignal]
+		val mockProcessorReceiver = testKit.createTestProbe[SimSignal]
 		"A. is not yet operating" should {
 			"A01. allow registration of Time Monitors" in {
 				underTest ! RegisterMonitor(testController.ref)

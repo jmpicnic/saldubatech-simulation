@@ -9,7 +9,7 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech
 import com.saldubatech.ddes.Clock.{Delay, Enqueue}
-import com.saldubatech.ddes.Processor.Ref
+import com.saldubatech.ddes.Simulation.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -54,7 +54,7 @@ class FanInDelayedSlotReleaseSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 

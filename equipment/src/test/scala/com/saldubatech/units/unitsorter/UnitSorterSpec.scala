@@ -7,6 +7,7 @@ package com.saldubatech.units.unitsorter
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.Clock.Delay
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -65,7 +66,7 @@ class UnitSorterSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.UnitSorterNotification)]
@@ -107,7 +108,7 @@ class UnitSorterSpec
 		"A. Configure itself" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs ++ Seq(underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs ++ Seq(underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
@@ -133,7 +134,7 @@ class UnitSorterSpec
 				destinationRefs.foreach(ref => enqueueConfigure(ref, xcManager, 0L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceRefs ++ destinationRefs: _*)
+				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
 					case Processor.CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {

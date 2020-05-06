@@ -7,6 +7,7 @@ package com.saldubatech.units.shuttle
 import com.saldubatech.base
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor.DomainRun
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -45,7 +46,7 @@ object LoadAwareShuttle {
 	case class CompletedCommand(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 
 	sealed trait InternalSignal extends Equipment.ShuttleSignal
 	case class Execute(cmd: ExternalCommand) extends Identification.Impl() with InternalSignal
@@ -65,7 +66,7 @@ object LoadAwareShuttle {
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Equipment.ShuttleSignal
 	}
 
-	case class Configuration[UpstreamMessage >: Equipment.ChannelSourceSignal, DownStreamMessage >: Equipment.ChannelSinkSignal]
+	case class Configuration[UpstreamMessage >: Equipment.ChannelSourceSignal <: DomainSignal, DownStreamMessage >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(maxCommandsQueued: Int,
 	 depth: Int,
 	 physics: CarriageTravel,
@@ -74,7 +75,7 @@ object LoadAwareShuttle {
 
 	case class InitialState(position: Int, inventory: Map[SlotLocator, MaterialLoad])
 
-	def buildProcessor[UpstreamMessageType >: Equipment.ChannelSourceSignal, DownstreamMessageType >: Equipment.ChannelSinkSignal]
+	def buildProcessor[UpstreamMessageType >: Equipment.ChannelSourceSignal <: DomainSignal, DownstreamMessageType >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(name: String,
 	 configuration: Configuration[UpstreamMessageType, DownstreamMessageType],
 	 initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
@@ -83,7 +84,7 @@ object LoadAwareShuttle {
 	}
 }
 
-class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal, DownstreamSignal >: Equipment.ChannelSinkSignal]
+class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, DownstreamSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 (override val name: String,
  configuration: LoadAwareShuttle.Configuration[UpstreamSignal, DownstreamSignal],
  initial: LoadAwareShuttle.InitialState) extends Identification.Impl(name) with LoadAwareUnit[Equipment.ShuttleSignal] with LogEnabled {

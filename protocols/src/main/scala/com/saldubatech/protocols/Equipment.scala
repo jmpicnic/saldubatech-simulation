@@ -1,17 +1,18 @@
 package com.saldubatech.protocols
 
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.Simulation.DomainSignal
 
 object Equipment {
-	trait ShuttleSignal extends Identification
-	trait XSwitchSignal extends Identification
-	trait UnitSorterSignal extends Identification
+	trait ShuttleSignal extends DomainSignal
+	trait XSwitchSignal extends DomainSignal
+	trait UnitSorterSignal extends DomainSignal
 
-	trait MockSignal extends Identification
-	trait MockSourceSignal extends Identification
-	trait MockSinkSignal extends Identification
+	trait MockSignal extends DomainSignal
+	trait MockSourceSignal extends DomainSignal
+	trait MockSinkSignal extends DomainSignal
 
-	trait ChannelSignal extends Identification
+	trait ChannelSignal extends DomainSignal
 		with MockSignal
 		with ShuttleSignal
 		with XSwitchSignal

@@ -10,7 +10,7 @@ import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Processor._
-import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.protocols.Equipment
@@ -31,7 +31,7 @@ object CarriageComponentOnChannelSpec {
 	trait MockNotification extends MockSignal
 	case class LoadArrival(ld: MaterialLoad, at: Tick) extends Identification.Impl() with  MockNotification
 	case class Notify(msg: String) extends Identification.Impl() with  MockNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends Identification.Impl() with  MockNotification
+	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with  MockNotification
 
 
 	class MockChannel(delay: () => Option[Delay], delivery: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
@@ -51,14 +51,14 @@ object CarriageComponentOnChannelSpec {
 	case class TestProbeMessage(msg: String, load: MaterialLoad) extends Identification.Impl() with  MockSignal
 	case object FixtureConfigure extends Identification.Impl() with  MockSignal
 
-	trait Fixture[DomainMessage] extends LogEnabled {
-		var _ref: Option[Processor.Ref] = None
+	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
+		var _ref: Option[SimRef] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, MockSignal, MockSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[MockSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, MockSignal] {
-			override lazy val ref: Processor.Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -87,8 +87,7 @@ object CarriageComponentOnChannelSpec {
 
 	class SinkFixture(ops: Channel.Ops[MaterialLoad, MockSignal, MockSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[MockSignal] {
 		val sink = new Channel.Sink[MaterialLoad, MockSignal] {
-			override lazy val ref: Processor.Ref = _ref.head
-
+			override lazy val ref: SimRef = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
 				testMonitor ! s"Load $load arrived via channel ${endpoint.channelName}"
@@ -111,7 +110,7 @@ object CarriageComponentOnChannelSpec {
 			}
 	}
 
-	def fixtureConfigurer[DomainMessage](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]): DomainConfigure[DomainMessage] =
+	def fixtureConfigurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]): DomainConfigure[DomainMessage] =
 		new Processor.DomainConfigure[DomainMessage] {
 			override def configure(config: DomainMessage)(implicit ctx: Processor.SignallingContext[DomainMessage]): Processor.DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"
@@ -158,11 +157,11 @@ object CarriageComponentOnChannelSpec {
 	              outbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal]) extends LogEnabled {
 		val host = new MOCK_CarriageUnit(monitor)
 		val carriage = new CarriageComponent[MockSignal, MOCK_CarriageUnit](physics, host)
-		var _ref: Option[Processor.Ref] = None
-		var manager: Processor.Ref = _
+		var _ref: Option[SimRef] = None
+		var manager: SimRef = _
 
 		lazy val outboundSource = new Channel.Source[MaterialLoad, MockSignal] {
-			override lazy val ref: Processor.Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -173,7 +172,7 @@ object CarriageComponentOnChannelSpec {
 		val startEndpoint = outbound.registerStart(outboundSource)
 
 		lazy val inboundSink = new Channel.Sink[MaterialLoad, MockSignal] {
-			override lazy val ref: Processor.Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
@@ -297,8 +296,8 @@ object CarriageComponentOnChannelSpec {
 		}
 	}
 
-	class CommandRelayer(inboundJobs: mutable.Map[MaterialLoad, Seq[MockSignal]], target: Processor.Ref) {
-		private var _manager: Processor.Ref = null
+	class CommandRelayer(inboundJobs: mutable.Map[MaterialLoad, Seq[MockSignal]], target: SimRef) {
+		private var _manager: SimRef = null
 		lazy val configurer: Processor.DomainConfigure[MockSignal] = new Processor.DomainConfigure[MockSignal] {
 			override def configure(config: MockSignal)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainMessageProcessor[MockSignal] = {
 				config match {

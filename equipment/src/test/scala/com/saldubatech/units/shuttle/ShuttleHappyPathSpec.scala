@@ -9,7 +9,7 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Processor.Ref
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -61,14 +61,14 @@ object ShuttleHappyPathSpec {
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Equipment.ShuttleSignal
 	}
 
-	trait Fixture[DomainMessage] extends LogEnabled {
-		var _ref: Option[Ref] = None
+	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
+		var _ref: Option[SimRef] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSourceSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
-			override lazy val ref: Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -97,7 +97,7 @@ object ShuttleHappyPathSpec {
 
 	class SinkFixture(ops: Channel.Ops[MaterialLoad, Equipment.ShuttleSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSinkSignal] {
 		val sink = new Channel.Sink[MaterialLoad, Equipment.MockSinkSignal] {
-			override lazy val ref: Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
@@ -121,7 +121,7 @@ object ShuttleHappyPathSpec {
 			}
 	}
 
-	def configurer[DomainMessage](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
+	def configurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
 		new Processor.DomainConfigure[DomainMessage] {
 			override def configure(config: DomainMessage)(implicit ctx: Processor.SignallingContext[DomainMessage]): Processor.DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"
@@ -155,7 +155,7 @@ class ShuttleHappyPathSpec
 	implicit val testMonitor = testMonitorProbe.ref
 
 //	implicit val globalClock = testKit.spawn(Clock())
-	val testControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val testControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = testControllerProbe.ref
 
 	val shuttleLevelManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.ShuttleNotification)]

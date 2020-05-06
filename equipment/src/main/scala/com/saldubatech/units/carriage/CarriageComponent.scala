@@ -1,5 +1,6 @@
 package com.saldubatech.units.carriage
 
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.MaterialLoad
 import com.saldubatech.units.abstractions.{EquipmentUnit, InductDischargeUnit}
@@ -27,7 +28,7 @@ object CarriageComponent {
 	}
 
 }
-class CarriageComponent[HS >: Equipment.ChannelSignal, HOST <: EquipmentUnit[HS]  with InductDischargeUnit[HS]]
+class CarriageComponent[HS >: Equipment.ChannelSignal <: DomainSignal, HOST <: EquipmentUnit[HS]  with InductDischargeUnit[HS]]
 (travelPhysics: CarriageTravel, val host: HOST) {
 	import CarriageComponent._
 

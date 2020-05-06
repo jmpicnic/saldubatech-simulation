@@ -1,6 +1,7 @@
 package com.saldubatech.units.abstractions
 
 import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.protocols.Equipment
 
 object CarriageUnit {
@@ -9,7 +10,7 @@ object CarriageUnit {
 
 }
 
-trait CarriageUnit[HOST_SIGNAL >: Equipment.ChannelSignal] extends EquipmentUnit[HOST_SIGNAL] {
+trait CarriageUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal] extends EquipmentUnit[HOST_SIGNAL] {
 
 		protected def rejectExternalCommand(cmd: EXTERNAL_COMMAND, msg: String)(implicit ctx: CTX): RUNNER = {
 		ctx.reply(notAcceptedNotification(cmd, msg))

@@ -7,6 +7,7 @@ package com.saldubatech.units.xswitch
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.Clock.Enqueue
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -15,7 +16,9 @@ import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.carriage.CarriageTravel
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -25,9 +28,9 @@ object FanInWaitingForSlotSpec {
 }
 
 class FanInWaitingForSlotSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
@@ -49,7 +52,7 @@ class FanInWaitingForSlotSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.XSwitchNotification)]
@@ -89,7 +92,7 @@ class FanInWaitingForSlotSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
@@ -114,7 +117,7 @@ class FanInWaitingForSlotSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				enqueueConfigure(dischargeActor, xcManager, 0L, DownstreamConfigure)
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
+				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
 					case Processor.CompleteConfiguration(pr) =>
@@ -165,8 +168,18 @@ class FanInWaitingForSlotSpec
 				sourceActors.head ! Processor.ProcessCommand(sourceActors.head, 275L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Third Load")
 				enqueue(underTest, xcManager, 288L, thirdTransferCommand)
-				xcManagerProbe.expectMessage(288L -> XSwitch.NotAcceptedCommand(thirdTransferCommand, "XSwitch(underTest) is busy"))
-				xcManagerProbe.expectMessage(288L -> XSwitch.LoadArrival("Inbound1", thirdLoad))
+				var found = 0
+				xcManagerProbe.fishForMessage(500 millis){
+					case (288L, XSwitch.NotAcceptedCommand(thirdTransferCommand, "XSwitch(underTest) is busy")) =>
+						found += 1
+						if(found == 2) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case (288L, XSwitch.LoadArrival("Inbound1", thirdLoad)) =>
+						found += 1
+						if(found == 2) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case other => FishingOutcome.Fail(s"Unexpected: $other")
+				}
 			}
 			"C04. and then the discharge consumes load, second load is sent and third command is complete" in {
 				enqueue(dischargeActor, dischargeActor, 305L, ConsumeLoad)

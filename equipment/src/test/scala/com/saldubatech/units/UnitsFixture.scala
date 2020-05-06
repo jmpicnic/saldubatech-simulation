@@ -4,6 +4,7 @@ import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.util.LogEnabled
@@ -22,15 +23,15 @@ object UnitsFixture {
 
 	case object ConsumeLoad extends Identification.Impl() with Equipment.MockSinkSignal
 
-	trait Fixture[DomainMessage] extends LogEnabled {
-		var _ref: Option[Processor.Ref] = None
+	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
+		var _ref: Option[SimRef] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture[DestinationSignal >: Equipment.ChannelSinkSignal](ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSourceSignal] {
+	class SourceFixture[DestinationSignal >: Equipment.ChannelSinkSignal <: DomainSignal](ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSourceSignal] {
 		private val pending: mutable.Queue[MaterialLoad] = mutable.Queue.empty
 
 		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
-			override lazy val ref: Processor.Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = {
 				//log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -61,9 +62,9 @@ object UnitsFixture {
 			}
 	}
 
-	class SinkFixture[SourceSignal >: Equipment.ChannelSourceSignal](ops: Channel.Ops[MaterialLoad, SourceSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSinkSignal] {
+	class SinkFixture[SourceSignal >: Equipment.ChannelSourceSignal <: DomainSignal](ops: Channel.Ops[MaterialLoad, SourceSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSinkSignal] {
 		val sink = new Channel.Sink[MaterialLoad, Equipment.MockSinkSignal] {
-			override lazy val ref: Processor.Ref = _ref.head
+			override lazy val ref: SimRef = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName} at ${ctx.now}"
@@ -93,7 +94,7 @@ object UnitsFixture {
 			}
 	}
 	
-	def configurer[DomainMessage](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
+	def configurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
 		new Processor.DomainConfigure[DomainMessage] {
 			override def configure(config: DomainMessage)(implicit ctx: Processor.SignallingContext[DomainMessage]): Processor.DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"

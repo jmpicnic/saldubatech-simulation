@@ -8,6 +8,7 @@ import com.saldubatech.base.{AssetBox, Identification}
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
 import com.saldubatech.ddes.Processor.{DomainRun, SignallingContext}
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.util.LogEnabled
@@ -61,7 +62,7 @@ object Channel {
 	trait Endpoint {
 		val channelName: String
 	}
-	trait Start[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal] extends Endpoint {
+	trait Start[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] extends Endpoint {
 		val source: Source[LOAD, SourceProfile]
 
 		def availableCards: Int
@@ -75,7 +76,7 @@ object Channel {
 
 
 
-	trait End[LOAD <: Identification, SinkProfile >: Equipment.ChannelSinkSignal] extends Endpoint {
+	trait End[LOAD <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] extends Endpoint {
 		val sink: Sink[LOAD, SinkProfile]
 		val receivingSlots: Int
 		//def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int]
@@ -89,23 +90,23 @@ object Channel {
 		override def toString = s"ChannelEnd($channelName)"
 	}
 
-	trait Sink[L <: Identification, SinkProfile >: Equipment.ChannelSinkSignal] {
-		val ref: Processor.Ref
+	trait Sink[L <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] {
+		val ref: SimRef
 		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
 		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
 	}
 
-	trait Source[L <: Identification, SourceProfile >: Equipment.ChannelSourceSignal] {
-		val ref: Processor.Ref
+	trait Source[L <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] {
+		val ref: SimRef
 		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
 	}
 
 	object Ops {
-		def apply[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal,
-			SinkProfile >: Equipment.ChannelSinkSignal](ch: Channel[LOAD, SourceProfile, SinkProfile]) = new Ops(ch)
+		def apply[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal,
+			SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal](ch: Channel[LOAD, SourceProfile, SinkProfile]) = new Ops(ch)
 	}
-	class Ops[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal,
-		SinkProfile >: Equipment.ChannelSinkSignal](val ch: Channel[LOAD, SourceProfile, SinkProfile])
+	class Ops[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal,
+		SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal](val ch: Channel[LOAD, SourceProfile, SinkProfile])
 		extends LogEnabled {
 
 		private var _start: Option[Start[LOAD, SourceProfile]] = None

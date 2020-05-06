@@ -6,26 +6,26 @@ package com.saldubatech.ddes
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, Props}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.{ClockMessage, ClockNotification, NoMoreWork, NotifyAdvance, RegisterMonitor, RegisteredClockMonitors, StartTime, StartedOn, StopTime, Tick}
 import com.saldubatech.ddes.Processor.{CompleteConfiguration, ProcessorMessage, RegisterProcessor, Run}
-import com.saldubatech.ddes.Simulation.{Command, Notification}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, Notification, Signal}
 import com.saldubatech.util.Lang._
 
 import scala.collection.mutable
 import scala.concurrent.Await
 
 object SimulationController {
-	trait ControllerMessage extends ProcessorMessage
 
 	type Ref = ActorRef[ControllerMessage]
 
-	sealed trait ControllerCommand extends Command with ControllerMessage
-	case object SimulationShutdown extends ControllerCommand
-	case object CheckSimulationState extends ControllerCommand
-	case object KILL extends ControllerCommand
+	sealed trait ControllerCommand extends Signal with ControllerMessage
+	case object SimulationShutdown extends Identification.Impl() with ControllerCommand
+	case object CheckSimulationState extends Identification.Impl() with ControllerCommand
+	case object KILL extends Identification.Impl() with ControllerCommand
 
-	sealed trait ControllerNotification extends Notification
-	case class SimulationState(stateInfo: TBD) extends ControllerNotification
+	sealed trait ControllerNotification extends Signal
+	case class SimulationState(stateInfo: TBD) extends Identification.Impl() with ControllerNotification
 
 
 	val PB = PF[ControllerMessage, Behavior[ControllerMessage]] _

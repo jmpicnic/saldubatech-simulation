@@ -6,6 +6,7 @@ package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -48,7 +49,7 @@ class LoadAwareFanInWaitingForSlotSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.XSwitchNotification)]
@@ -88,7 +89,7 @@ class LoadAwareFanInWaitingForSlotSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[Processor.Ref] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case Processor.RegisterProcessor(pr) =>
@@ -113,7 +114,7 @@ class LoadAwareFanInWaitingForSlotSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				enqueueConfigure(dischargeActor, xcManager, 0L, DownstreamConfigure)
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[Processor.Ref] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
+				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
 					case Processor.CompleteConfiguration(pr) =>

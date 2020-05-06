@@ -8,7 +8,7 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
 import com.saldubatech.{ddes, transport}
 import com.saldubatech.ddes.Processor.SignallingContext
-import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef, SimSignal}
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.test.ClockEnabled
@@ -80,7 +80,7 @@ class ChannelSpec extends AnyWordSpec
 	}
 	implicit object channelOps extends Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal](underTest)
 
-	def source(host: Processor.Ref):Channel.Source[ProbeLoad, Equipment.MockSourceSignal] = new Channel.Source[ProbeLoad, Equipment.MockSourceSignal]{
+	def source(host: SimRef):Channel.Source[ProbeLoad, Equipment.MockSourceSignal] = new Channel.Source[ProbeLoad, Equipment.MockSourceSignal]{
 		override lazy val ref = host
 		override def loadAcknowledged(chStart: Channel.Start[ProbeLoad, Equipment.MockSourceSignal], load: ProbeLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = {
 			testActor.ref ! s"${load.lid}-Acknowledged"
@@ -88,7 +88,7 @@ class ChannelSpec extends AnyWordSpec
 		}
 	}
 
-	def sink(host: Processor.Ref) = new Channel.Sink[ProbeLoad, Equipment.MockSinkSignal] {
+	def sink(host: SimRef) = new Channel.Sink[ProbeLoad, Equipment.MockSinkSignal] {
 		override lazy val ref = host
 		override def loadArrived(endpoint: Channel.End[ProbeLoad, Equipment.MockSinkSignal], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
 			log.info(s"Called loadArrived with $load")
@@ -164,7 +164,7 @@ class ChannelSpec extends AnyWordSpec
 
 	val receiver = new Processor("receiver", clock, testController.ref, receiverConfigurer)
 
-	val mockProcessorOrigin = testKit.createTestProbe[Processor.ProcessorMessage]
+	val mockProcessorOrigin = testKit.createTestProbe[SimSignal]
 
 
 	"A Channel" when {

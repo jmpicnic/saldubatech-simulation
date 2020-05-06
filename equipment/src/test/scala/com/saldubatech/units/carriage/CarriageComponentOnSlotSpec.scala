@@ -4,13 +4,14 @@
 
 package com.saldubatech.units.carriage
 
+import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Processor._
-import com.saldubatech.ddes.SimulationController.ControllerMessage
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -26,9 +27,9 @@ import scala.concurrent.duration._
 object CarriageComponentOnSlotSpec {
 	case class Configure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends Identification.Impl() with Equipment.MockSignal
 
-	trait MockNotification
-	case class Notify(msg: String) extends MockNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends MockNotification
+	trait MockNotification extends DomainSignal
+	case class Notify(msg: String) extends Identification.Impl() with MockNotification
+	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with MockNotification
 
 	case class ELoad(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
 	case class EUnload(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
@@ -41,8 +42,8 @@ object CarriageComponentOnSlotSpec {
 	case class Induct(override val from: Channel.End[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with Equipment.MockSignal
 	case class Discharge(override val to: Channel.Start[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with Equipment.MockSignal
 	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[Equipment.MockSignal] with InductDischargeUnit[Equipment.MockSignal] {
-		override lazy val self: Processor.Ref = _self
-		var _self: Processor.Ref = null
+		override lazy val self: SimRef = _self
+		var _self: SimRef = null
 		override val name = "MockHost"
 
 		override type LOAD_SIGNAL = Load
@@ -241,8 +242,18 @@ class CarriageComponentOnSlotSpec
 				val loadCommand = ELoad(locAt0)
 				underTest ! ProcessCommand(shuttleHarness, 2L, loadCommand)
 				underTest ! ProcessCommand(shuttleHarness, 3L, loadCommand)
-				harnessMonitor.expectMessage(500 millis, Notify("Reject Signal ELoad(OnRight(0)) while in Transit"))
-				harnessMonitor.expectMessage(500 millis, Notify("Completed Loading at 10"))
+				var ct = 0
+				harnessMonitor.fishForMessage(500 millis){
+					case Notify("Reject Signal ELoad(OnRight(0)) while in Transit") =>
+						ct += 1
+						if(ct == 2) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case Notify("Completed Loading at 10") =>
+						ct += 1
+						if(ct == 2) FishingOutcome.Complete
+						else FishingOutcome.Continue
+					case other => FishingOutcome.Fail(s"Unexpected: $other")
+				}
 				harnessMonitor.expectNoMessage(500 millis)
 			}
 			"A04 Reject a command to load again" in {

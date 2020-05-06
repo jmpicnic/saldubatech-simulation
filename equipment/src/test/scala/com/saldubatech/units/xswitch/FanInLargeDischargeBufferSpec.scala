@@ -8,7 +8,7 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech.ddes.Clock.{Delay, Enqueue}
-import com.saldubatech.ddes.Processor.Ref
+import com.saldubatech.ddes.Simulation.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -17,7 +17,9 @@ import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.carriage.CarriageTravel
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -28,9 +30,9 @@ object FanInLargeDischargeBufferSpec {
 }
 
 class FanInLargeDischargeBufferSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
@@ -51,7 +53,7 @@ class FanInLargeDischargeBufferSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 
@@ -178,7 +180,7 @@ class FanInLargeDischargeBufferSpec
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
-				enqueue(dischargeActor, dischargeActor, 340L, ConsumeLoad)
+				enqueue(dischargeActor, dischargeActor, 342L, ConsumeLoad)
 				xcManagerProbe.expectMessage(328L -> XSwitch.CompletedCommand(thirdTransferCommand)) //330?
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")
