@@ -12,7 +12,7 @@ object Travel {
 
 	def apply(distancePerTick: Speed, rampUpLength: Delay, rampDownLength: Delay) = new Travel(distancePerTick, rampUpLength, rampDownLength)
 }
-import Travel._
+import com.saldubatech.physics.Travel._
 
 class Travel(distancePerTick: Speed, rampUpLength: Delay, rampDownLength: Delay) {
 	private val rampLength = (rampUpLength + rampDownLength).toDouble

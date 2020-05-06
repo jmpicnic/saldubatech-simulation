@@ -12,13 +12,13 @@ import com.saldubatech.ddes.Clock.{Delay, Enqueue}
 import com.saldubatech.ddes.Processor.Ref
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft}
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.util.LogEnabled
-
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 import org.scalatest.{BeforeAndAfterAll, TestSuite}
 import org.scalatest.matchers.should.Matchers
@@ -58,7 +58,7 @@ class FanInDelayedSlotReleaseSpec
 	implicit val simController = simControllerProbe.ref
 
 
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, XSwitch.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.XSwitchNotification)]
 	val fanInManagerRef = xcManagerProbe.ref
 	val fanInManagerProcessor = new ProcessorSink(fanInManagerRef, clock)
 	val xcManager = testKit.spawn(fanInManagerProcessor.init, "FanInManager")
@@ -69,13 +69,13 @@ class FanInDelayedSlotReleaseSpec
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1 = new InboundChannelImpl[Equipment.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl[Equipment.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
 		val ib = Seq(OnLeft(0) -> chIb1, OnLeft(1) -> chIb2)
 
 		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[Equipment.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1"), 1, "Discharge"))))
 
 
 		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
@@ -86,7 +86,7 @@ class FanInDelayedSlotReleaseSpec
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
 		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, true)(testMonitor, this)
-		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
+		val dischargeProcessor: Processor[Equipment.MockSinkSignal] = new Processor("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
 		implicit val clk = clock

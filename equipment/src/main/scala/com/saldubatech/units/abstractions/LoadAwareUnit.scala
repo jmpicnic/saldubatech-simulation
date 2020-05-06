@@ -3,9 +3,9 @@ package com.saldubatech.units.abstractions
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Tick
 import com.saldubatech.ddes.Processor
-import com.saldubatech.transport.{ChannelConnections, MaterialLoad}
+import com.saldubatech.protocols.Equipment
+import com.saldubatech.transport.MaterialLoad
 import com.saldubatech.util.LogEnabled
-import com.sun.tools.javac.code.TypeTag
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -15,7 +15,7 @@ object LoadAwareUnit {
 	}
 }
 
-trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Identification]
+trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: Identification]
 	extends EquipmentUnit[HOST_SIGNAL] with InductDischargeUnit[HOST_SIGNAL] with LogEnabled {
 
 	import LoadAwareUnit._

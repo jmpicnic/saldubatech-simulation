@@ -6,7 +6,6 @@
 package com.saldubatech.units.unitsorter
 
 import com.saldubatech.ddes.Clock.{Delay, Tick}
-import com.typesafe.scalalogging.Logger
 
 object CircularPathTravel {
 	def apply(

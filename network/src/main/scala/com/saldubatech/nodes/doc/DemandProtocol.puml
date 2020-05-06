@@ -1,0 +1,48 @@
+@startuml
+actor demand
+participant shuttleController
+participant shuttle
+
+group discovery
+demand -> shuttleController: canPerform(jobCondition)
+alt capable
+shuttleController -> demand: Yes(timeout)
+else notCapable
+shuttleController -> demand: No
+end alt
+end group
+group reservation
+demand -> shuttleController: reserve(jobCondition, expirationTime)
+alt capable
+shuttleController -> demand: reserved(reservationId, jobCondition, expirationTime)
+else notCapable
+shuttleController -> demand: rejected(jobCondition)
+end alt
+opt reservation timeout
+shuttleController --> demand: reservationExpired(reservationId, jobCondition)
+end opt
+end group
+group execution
+demand -> shuttleController: Execute(reservationId, job)
+alt valid
+shuttleController -> shuttle: command
+alt successful
+shuttle --> shuttleController: Completed(command)
+shuttleController --> demand: jobFulfilled(reservationId, job)
+rnote over shuttleController
+multiple notifications
+if multi-part job
+end rnote
+else failure
+rnote over shuttle
+V1 has no retries or fault recovery
+end rnote
+shuttle --> shuttleController: Failed(command)
+shuttleController --> demand: Failed(reservationId, Job)
+end alt
+else invalid
+shuttleController -> demand: invalidRequest(reservationId, Job)
+end alt
+end group
+
+@enduml

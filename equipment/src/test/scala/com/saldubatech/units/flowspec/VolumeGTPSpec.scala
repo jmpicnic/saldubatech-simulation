@@ -9,15 +9,15 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
-import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.units.shuttle.Shuttle
-import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
+import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter}
 import com.saldubatech.util.LogEnabled
 import org.scalatest._
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
@@ -36,16 +36,16 @@ object VolumeGTPSpec {
 	case class InboundJob(inbound: Processor.Ref, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, levelIdx: Int, override val liftCmd: XSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: Shuttle.Store) extends Job
 	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: Processor.Ref, override val liftCmd: XSwitch.Transfer, shuttle: Processor.Ref, override val shuttleCmd: Shuttle.Retrieve) extends Job
 
-	case object ManagerConfigure extends EquipmentManager.ManagerSignal
-	case object SWITCH_TO_OUTBOUND extends EquipmentManager.ManagerSignal
-	case class ConfigurationComplete(from: Processor.Ref) extends Identification.Impl() with EquipmentManager.Notification
+	case object ManagerConfigure extends Identification.Impl() with EquipmentManagement.MockManagerSignal
+	case object SWITCH_TO_OUTBOUND extends Identification.Impl() with EquipmentManagement.MockManagerSignal
+	case class ConfigurationComplete(from: Processor.Ref) extends Identification.Impl() with EquipmentManagement.EquipmentNotification
 
 	class ReactiveShuttleCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite) extends LogEnabled {
 		private val obJobIt = outboundJobs.iterator
 		private var _manager: Processor.Ref = _
-		lazy val configurer: Processor.DomainConfigure[EquipmentManager.ManagerSignal] = new Processor.DomainConfigure[EquipmentManager.ManagerSignal] {
+		lazy val configurer: Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] = new Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
-			override def configure(config: EquipmentManager.ManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal]): Processor.DomainMessageProcessor[EquipmentManager.ManagerSignal] = {
+			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Processor.DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
 				config match {
 					case ManagerConfigure =>
 						_manager = ctx.from
@@ -59,7 +59,7 @@ object VolumeGTPSpec {
 				}
 			}
 		}
-		private def runLoad(ld: MaterialLoad)(implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal]): Boolean = {
+		private def runLoad(ld: MaterialLoad)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Boolean = {
 			inboundJobs.get(ld) match {
 				case None =>
 					testHost.fail(s"Unexpected load $ld at lift: ${ctx.from.path.name}")
@@ -71,11 +71,11 @@ object VolumeGTPSpec {
 			}
 		}
 
-		def RUNNING_INBOUND: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
+		def RUNNING_INBOUND: Processor.DomainRun[EquipmentManagement.MockManagerSignal] = {
 			var busy = false
 			val loadsPending = mutable.Queue.empty[MaterialLoad]
 			var cmdsCompleted = 0
-			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
+			implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal] => {
 				case cmd: Shuttle.CompletedCommand =>
 					cmdsCompleted += 1
 					if (loadsPending isEmpty) busy = false
@@ -99,8 +99,8 @@ object VolumeGTPSpec {
 					RUNNING_OUTBOUND
 			}
 		}
-		val RUNNING_OUTBOUND: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
-			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
+		val RUNNING_OUTBOUND: Processor.DomainRun[EquipmentManagement.MockManagerSignal] = {
+			implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal] => {
 				case cmd: Shuttle.CompletedCommand =>
 					if(obJobIt.hasNext) {
 						val jb = obJobIt.next
@@ -117,9 +117,9 @@ object VolumeGTPSpec {
 
 	class ReactiveLiftCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite) extends LogEnabled {
 		private var _manager: Processor.Ref = null
-		lazy val configurer: Processor.DomainConfigure[EquipmentManager.ManagerSignal] = new Processor.DomainConfigure[EquipmentManager.ManagerSignal] {
+		lazy val configurer: Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] = new Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
-			override def configure(config: EquipmentManager.ManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal]): Processor.DomainMessageProcessor[EquipmentManager.ManagerSignal] = {
+			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Processor.DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
 				config match {
 					case ManagerConfigure =>
 						_manager = ctx.from
@@ -134,7 +134,7 @@ object VolumeGTPSpec {
 			}
 		}
 
-		private def runLoad(loadsPending: mutable.Queue[(String, MaterialLoad)])(implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal]): Boolean = {
+		private def runLoad(loadsPending: mutable.Queue[(String, MaterialLoad)])(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Boolean = {
 			val (chName, ld) = loadsPending.dequeue
 			val jobs = if (chName.contains("sorter")) inboundJobs else outboundJobs
 			jobs.get(ld) match {
@@ -152,10 +152,10 @@ object VolumeGTPSpec {
 			}
 		}
 
-		val RUNNING: Processor.DomainRun[EquipmentManager.ManagerSignal] = {
+		val RUNNING: Processor.DomainRun[EquipmentManagement.MockManagerSignal] = {
 			var busy = false
 			val loadsPending: mutable.Queue[(String, MaterialLoad)] = mutable.Queue.empty
-			implicit ctx: Processor.SignallingContext[EquipmentManager.ManagerSignal] => {
+			implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal] => {
 				case cmd: XSwitch.CompletedCommand =>
 					ctx.signal(_manager, cmd)
 					if(loadsPending isEmpty) busy = false
@@ -200,11 +200,11 @@ class VolumeGTPSpec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
-	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManager.Notification)]
+	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.EquipmentNotification)]
 	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, clock)
 	val systemManager = testKit.spawn(systemManagerProcessor.init, "systemManager")
 
-	val sorterManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManager.Notification)]
+	val sorterManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.EquipmentNotification)]
 	val sorterManagerProcessor = new ProcessorSink(sorterManagerProbe.ref, clock)
 	val sorterManager = testKit.spawn(sorterManagerProcessor.init, "sorterManager")
 
@@ -220,19 +220,19 @@ class VolumeGTPSpec
 		implicit val clk = clock
 		val aisleA = buildAisle("AisleA", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2, 5))
 		val aisleB = buildAisle("AisleB", liftPhysics, shuttlePhysics, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2, 5))
-		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(50 -> aisleASorter, 0 -> aisleBSorter)
-		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
+		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal]] = Map(50 -> aisleASorter, 0 -> aisleBSorter)
+		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
 
 		val chIb1 = new InboundInductChannel(() => Some(10L), () => Some(3L), Set("Ib1_c1","Ib1_c2"), 1, "Inbound1")
 		val chIb2 = new InboundInductChannel(() => Some(10L), () => Some(3L), Set("Ib2_c1", "Ib2_c2"), 1, "Inbound2")
-		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
+		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
 
 		val chDis1 = new OutboundDischargeChannel(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_1")
 		val chDis2 = new OutboundDischargeChannel(() => Some(10L), () => Some(3L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
-		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
+		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
 
-		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = inboundInducts ++ aisleInducts
-		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
+		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal]] = inboundInducts ++ aisleInducts
+		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
 		val sorterConfig = UnitSorter.Configuration(200, sorterInducts, sorterDischarges, sorterPhysics)
@@ -245,7 +245,7 @@ class VolumeGTPSpec
 		val sourceRefs: Seq[Processor.Ref] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName)).toList
 
 		val destinations = outboundDischarges.values.toSeq.map {
-			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)
+			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
 		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor)) }
 		val destinationRefs: Seq[Processor.Ref] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))

@@ -6,38 +6,41 @@ package com.saldubatech.units.carriage
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Processor._
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.protocols.Equipment
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.abstractions.{CarriageUnit, EquipmentUnit, InductDischargeUnit}
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.concurrent.duration._
 
 object CarriageComponentOnSlotSpec {
-	type MockSignal = ChannelConnections.DummyChannelMessageType
-	case class Configure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends MockSignal
+	case class Configure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends Identification.Impl() with Equipment.MockSignal
 
 	trait MockNotification
 	case class Notify(msg: String) extends MockNotification
 	case class CompletedConfiguration(self: Processor.Ref) extends MockNotification
 
-	case class ELoad(loc: SlotLocator) extends MockSignal
-	case class EUnload(loc: SlotLocator) extends MockSignal
-	case class EInduct(from: Channel.End[MaterialLoad, ChannelConnections.DummyChannelMessageType], at: SlotLocator) extends MockSignal
-	case class EDischarge(to: Channel.Start[MaterialLoad, ChannelConnections.DummyChannelMessageType], at: SlotLocator) extends MockSignal
+	case class ELoad(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
+	case class EUnload(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
+	case class EInduct(from: Channel.End[MaterialLoad, Equipment.MockSignal], at: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
+	case class EDischarge(to: Channel.Start[MaterialLoad, Equipment.MockSignal], at: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
 
 
-	case class Load(override val loc: SlotLocator) extends LoadCmd(loc) with MockSignal
-	case class Unload(override val loc: SlotLocator) extends UnloadCmd(loc) with MockSignal
-	case class Induct(override val from: Channel.End[MaterialLoad, MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with MockSignal
-	case class Discharge(override val to: Channel.Start[MaterialLoad, ChannelConnections.DummyChannelMessageType], override val at: SlotLocator) extends DischargeCmd(to, at) with MockSignal
-	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[MockSignal] with InductDischargeUnit[MockSignal] {
+	case class Load(override val loc: SlotLocator) extends LoadCmd(loc) with Equipment.MockSignal
+	case class Unload(override val loc: SlotLocator) extends UnloadCmd(loc) with Equipment.MockSignal
+	case class Induct(override val from: Channel.End[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with Equipment.MockSignal
+	case class Discharge(override val to: Channel.Start[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with Equipment.MockSignal
+	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[Equipment.MockSignal] with InductDischargeUnit[Equipment.MockSignal] {
 		override lazy val self: Processor.Ref = _self
 		var _self: Processor.Ref = null
 		override val name = "MockHost"
@@ -52,7 +55,7 @@ object CarriageComponentOnSlotSpec {
 		override def discharger(to: DISCHARGE, at: SlotLocator) = Discharge(to, at)
 
 		override type HOST = MOCK_CarriageUnit
-		override type EXTERNAL_COMMAND = MockSignal
+		override type EXTERNAL_COMMAND = Equipment.MockSignal
 		override type NOTIFICATION = Nothing
 
 		override protected def notAcceptedNotification(cmd: EXTERNAL_COMMAND, msg: String) = throw new IllegalStateException("Should not be called")
@@ -64,7 +67,7 @@ object CarriageComponentOnSlotSpec {
 	class Harness(monitor: ActorRef[MockNotification], physics: CarriageTravel) extends LogEnabled {
 		val host = new MOCK_CarriageUnit(monitor)
 		val carriage =
-			new CarriageComponent[ChannelConnections.DummyChannelMessageType, MOCK_CarriageUnit](physics, host)
+			new CarriageComponent[Equipment.MockSignal, MOCK_CarriageUnit](physics, host)
 
 		private val loadingProcessing: host.CTX => PartialFunction[CarriageComponent.LoadOperationOutcome, host.RUNNER] = {
 			ctx => {
@@ -157,8 +160,8 @@ object CarriageComponentOnSlotSpec {
 			}
 		}
 
-		def configurer: Processor.DomainConfigure[MockSignal] = new Processor.DomainConfigure[MockSignal] {
-			override def configure(config: MockSignal)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = config match {
+		def configurer: Processor.DomainConfigure[Equipment.MockSignal] = new Processor.DomainConfigure[Equipment.MockSignal] {
+			override def configure(config: Equipment.MockSignal)(implicit ctx: Processor.SignallingContext[Equipment.MockSignal]): Processor.DomainRun[Equipment.MockSignal] = config match {
 				case Configure(loc, inventory) =>
 					host._self = ctx.aCtx.self
 					carriage.atLocation(loc).withInventory(inventory)
@@ -173,9 +176,9 @@ object CarriageComponentOnSlotSpec {
 }
 
 class CarriageComponentOnSlotSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled {
 	import CarriageComponentOnSlotSpec._
@@ -207,7 +210,7 @@ class CarriageComponentOnSlotSpec
 
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 		val harness = new Harness(harnessMonitor.ref, physics)
-		val carriageProcessor = new Processor[MockSignal]("underTest", globalClock, testController.ref, harness.configurer)
+		val carriageProcessor = new Processor[Equipment.MockSignal]("underTest", globalClock, testController.ref, harness.configurer)
 		val underTest = testKit.spawn(carriageProcessor.init, "undertest")
 
 		val loadProbe = new MaterialLoad("loadProbe")

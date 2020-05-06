@@ -7,12 +7,14 @@ package com.saldubatech.units.carriage
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
+import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Processor._
 import com.saldubatech.ddes.SimulationController.ControllerMessage
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor}
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.protocols.Equipment
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.util.LogEnabled
@@ -22,14 +24,14 @@ import scala.collection.mutable
 import scala.concurrent.duration._
 
 object CarriageComponentOnChannelSpec {
-	type MockSignal = ChannelConnections.DummyChannelMessageType
-	case object NullConfigure extends MockSignal
-	case class Configure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends MockSignal
+	type MockSignal = Equipment.MockSignal
+	case object NullConfigure extends Identification.Impl() with  MockSignal
+	case class Configure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends Identification.Impl() with  MockSignal
 
 	trait MockNotification extends MockSignal
-	case class LoadArrival(ld: MaterialLoad, at: Tick) extends MockNotification
-	case class Notify(msg: String) extends MockNotification
-	case class CompletedConfiguration(self: Processor.Ref) extends MockNotification
+	case class LoadArrival(ld: MaterialLoad, at: Tick) extends Identification.Impl() with  MockNotification
+	case class Notify(msg: String) extends Identification.Impl() with  MockNotification
+	case class CompletedConfiguration(self: Processor.Ref) extends Identification.Impl() with  MockNotification
 
 
 	class MockChannel(delay: () => Option[Delay], delivery: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
@@ -46,8 +48,8 @@ object CarriageComponentOnChannelSpec {
 		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with MockSignal
 	}
 
-	case class TestProbeMessage(msg: String, load: MaterialLoad) extends MockSignal
-	case object FixtureConfigure extends MockSignal
+	case class TestProbeMessage(msg: String, load: MaterialLoad) extends Identification.Impl() with  MockSignal
+	case object FixtureConfigure extends Identification.Impl() with  MockSignal
 
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[Processor.Ref] = None
@@ -120,10 +122,10 @@ object CarriageComponentOnChannelSpec {
 
 
 
-	case class ELoad(loc: SlotLocator) extends MockSignal
-	case class EUnload(loc: SlotLocator) extends MockSignal
-	case class EInduct(from: Channel.End[MaterialLoad, MockSignal], at: SlotLocator) extends MockSignal
-	case class EDischarge(to: Channel.Start[MaterialLoad, MockSignal], at: SlotLocator) extends MockSignal
+	case class ELoad(loc: SlotLocator) extends Identification.Impl() with  MockSignal
+	case class EUnload(loc: SlotLocator) extends Identification.Impl() with  MockSignal
+	case class EInduct(from: Channel.End[MaterialLoad, MockSignal], at: SlotLocator) extends Identification.Impl() with  MockSignal
+	case class EDischarge(to: Channel.Start[MaterialLoad, MockSignal], at: SlotLocator) extends Identification.Impl() with  MockSignal
 
 
 	case class Load(override val loc: SlotLocator) extends LoadCmd(loc) with MockSignal

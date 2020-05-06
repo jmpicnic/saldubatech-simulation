@@ -4,7 +4,8 @@ import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.protocols.Equipment
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.WordSpec
 
@@ -12,26 +13,26 @@ import scala.collection.mutable
 
 object UnitsFixture {
 
-	trait DownstreamSignal extends ChannelConnections.DummySinkMessageType
+	trait DownstreamSignal extends Equipment.MockSinkSignal
 	case object DownstreamConfigure extends Identification.Impl() with DownstreamSignal
 
-	trait UpstreamSignal extends ChannelConnections.DummySourceMessageType
-	case object UpstreamConfigure extends UpstreamSignal
-	case class TestProbeMessage(msg: String, load: MaterialLoad) extends UpstreamSignal
+	trait UpstreamSignal extends Equipment.MockSourceSignal
+	case object UpstreamConfigure extends Identification.Impl() with  UpstreamSignal
+	case class TestProbeMessage(msg: String, load: MaterialLoad) extends Identification.Impl() with UpstreamSignal
 
-	case object ConsumeLoad extends Identification.Impl() with ChannelConnections.DummySinkMessageType
+	case object ConsumeLoad extends Identification.Impl() with Equipment.MockSinkSignal
 
 	trait Fixture[DomainMessage] extends LogEnabled {
 		var _ref: Option[Processor.Ref] = None
 		val runner: Processor.DomainRun[DomainMessage]
 	}
-	class SourceFixture[DestinationSignal >: ChannelConnections.ChannelDestinationMessage](ops: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySourceMessageType] {
+	class SourceFixture[DestinationSignal >: Equipment.ChannelSinkSignal](ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSourceSignal] {
 		private val pending: mutable.Queue[MaterialLoad] = mutable.Queue.empty
 
-		lazy val source = new Channel.Source[MaterialLoad, ChannelConnections.DummySourceMessageType] {
+		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
 			override lazy val ref: Processor.Ref = _ref.head
 
-			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, ChannelConnections.DummySourceMessageType], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType]): Processor.DomainRun[ChannelConnections.DummySourceMessageType] = {
+			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = {
 				//log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
 				pending.headOption.find(ops.start.send(_)).foreach(_ => pending.dequeue)
 				testMonitor ! s"Received Load Acknowledgement through Channel: ${chStart.channelName} with $load at ${ctx.now}"
@@ -40,9 +41,9 @@ object UnitsFixture {
 		}
 		ops.registerStart(source)
 
-		val runner: Processor.DomainRun[ChannelConnections.DummySourceMessageType] =
+		val runner: Processor.DomainRun[Equipment.MockSourceSignal] =
 			ops.start.ackReceiver orElse {
-				implicit ctx: Processor.SignallingContext[ChannelConnections.DummySourceMessageType] => {
+				implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal] => {
 					case TestProbeMessage(msg, load) =>
 						//log.info(s"Got Domain Message in Sender $msg")
 						testMonitor ! s"FromSender: $msg"
@@ -60,17 +61,17 @@ object UnitsFixture {
 			}
 	}
 
-	class SinkFixture[SourceSignal >: ChannelConnections.ChannelSourceMessage](ops: Channel.Ops[MaterialLoad, SourceSignal, ChannelConnections.DummySinkMessageType])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[ChannelConnections.DummySinkMessageType] {
-		val sink = new Channel.Sink[MaterialLoad, ChannelConnections.DummySinkMessageType] {
+	class SinkFixture[SourceSignal >: Equipment.ChannelSourceSignal](ops: Channel.Ops[MaterialLoad, SourceSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSinkSignal] {
+		val sink = new Channel.Sink[MaterialLoad, Equipment.MockSinkSignal] {
 			override lazy val ref: Processor.Ref = _ref.head
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName} at ${ctx.now}"
 				endpoint.getNext
 				runner
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, ChannelConnections.DummySinkMessageType], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType]): Processor.DomainRun[ChannelConnections.DummySinkMessageType] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
 				//log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				testMonitor ! s"Load $load released on channel ${endpoint.channelName}"
 				runner
@@ -78,9 +79,9 @@ object UnitsFixture {
 		}
 		val channelEnd = ops.registerEnd(sink)
 
-		val runner: Processor.DomainRun[ChannelConnections.DummySinkMessageType] =
+		val runner: Processor.DomainRun[Equipment.MockSinkSignal] =
 			ops.end.loadReceiver orElse {
-				ctx: Processor.SignallingContext[ChannelConnections.DummySinkMessageType] => {
+				ctx: Processor.SignallingContext[Equipment.MockSinkSignal] => {
 					case ConsumeLoad =>
 						val ld = channelEnd.getNext(ctx)
 						testMonitor ! s"Got load $ld"

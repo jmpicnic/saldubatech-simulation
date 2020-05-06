@@ -21,24 +21,29 @@ lazy val foundation:Project = (project in file("foundation"))
     name := "foundation"
   )
 
+lazy val protocols: Project = (project in file("protocols"))
+  .settings(
+    name := "protocols"
+  ).dependsOn(foundation)
 
 lazy val equipment:Project = (project in file("equipment"))
   .settings(
     name := "dcf-equipment",
   )
-  .dependsOn(foundation % "test -> test;compile->compile")
+  .dependsOn(protocols).dependsOn(foundation % "test -> test;compile->compile")
 
 lazy val network: Project = (project in file("network"))
   .settings(
     name := "dcf-network",
   )
   .dependsOn(foundation % "test -> test;compile->compile")
+  .dependsOn(protocols)
   .dependsOn(equipment)
 
 lazy val root = (project in file("."))
   .settings(
     name := "dcf-poc",
-  ).aggregate(foundation, equipment, network)
+  ).aggregate(foundation, protocols, equipment, network)
 
 //name := "simAkka"
 //version := "0.1"

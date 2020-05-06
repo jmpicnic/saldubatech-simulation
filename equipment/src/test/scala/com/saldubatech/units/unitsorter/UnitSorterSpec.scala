@@ -9,8 +9,9 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
@@ -22,24 +23,24 @@ object UnitSorterSpec {
 
 
 	class InboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal](delay, deliveryTime, cards, configuredOpenSlots, name)
+		extends Channel[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal](delay, deliveryTime, cards, configuredOpenSlots, name)
 	with UnitSorter.AfferentChannel {
-		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with ChannelConnections.DummySourceMessageType
+		type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Equipment.MockSourceSignal
 
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySourceMessageType
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String): AckSignal = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Equipment.MockSourceSignal
 	}
 
 	class OutboundChannelImpl(delay: () => Option[Delay], deliveryTime: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
-		extends Channel[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType](delay, deliveryTime, cards, configuredOpenSlots, name)
+		extends Channel[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal](delay, deliveryTime, cards, configuredOpenSlots, name)
 			with UnitSorter.EfferentChannel {
-		type TransferSignal = Channel.TransferLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with ChannelConnections.DummySinkMessageType
+		type TransferSignal = Channel.TransferLoad[MaterialLoad] with Equipment.MockSinkSignal
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String): TransferSignal = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Equipment.MockSinkSignal
 
-		type PullSignal = Channel.PulledLoad[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with ChannelConnections.DummySinkMessageType
+		type PullSignal = Channel.PulledLoad[MaterialLoad] with Equipment.MockSinkSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Int): PullSignal = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with Equipment.MockSinkSignal
 
-		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with ChannelConnections.DummySinkMessageType
-		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with ChannelConnections.DummySinkMessageType
+		override type DeliverSignal = Channel.DeliverLoadImpl[MaterialLoad] with Equipment.MockSinkSignal
+		override def deliverBuilder(channel: String): DeliverSignal = new Channel.DeliverLoadImpl[MaterialLoad](channel) with Equipment.MockSinkSignal
 	}
 
 
@@ -67,7 +68,7 @@ class UnitSorterSpec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, UnitSorter.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.UnitSorterNotification)]
 	val xcManagerProcessor = new ProcessorSink(xcManagerProbe.ref, clock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "XCManager")
 
@@ -90,12 +91,12 @@ class UnitSorterSpec
 
 		// Sources & sinks
 		val sources = config.inducts.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
+			case chOps: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
 		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceRefs = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
 
-		val destinations: Seq[SinkFixture[UnitSorterSignal]] =  config.discharges.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)}
+		val destinations: Seq[SinkFixture[Equipment.UnitSorterSignal]] =  config.discharges.values.toSeq.map{
+			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)}
 		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
 

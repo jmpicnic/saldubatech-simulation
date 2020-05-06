@@ -2,10 +2,7 @@ package com.saldubatech.units.abstractions
 
 
 import com.saldubatech.ddes.Processor
-import com.saldubatech.transport.MaterialLoad
-
-import scala.collection.mutable
-import scala.reflect.ClassTag
+import com.saldubatech.protocols.EquipmentManagement
 
 object EquipmentUnit {
 
@@ -26,7 +23,7 @@ trait EquipmentUnit[EQ_SIGNAL] {
 
 	type HOST <: EquipmentUnit[EQ_SIGNAL]
 	type EXTERNAL_COMMAND <: EQ_SIGNAL
-	type NOTIFICATION <: EquipmentManager.Notification
+	type NOTIFICATION <: EquipmentManagement.EquipmentNotification
 
 	type CTX = Processor.SignallingContext[EQ_SIGNAL]
 	type RUNNER = Processor.DomainRun[EQ_SIGNAL]

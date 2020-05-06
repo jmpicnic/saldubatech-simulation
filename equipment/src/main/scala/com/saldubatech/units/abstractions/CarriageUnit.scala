@@ -1,10 +1,7 @@
 package com.saldubatech.units.abstractions
 
-import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Processor
-import com.saldubatech.physics.Travel.Distance
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.carriage.SlotLocator
+import com.saldubatech.protocols.Equipment
 
 object CarriageUnit {
 
@@ -12,8 +9,7 @@ object CarriageUnit {
 
 }
 
-trait CarriageUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink] extends EquipmentUnit[HOST_SIGNAL] {
-	import CarriageUnit._
+trait CarriageUnit[HOST_SIGNAL >: Equipment.ChannelSignal] extends EquipmentUnit[HOST_SIGNAL] {
 
 		protected def rejectExternalCommand(cmd: EXTERNAL_COMMAND, msg: String)(implicit ctx: CTX): RUNNER = {
 		ctx.reply(notAcceptedNotification(cmd, msg))

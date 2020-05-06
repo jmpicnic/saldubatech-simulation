@@ -8,21 +8,20 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.Conveyance.{LoadAwareLiftToUnitSorter, UnitSorterToLoadAwareLift}
 import com.saldubatech.units.UnitsFixture._
-import com.saldubatech.units.abstractions.EquipmentManager
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft}
 import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.units.shuttle.LoadAwareShuttle
-import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter, UnitSorterSignal}
+import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
-
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -53,7 +52,7 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
-	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManager.Notification)]
+	val systemManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.EquipmentNotification)]
 	val systemManagerProcessor = new ProcessorSink(systemManagerProbe.ref, clock)
 	val systemManager = testKit.spawn(systemManagerProcessor.init, "XCManager")
 
@@ -69,31 +68,31 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 		implicit val clk = clock
 		val aisleA = buildAisle("AisleA", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleA, 0 -> aisleASorter, Seq(2,5))
 		val aisleB = buildAisle("AisleB", liftPhysics, 200, shuttlePhysics, 200, 20, 0, 0 -> sorterAisleB, 0 -> aisleBSorter, Seq(2,5))
-		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = Map(45 -> aisleASorter, 0 -> aisleBSorter)
-		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
+		val aisleInducts: Map[Int, Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal]] = Map(45 -> aisleASorter, 0 -> aisleBSorter)
+		val aisleDischarges: Map[Int, Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _]] = Map(35 -> sorterAisleA, 40 -> sorterAisleB)
 
 		val chIb1 = new InboundInductChannel(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
 		val chIb2 = new InboundInductChannel(() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
-		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
+		val inboundInducts: Map[Int, Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal]] = Map(30 -> new Channel.Ops(chIb1), 45 -> new Channel.Ops(chIb2))
 
 		val chDis1 = new OutboundDischargeChannel(() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge_1")
 		val chDis2 = new OutboundDischargeChannel(() => Some(10L), () => Some(3L), Set("Ob2_c1", "Ob2_c2"), 1, "Discharge_2")
-		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
+		val outboundDischarges: Map[Int, Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _]] = Map(15 -> new Channel.Ops(chDis1), 30 -> new Channel.Ops(chDis2))
 
-		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]] = inboundInducts ++ aisleInducts
-		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
+		val sorterInducts: Map[Int, Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal]] = inboundInducts ++ aisleInducts
+		val sorterDischarges: Map[Int, Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _]] = outboundDischarges ++ aisleDischarges
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
 		val sorterConfig = UnitSorter.Configuration(250, sorterInducts, sorterDischarges, sorterPhysics)
 		val sorter: Processor.Ref = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, ChannelConnections.DummySourceMessageType, UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
+			case chOps: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
 		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceRefs: Seq[Processor.Ref] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
 
 		val destinations =  outboundDischarges.values.toSeq.map{
-			case chOps: Channel.Ops[MaterialLoad, UnitSorterSignal, ChannelConnections.DummySinkMessageType] => new SinkFixture(chOps)(testMonitor, this)
+			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
 		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
 		val destinationRefs: Seq[Processor.Ref] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
