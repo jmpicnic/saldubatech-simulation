@@ -1,8 +1,7 @@
 package com.saldubatech.units.abstractions
 
-import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate.DomainRun
 import com.saldubatech.ddes.Clock.Tick
-import com.saldubatech.ddes.Processor
 import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.MaterialLoad
@@ -80,7 +79,7 @@ trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]
 			implicit ctx: CTX => {
 				case cmd: EXTERNAL_COMMAND =>
 					this += ctx.now -> cmd
-					triggerNext(Processor.DomainRun.same, isApplicable) //orElse commandContinue(runner, isApplicable)
+					triggerNext(DomainRun.same, isApplicable) //orElse commandContinue(runner, isApplicable)
 			}
 		}
 		cmdHandler orElse runner
@@ -113,7 +112,7 @@ trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]
 			ctx.signal(manager, notifier(working.head._2))
 			working = None
 			triggerNext(continueCommand(next))
-		} else Processor.DomainRun.same
+		} else DomainRun.same
 	}
 	protected def maxCommandsReached(cmd: EXTERNAL_COMMAND): NOTIFICATION
 	protected def execSignal(cmd: EXTERNAL_COMMAND): HOST_SIGNAL

@@ -7,12 +7,10 @@ package com.saldubatech.ddes
 //import akka.actor.{Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props}
 import java.util.Comparator
 
-import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.typed.ActorRef
 import akka.dispatch.Envelope
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Clock.{ClockAction, ClockMessage, Enqueue, Ref, Tick}
-import com.saldubatech.ddes.Processor.{ProcessorBehavior, ProcessorMessage}
-import com.saldubatech.util.Lang.TBD
+import com.saldubatech.ddes.Clock.{ClockMessage, Enqueue, Tick}
 
 object Simulation extends App {
 
@@ -46,6 +44,7 @@ object Simulation extends App {
 	trait SimSignal extends Identification {
 		val tick: Tick
 		val from: ActorRef[SimSignal]
+		def payload: DomainSignal
 	}
 	type SimRef = ActorRef[SimSignal]
 
@@ -80,6 +79,5 @@ object Simulation extends App {
 }
 
 class Simulation(name: String, startTime: Tick) {//{CompleteAction, RegisterTimeMonitor, Registered}
-	import Simulation._
 
 }

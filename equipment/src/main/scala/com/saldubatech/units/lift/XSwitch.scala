@@ -5,8 +5,9 @@
 package com.saldubatech.units.lift
 
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -45,7 +46,7 @@ object XSwitch {
 		OutboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(name: String, configuration: Configuration[InboundInductSignal, InboundDischargeSignal, OutboundInductSignal, OutboundDischargeSignal])
 	(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
-		new Processor[Equipment.XSwitchSignal](name, clockRef, simController, new XSwitch(name, configuration).configurer)
+		new  AgentTemplate.Wrapper[Equipment.XSwitchSignal](name, clockRef, simController, new XSwitch(name, configuration).configurer)
 	}
 }
 
@@ -83,7 +84,7 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 		(induct: INDUCT, load: MaterialLoad, idx: Option[Distance], ctx: CTX) => {
 			case NoLoadWait =>
 				ctx.signal(manager, LoadArrival(induct.channelName, load))
-				Processor.DomainRun.same
+				DomainRun.same
 			case WaitInductingToDischarge(to, toLoc, from) if (from.channelName == induct.channelName) =>
 				val loc =
 					(inboundRouting.inductByName(induct.channelName) orElse outboundRouting.inductByName(induct.channelName)).map(t => At(t._1))
@@ -97,7 +98,7 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 
 	private val channelFreeBehavior: (DISCHARGE, MaterialLoad, CTX) => PartialFunction[InductDischargeUnit.WaitForChannel, RUNNER] = {
 		(toCh: DISCHARGE, ld: MaterialLoad, ctx: CTX) => {
-			case NoChannelWait => Processor.DomainRun.same
+			case NoChannelWait => DomainRun.same
 			case WaitDischarging(ch, loc) =>
 				carriageComponent.dischargeTo(ch, loc)(ctx)
 				busyGuard orElse channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))
@@ -110,8 +111,8 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 	private case class RoutingGroup(inducts: Map[Int, INDUCT], discharges: Map[Int, DISCHARGE]) {
 		private val inductsByName = inducts.map{case (idx, ch) => ch.channelName -> (idx, ch)}
 		private val dischargesByName = discharges.map{case (idx, ch) => ch.channelName -> (idx, ch)}
-		lazy val loadListener: RUNNER = if(inducts isEmpty) Processor.DomainRun.noOp else inducts.values.map(_.loadReceiver).reduce((l,r) => l orElse r)
-		lazy val ackListener: RUNNER = if(discharges isEmpty) Processor.DomainRun.noOp else discharges.values.map(_.ackReceiver).reduce((l,r) => l orElse r)
+		lazy val loadListener: RUNNER = if(inducts isEmpty) DomainRun.noOp else inducts.values.map(_.loadReceiver).reduce((l,r) => l orElse r)
+		lazy val ackListener: RUNNER = if(discharges isEmpty) DomainRun.noOp else discharges.values.map(_.ackReceiver).reduce((l,r) => l orElse r)
 		def inductByLoc(loc: SlotLocator) = inducts.get(loc.idx)
 		def dischargeByLoc(loc: SlotLocator) = discharges.get(loc.idx)
 		def inductByName(chName: String) = inductsByName.get(chName)
@@ -132,9 +133,9 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 	private var outboundRouting: RoutingGroup = _
 
 
-	private def configurer: Processor.DomainConfigure[Equipment.XSwitchSignal] = {
-		new Processor.DomainConfigure[Equipment.XSwitchSignal] {
-			override def configure(config: Equipment.XSwitchSignal)(implicit ctx: CTX): Processor.DomainMessageProcessor[Equipment.XSwitchSignal] = {
+	private def configurer: DomainConfigure[Equipment.XSwitchSignal] = {
+		new DomainConfigure[Equipment.XSwitchSignal] {
+			override def configure(config: Equipment.XSwitchSignal)(implicit ctx: CTX): DomainMessageProcessor[Equipment.XSwitchSignal] = {
 				config match {
 					case XSwitch.NoConfigure =>
 						installManager(ctx.from)
@@ -190,8 +191,8 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 				busyGuard orElse channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(dischargeChannel, dischargeLoc))
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToDischarge(dischargeChannel, dischargeLoc, from)
-				Processor.DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+				DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => throw new RuntimeException(s"Carriage Failed Full while executing: $currentCommand at ${ctx.now} by XSwitch($name)")
 		}
 	}
@@ -202,7 +203,7 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
 				endChannelWait
 				completeCommand(IDLE)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
 				waitDischarging(ch, loc)
 				busyGuard orElse channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))

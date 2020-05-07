@@ -1,7 +1,7 @@
 package com.saldubatech.units.abstractions
 
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.AgentTemplate.DomainRun
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
@@ -29,7 +29,7 @@ object InductDischargeUnit {
 			lazy val end = chOps.registerEnd(this)
 			override def loadArrived(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = loadArrivalBehavior(endpoint, load, at, ctx)(host.waitingForLoad)
 
-			override def loadReleased(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = Processor.DomainRun.same
+			override def loadReleased(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = DomainRun.same
 		}.end
 
 	def dischargeSource[HS >: Equipment.ChannelSignal <: DomainSignal, H <: InductDischargeUnit[HS]]

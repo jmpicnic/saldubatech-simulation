@@ -5,9 +5,8 @@
 package com.saldubatech.transport
 
 import com.saldubatech.base.{AssetBox, Identification}
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, SignallingContext}
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Processor
-import com.saldubatech.ddes.Processor.{DomainRun, SignallingContext}
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
@@ -69,7 +68,7 @@ object Channel {
 		def reserveCard: Option[String]
 		def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean
 		def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean
-		def ackReceiver: Processor.DomainRun[SourceProfile]
+		def ackReceiver: DomainRun[SourceProfile]
 
 		override def toString = s"ChannelStart($channelName)"
 	}
@@ -86,19 +85,19 @@ object Channel {
 		def peekNext: Option[(LOAD, String)]
 		def peek(l: LOAD): Option[(LOAD, String)]
 		def peek(idx: Int): Option[(LOAD, String)]
-		def loadReceiver: Processor.DomainRun[SinkProfile]
+		def loadReceiver: DomainRun[SinkProfile]
 		override def toString = s"ChannelEnd($channelName)"
 	}
 
 	trait Sink[L <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] {
 		val ref: SimRef
-		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
-		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
+		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): DomainRun[SinkProfile]
+		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): DomainRun[SinkProfile]
 	}
 
 	trait Source[L <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] {
 		val ref: SimRef
-		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
+		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): DomainRun[SourceProfile]
 	}
 
 	object Ops {
@@ -143,7 +142,7 @@ object Channel {
 			}
 			override def availableCards: Int = localBox.available
 
-			override def ackReceiver: Processor.DomainRun[SourceProfile] = {
+			override def ackReceiver: DomainRun[SourceProfile] = {
 				implicit ctx: SignallingContext[SourceProfile] => {
 					case ackMsg: AcknowledgeLoad[LOAD] if ackMsg.channel == ch.name =>
 						log.debug(s"Processing Load Acknowledgement for ${ackMsg.load}")
@@ -209,7 +208,7 @@ object Channel {
 						None
 					}
 				}
-				override def loadReceiver: Processor.DomainRun[SinkProfile] = {
+				override def loadReceiver: DomainRun[SinkProfile] = {
 					implicit ctx: SignallingContext[SinkProfile] => {
 						case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
 							log.debug(s"Receiving load(${tr.load}) in channel ${tr.channel}, enqueued: $pending, openSlots: $openSlots")

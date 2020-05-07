@@ -4,11 +4,10 @@
 
 package com.saldubatech.units.shuttle
 
-import com.saldubatech.base
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Processor.DomainRun
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -80,7 +79,7 @@ object LoadAwareShuttle {
 	 configuration: Configuration[UpstreamMessageType, DownstreamMessageType],
 	 initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
 		val domain = new LoadAwareShuttle(name, configuration, initial)
-		new Processor[Equipment.ShuttleSignal](name, clockRef, simController, domain.configurer)
+		new  AgentTemplate.Wrapper[Equipment.ShuttleSignal](name, clockRef, simController, domain.configurer)
 	}
 }
 
@@ -144,7 +143,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 		(toCh: DISCHARGE, ld: MaterialLoad, ctx: CTX) => {
 			case NoChannelWait =>
 				implicit val iCtx = ctx
-				triggerNext(Processor.DomainRun.same)
+				triggerNext(DomainRun.same)
 			case WaitDischarging(ch, loc) =>
 				implicit val iCtx = ctx
 				carriageComponent.dischargeTo(ch, loc)(ctx)
@@ -165,9 +164,9 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 
 	private def isLoadAvailable(ld: MaterialLoad) = inboundChannels.values.find(induct => induct.peekNext.exists(_._1 == ld))
 
-	private def configurer: Processor.DomainConfigure[Equipment.ShuttleSignal] = {
-		new Processor.DomainConfigure[Equipment.ShuttleSignal] {
-			override def configure(config: Equipment.ShuttleSignal)(implicit ctx: CTX): Processor.DomainMessageProcessor[Equipment.ShuttleSignal] = {
+	private def configurer: DomainConfigure[Equipment.ShuttleSignal] = {
+		new DomainConfigure[Equipment.ShuttleSignal] {
+			override def configure(config: Equipment.ShuttleSignal)(implicit ctx: CTX): DomainMessageProcessor[Equipment.ShuttleSignal] = {
 				config match {
 					case cmd@NoConfigure =>
 						installManager(ctx.from)
@@ -282,7 +281,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
 				continueCommand(carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleListener, failEmptyNotification(_,s"Trying to load from an empty Source"))
 		}
@@ -292,7 +291,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.unloadTo(loc)
 				continueCommand(carriageComponent.UNLOADING(afterUnloading) orElse channelListener)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to load from an empty Source"))
 		}
@@ -305,7 +304,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToStore(loc, from)
 				DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 		}
 	}
@@ -317,7 +316,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToDischarge(ch, loc, from)
 				DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 		}
 	}
@@ -325,7 +324,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 	private def afterUnloading: CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.UnloadOperationOutcome.Unloaded => completeCommand(idleListener, completedCommandNotification)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull => completeCommand(trayFullListener, failFullNotification(_, s"Target destination is Full"))
 			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to unload an empty Tray"))
 		}
@@ -336,7 +335,7 @@ class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: Domain
 			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
 				endChannelWait
 				completeCommand(idleListener, completedCommandNotification)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
 				waitDischarging(ch, loc)
 				continueCommand(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)))

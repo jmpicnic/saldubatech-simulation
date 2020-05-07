@@ -8,15 +8,15 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate._
 import com.saldubatech.ddes.Clock._
-import com.saldubatech.ddes.Processor._
-import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{Clock, Processor}
+import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.{Channel, MaterialLoad}
-import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
+import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
@@ -26,7 +26,7 @@ import scala.concurrent.duration._
 object CarriageComponentOnChannelSpec {
 	type MockSignal = Equipment.MockSignal
 	case object NullConfigure extends Identification.Impl() with  MockSignal
-	case class Configure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends Identification.Impl() with  MockSignal
+	case class DoConfigure(loc: Int, inventory: Map[SlotLocator, MaterialLoad]) extends Identification.Impl() with  MockSignal
 
 	trait MockNotification extends MockSignal
 	case class LoadArrival(ld: MaterialLoad, at: Tick) extends Identification.Impl() with  MockNotification
@@ -53,14 +53,14 @@ object CarriageComponentOnChannelSpec {
 
 	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
 		var _ref: Option[SimRef] = None
-		val runner: Processor.DomainRun[DomainMessage]
+		val runner: DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, MockSignal, MockSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[MockSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, MockSignal] {
 			override lazy val ref: SimRef = _ref.head
 
-			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
+			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
 				testMonitor ! s"Received Load Acknoledgement at Channel: ${chStart.channelName} with $load"
 				runner
@@ -68,9 +68,9 @@ object CarriageComponentOnChannelSpec {
 		}
 		ops.registerStart(source)
 
-		val runner: Processor.DomainRun[MockSignal] =
+		val runner: DomainRun[MockSignal] =
 			ops.start.ackReceiver orElse {
-				implicit ctx: Processor.SignallingContext[MockSignal] => {
+				implicit ctx: SignallingContext[MockSignal] => {
 					case TestProbeMessage(msg, load) =>
 						log.info(s"Got Domain Message in Sender $msg")
 						testMonitor ! s"FromSender: $msg"
@@ -89,12 +89,12 @@ object CarriageComponentOnChannelSpec {
 		val sink = new Channel.Sink[MaterialLoad, MockSignal] {
 			override lazy val ref: SimRef = _ref.head
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				testMonitor ! s"Load $load arrived via channel ${endpoint.channelName}"
 				runner
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				testMonitor ! s"Load $load released on channel ${endpoint.channelName}"
 				runner
@@ -102,8 +102,8 @@ object CarriageComponentOnChannelSpec {
 		}
 		ops.registerEnd(sink)
 
-		val runner: Processor.DomainRun[MockSignal] =
-			ops.end.loadReceiver orElse Processor.DomainRun {
+		val runner: DomainRun[MockSignal] =
+			ops.end.loadReceiver orElse DomainRun {
 				case other =>
 					log.info(s"Received Other Message at Receiver: $other")
 					hostTest.fail(s"SinkFixture: ${ops.ch.name}: Unexpected Message $other")
@@ -111,8 +111,8 @@ object CarriageComponentOnChannelSpec {
 	}
 
 	def fixtureConfigurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]): DomainConfigure[DomainMessage] =
-		new Processor.DomainConfigure[DomainMessage] {
-			override def configure(config: DomainMessage)(implicit ctx: Processor.SignallingContext[DomainMessage]): Processor.DomainRun[DomainMessage] = {
+		new DomainConfigure[DomainMessage] {
+			override def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"
 				fixture._ref = Some(ctx.aCtx.self)
 				fixture.runner
@@ -163,10 +163,10 @@ object CarriageComponentOnChannelSpec {
 		lazy val outboundSource = new Channel.Source[MaterialLoad, MockSignal] {
 			override lazy val ref: SimRef = _ref.head
 
-			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
+			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
 				monitor ! Notify(s"Received Load Acknoledgement at Channel: ${chStart.channelName} with $load")
-				Processor.DomainRun.same
+				DomainRun.same
 			}
 		}
 		val startEndpoint = outbound.registerStart(outboundSource)
@@ -175,16 +175,16 @@ object CarriageComponentOnChannelSpec {
 			override lazy val ref: SimRef = _ref.head
 
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				monitor ! Notify(s"Load $load arrived via channel ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, ctx.now))
-				Processor.DomainRun.same
+				DomainRun.same
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				monitor ! Notify(s"Load $load released on channel ${endpoint.channelName}")
-				Processor.DomainRun.same
+				DomainRun.same
 			}
 		}
 		val inboundEnd = inbound.registerEnd(inboundSink)
@@ -227,28 +227,28 @@ object CarriageComponentOnChannelSpec {
 			implicit ctx: host.CTX => {
 				case signal =>
 					monitor ! Notify(s"Reject Signal $signal while in Transit")
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 		lazy val INTRANSIT_UNLOADING: host.RUNNER = carriage.UNLOADING(unloadingProcessing) orElse {
 			implicit ctx: host.CTX => {
 				case signal =>
 					monitor ! Notify(s"Reject Signal $signal while in Transit")
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 		lazy val INTRANSIT_INDUCTING: host.RUNNER = carriage.INDUCTING(loadingProcessing) orElse {
 			implicit ctx: host.CTX => {
 				case signal =>
 					monitor ! Notify(s"Reject Signal $signal while in Transit")
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 		lazy val INTRANSIT_DISCHARGING: host.RUNNER = inboundEnd.loadReceiver orElse carriage.DISCHARGING(unloadingProcessing) orElse {
 			implicit ctx: host.CTX => {
 				case signal =>
 					monitor ! Notify(s"Reject Signal $signal while in Transit")
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 
@@ -262,7 +262,7 @@ object CarriageComponentOnChannelSpec {
 					INTRANSIT_INDUCTING
 				case other =>
 					monitor ! Notify(s"Rejecting Command $other")
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 
@@ -276,13 +276,13 @@ object CarriageComponentOnChannelSpec {
 					INTRANSIT_DISCHARGING
 				case other =>
 					monitor ! Notify(s"Rejecting Command $other")
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 
-		def configurer: Processor.DomainConfigure[MockSignal] = new Processor.DomainConfigure[MockSignal] {
-			override def configure(config: MockSignal)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainRun[MockSignal] = config match {
-				case Configure(loc, inventory) =>
+		def configurer: DomainConfigure[MockSignal] = new DomainConfigure[MockSignal] {
+			override def configure(config: MockSignal)(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = config match {
+				case DoConfigure(loc, inventory) =>
 					_ref = Some(ctx.aCtx.self)
 					manager = ctx.from
 					host.installManager(manager)
@@ -298,8 +298,8 @@ object CarriageComponentOnChannelSpec {
 
 	class CommandRelayer(inboundJobs: mutable.Map[MaterialLoad, Seq[MockSignal]], target: SimRef) {
 		private var _manager: SimRef = null
-		lazy val configurer: Processor.DomainConfigure[MockSignal] = new Processor.DomainConfigure[MockSignal] {
-			override def configure(config: MockSignal)(implicit ctx: Processor.SignallingContext[MockSignal]): Processor.DomainMessageProcessor[MockSignal] = {
+		lazy val configurer: DomainConfigure[MockSignal] = new DomainConfigure[MockSignal] {
+			override def configure(config: MockSignal)(implicit ctx: SignallingContext[MockSignal]): DomainMessageProcessor[MockSignal] = {
 				config match {
 					case NullConfigure =>
 						_manager = ctx.from
@@ -311,10 +311,10 @@ object CarriageComponentOnChannelSpec {
 			}
 		}
 
-		val RUNNING: Processor.DomainRun[MockSignal] = {
+		val RUNNING: DomainRun[MockSignal] = {
 			var busy = false
 			val loadsPending: mutable.Queue[(String, MaterialLoad)] = mutable.Queue.empty
-			implicit ctx: Processor.SignallingContext[MockSignal] => {
+			implicit ctx: SignallingContext[MockSignal] => {
 				case cmd @ LoadArrival(ld, t) =>
 					ctx.signal(_manager, cmd)
 					inboundJobs.remove(ld).foreach(_.foreach(ctx.signal(target, _)))
@@ -356,8 +356,8 @@ class CarriageComponentOnChannelSpec
 
 		val harnessMonitor = testKit.createTestProbe[MockNotification]
 
-//		val mockProcessorReceiver = testKit.createTestProbe[ProcessorMessage]
-		val testActor = testKit.createTestProbe[ProcessorMessage]
+//		val mockProcessorReceiver = testKit.createTestProbe[SimSignal]
+		val testActor = testKit.createTestProbe[SimSignal]
 
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
@@ -367,14 +367,14 @@ class CarriageComponentOnChannelSpec
 		val chOutOps = new Channel.Ops(chOut)
 
 		val sourceFixture = new SourceFixture(chInOps)(fixtureObserver.ref, this)
-		val sourceProcessor = new Processor("inboundSource", globalClock, testController.ref, fixtureConfigurer(sourceFixture)(fixtureObserver.ref))
+		val sourceProcessor = new AgentTemplate.Wrapper("inboundSource", globalClock, testController.ref, fixtureConfigurer(sourceFixture)(fixtureObserver.ref))
 		val sourceRef = testKit.spawn(sourceProcessor.init, "InboundSource")
 		val sinkFixture = new SinkFixture(chOutOps)(fixtureObserver.ref,this)
-		val sinkProcessor = new Processor("inboundSource", globalClock, testController.ref, fixtureConfigurer(sinkFixture)(fixtureObserver.ref))
+		val sinkProcessor = new AgentTemplate.Wrapper("inboundSource", globalClock, testController.ref, fixtureConfigurer(sinkFixture)(fixtureObserver.ref))
 		val sinkRef = testKit.spawn(sinkProcessor.init, "OutboundSink")
 
 		val harness = new Harness(harnessMonitor.ref, physics, chInOps, chOutOps)
-		val carriageProcessor = new Processor[MockSignal]("underTest", globalClock, testController.ref, harness.configurer)
+		val carriageProcessor = new  AgentTemplate.Wrapper[MockSignal]("underTest", globalClock, testController.ref, harness.configurer)
 		val underTest = testKit.spawn(carriageProcessor.init, "undertest")
 
 		val loadProbe = new MaterialLoad("loadProbe")
@@ -387,7 +387,7 @@ class CarriageComponentOnChannelSpec
 
 		val inboundJobs = mutable.Map.empty[MaterialLoad, Seq[MockSignal]]
 		val commandRelayer = new CommandRelayer(inboundJobs, underTest)
-		val commandRelayerRef = testKit.spawn((new Processor("commandRelayer", globalClock, testController.ref, commandRelayer.configurer)).init, "commandRelayer")
+		val commandRelayerRef = testKit.spawn((new AgentTemplate.Wrapper("commandRelayer", globalClock, testController.ref, commandRelayer.configurer)).init, "commandRelayer")
 
 		"A. Register Itself for configuration" should {
 			globalClock ! RegisterMonitor(testController.ref)
@@ -403,10 +403,10 @@ class CarriageComponentOnChannelSpec
 				testController.expectMessage(NoMoreWork(0L))
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
-				commandRelayerRef ! ConfigurationCommand(shuttleHarness, 0L, NullConfigure)
-				underTest ! ConfigurationCommand(commandRelayerRef, 0L, Configure(locAt0.idx, Map(locAt0 -> loadProbe, locAt5 -> loadProbe2)))
-				sourceRef ! ConfigurationCommand(sourceRef, 0L, FixtureConfigure)
-				sinkRef ! ConfigurationCommand(sinkRef, 0L, FixtureConfigure)
+				commandRelayerRef ! Configure(shuttleHarness, 0L, NullConfigure)
+				underTest ! Configure(commandRelayerRef, 0L, DoConfigure(locAt0.idx, Map(locAt0 -> loadProbe, locAt5 -> loadProbe2)))
+				sourceRef ! Configure(sourceRef, 0L, FixtureConfigure)
+				sinkRef ! Configure(sinkRef, 0L, FixtureConfigure)
 				val expectedConfigurations =
 					mutable.Set(CompleteConfiguration(sourceRef), CompleteConfiguration(sinkRef), CompleteConfiguration(underTest), CompleteConfiguration(commandRelayerRef))
 				testController.fishForMessage(500 millis) {
@@ -426,7 +426,7 @@ class CarriageComponentOnChannelSpec
 				val loadCommandToFail = EInduct(chInOps.end, locAt7)
 				val dischargeCommand = EDischarge(chOutOps.start, OnRight(10))
 				inboundJobs += loadProbe -> Seq(loadCommandAt0, loadCommandToFail)
-				sourceRef ! ProcessCommand(sourceRef, 1L, TestProbeMessage("First Load", loadProbe))
+				sourceRef ! Run(sourceRef, 1L, TestProbeMessage("First Load", loadProbe))
 				val expected = 2
 				var count = 0
 				harnessMonitor.fishForMessage(500 millis){
@@ -446,25 +446,25 @@ class CarriageComponentOnChannelSpec
 			}
 			"A04 Reject a command to load again" in {
 				val loadCommand = ELoad(locAt0)
-				underTest ! ProcessCommand(shuttleHarness, 11L, loadCommand)
+				underTest ! Run(shuttleHarness, 11L, loadCommand)
 				harnessMonitor.expectMessage(500 millis, Notify("Rejecting Command ELoad(OnRight(0))"))
 				harnessMonitor.expectNoMessage(500 millis)
  			}
 			"A06 Reject an unload request for a full location"  in {
 				val unloadCommand = EUnload(locAt5)
-				underTest ! ProcessCommand(shuttleHarness, 14L, unloadCommand)
+				underTest ! Run(shuttleHarness, 14L, unloadCommand)
 				harnessMonitor.expectMessage(500 millis, Notify("Error Loading: Target Full at 29"))
 				harnessMonitor.expectNoMessage(500 millis)
 			}
 			"A07 Discharge the tray with the original content" in {
 				val unloadCommand = EDischarge(chOutOps.start, locAt5)
-				underTest ! ProcessCommand(shuttleHarness, 30, unloadCommand)
+				underTest ! Run(shuttleHarness, 30, unloadCommand)
 				harnessMonitor.expectMessage(500 millis,Notify("Completed Unloading at 38"))
 				harnessMonitor.expectNoMessage(500 millis)
 			}
 			"A08 Reject a command to unload again" in {
 				val unloadCommand = EUnload(locAt10)
-				underTest ! ProcessCommand(shuttleHarness, 45L, unloadCommand)
+				underTest ! Run(shuttleHarness, 45L, unloadCommand)
 				harnessMonitor.expectMessage(500 millis, Notify("Rejecting Command EUnload(OnRight(10))"))
 				harnessMonitor.expectNoMessage(500 millis)
 			}

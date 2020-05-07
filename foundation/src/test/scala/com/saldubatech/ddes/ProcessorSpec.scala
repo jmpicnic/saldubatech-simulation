@@ -9,14 +9,13 @@
 package com.saldubatech.ddes
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate._
 import com.saldubatech.ddes.Clock._
-import com.saldubatech.ddes.Processor.{CompleteConfiguration, ConfigurationCommand, ProcessCommand, ProcessorControlCommand, ProcessorMessage, RegisterProcessor}
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimSignal, DomainSignal}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimSignal}
+import com.saldubatech.test.BaseSpec._
 import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
-import com.saldubatech.test.BaseSpec._
 
 import scala.concurrent.duration._
 
@@ -52,36 +51,28 @@ class ProcessorSpec
 		val action1UUID = java.util.UUID.randomUUID.toString
 		val action2UUID = java.util.UUID.randomUUID.toString
 
-		def mockRunner: Processor.DomainRun[DomainType] = (ctx: Processor.SignallingContext[DomainType]) => {
+		def mockRunner: DomainRun[DomainType] = (ctx: SignallingContext[DomainType]) => {
 			case DomainType(msg) =>
 				testActor.ref ! msg
 				ctx.signal(mockProcessorReceiver.ref, DomainType(s"Answering: $msg"))
 				mockRunner
 		}
-		/*val mockRunner = new Processor.DomainRun[DomainType]{
-			override def process(processMessage: DomainType)(implicit ctx: Processor.CommandContext[DomainType]): Processor.DomainRun[DomainType] = processMessage match {
-				case DomainType(msg) =>
-					testActor.ref ! msg
-					ctx.tellTo(mockProcessorReceiver.ref, DomainType(s"Answering: $msg"))
-					this
-			}
-		}*/
-		val mockConfigurer: Processor.DomainConfigure[DomainType] = new Processor.DomainConfigure[DomainType] {
-			override def configure(config: DomainType)(implicit ctx: Processor.SignallingContext[DomainType]): Processor.DomainRun[DomainType] = config match {
+		val mockConfigurer: DomainConfigure[DomainType] = new DomainConfigure[DomainType] {
+			override def configure(config: DomainType)(implicit ctx: SignallingContext[DomainType]): DomainRun[DomainType] = config match {
 				case DomainType(msg) =>
 					testActor.ref ! msg
 					mockRunner
 			}
 		}
 
-		val testProcessor = new Processor("underTest", globalClock, testController.ref, mockConfigurer)
+		val testProcessor = new AgentTemplate.Wrapper("underTest", globalClock, testController.ref, mockConfigurer)
 		val underTest = testKit.spawn(testProcessor.init, "underTest")
 
-		val action1 = ProcessCommand(mockProcessorSender.ref, 0, DomainType("MOCK PROCESS COMMAND"))
-		val action2 = ProcessCommand(underTest, 0L, DomainType("Answering: MOCK PROCESS COMMAND"))
-		val action3 = ProcessCommand(mockProcessorSender.ref, 23L, DomainType("MOCK PROCESS COMMAND2"))
+		val action1 = Run(mockProcessorSender.ref, 0, DomainType("MOCK PROCESS COMMAND"))
+		val action2 = Run(underTest, 0L, DomainType("Answering: MOCK PROCESS COMMAND"))
+		val action3 = Run(mockProcessorSender.ref, 23L, DomainType("MOCK PROCESS COMMAND2"))
 
-		var receivedCmd: ProcessCommand[DomainType] = null
+		var receivedCmd: Run[DomainType] = null
 
 		"A. Register Itself for configuration" should {
 			"A01. Send a registration message to the controller" in {
@@ -93,7 +84,7 @@ class ProcessorSpec
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
 				globalClock ! StartTime(0L)
 				testController.expectMessage(Clock.StartedOn(0L))
-				underTest ! ConfigurationCommand(mockProcessorSender.ref, 0L, DomainType("MockConfiguration"))
+				underTest ! Configure(mockProcessorSender.ref, 0L, DomainType("MockConfiguration"))
 				testActor.expectMessage("MockConfiguration")
 				testController.expectMessages(
 					Clock.NoMoreWork(0L),
@@ -113,7 +104,7 @@ class ProcessorSpec
 				underTest ! action3
 				testController.expectNoMessage(200 millis)
 				globalClock ! CompleteAction(receivedCmd)
-				mockProcessorReceiver.expectMessage(ProcessCommand(underTest, 23L, DomainType("Answering: MOCK PROCESS COMMAND2")))
+				mockProcessorReceiver.expectMessage(Run(underTest, 23L, DomainType("Answering: MOCK PROCESS COMMAND2")))
 				testActor.expectMessage("MOCK PROCESS COMMAND2")
 				testController.expectMessage(Clock.NotifyAdvance(0, 23))
 				testController.expectNoMessage(500 millis)

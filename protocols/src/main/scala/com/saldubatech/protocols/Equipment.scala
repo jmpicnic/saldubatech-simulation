@@ -1,6 +1,5 @@
 package com.saldubatech.protocols
 
-import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Simulation.DomainSignal
 
 object Equipment {

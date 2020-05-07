@@ -6,9 +6,10 @@ package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -74,11 +75,11 @@ class LoadAwareXSwitchSpec
 
 		// Sources & sinks
 		val sources = config.outboundInduction.values.map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
-		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors: Seq[SimRef] = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2)).toSeq
 
 		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, false)(testMonitor, this)
-		val dischargeProcessor: Processor[Equipment.MockSinkSignal] = new Processor("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
+		val dischargeProcessor:  AgentTemplate.Wrapper[Equipment.MockSinkSignal] = new AgentTemplate.Wrapper("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
 		implicit val iCtx = clock
@@ -92,7 +93,7 @@ class LoadAwareXSwitchSpec
 				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
-					case Processor.RegisterProcessor(pr) =>
+					case RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
 							actorsToRegister -= pr
 							if (actorsToRegister isEmpty) FishingOutcome.Complete
@@ -105,7 +106,7 @@ class LoadAwareXSwitchSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, xcManager, 0L, LoadAwareXSwitch.NoConfigure)
-				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
+				simControllerProbe.expectMessage(CompleteConfiguration(underTest))
 				xcManagerProbe.expectMessage(0L -> LoadAwareXSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
@@ -117,7 +118,7 @@ class LoadAwareXSwitchSpec
 				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
-					case Processor.CompleteConfiguration(pr) =>
+					case CompleteConfiguration(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr

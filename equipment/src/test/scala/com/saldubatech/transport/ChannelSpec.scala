@@ -6,14 +6,12 @@ package com.saldubatech.transport
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
-import com.saldubatech.{ddes, transport}
-import com.saldubatech.ddes.Processor.SignallingContext
+import com.saldubatech.ddes.AgentTemplate
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainRun, Run, SignallingContext}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef, SimSignal}
-import com.saldubatech.ddes.{Clock, Processor}
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.util.LogEnabled
-import org.apache.commons.math3.ode.sampling.DummyStepHandler
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
@@ -82,7 +80,7 @@ class ChannelSpec extends AnyWordSpec
 
 	def source(host: SimRef):Channel.Source[ProbeLoad, Equipment.MockSourceSignal] = new Channel.Source[ProbeLoad, Equipment.MockSourceSignal]{
 		override lazy val ref = host
-		override def loadAcknowledged(chStart: Channel.Start[ProbeLoad, Equipment.MockSourceSignal], load: ProbeLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = {
+		override def loadAcknowledged(chStart: Channel.Start[ProbeLoad, Equipment.MockSourceSignal], load: ProbeLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = {
 			testActor.ref ! s"${load.lid}-Acknowledged"
 			senderRunner
 		}
@@ -90,7 +88,7 @@ class ChannelSpec extends AnyWordSpec
 
 	def sink(host: SimRef) = new Channel.Sink[ProbeLoad, Equipment.MockSinkSignal] {
 		override lazy val ref = host
-		override def loadArrived(endpoint: Channel.End[ProbeLoad, Equipment.MockSinkSignal], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
+		override def loadArrived(endpoint: Channel.End[ProbeLoad, Equipment.MockSinkSignal], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
 			log.info(s"Called loadArrived with $load")
 			testActor.ref ! s"${load.lid}-Received";
 			val recovered = endpoint.get(load)
@@ -99,10 +97,10 @@ class ChannelSpec extends AnyWordSpec
 			receiverRunner
 		}
 
-		override def loadReleased(endpoint: Channel.End[ProbeLoad, Equipment.MockSinkSignal], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
+		override def loadReleased(endpoint: Channel.End[ProbeLoad, Equipment.MockSinkSignal], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
 			log.info(s"After Load Release $load")
 			testActor.ref ! "probe1-release"
-			endpoint.loadReceiver orElse Processor.DomainRun {
+			endpoint.loadReceiver orElse DomainRun {
 				case other =>
 					log.info(s"Received Other Message at Receiver: $other")
 					fail(s"Unexpected Message $other")
@@ -113,8 +111,8 @@ class ChannelSpec extends AnyWordSpec
 
 
 	def senderConfigurer(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal]) =
-		new Processor.DomainConfigure[Equipment.MockSourceSignal] {
-			override def configure(config: Equipment.MockSourceSignal)(implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = config match {
+		new DomainConfigure[Equipment.MockSourceSignal] {
+			override def configure(config: Equipment.MockSourceSignal)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = config match {
 				case SenderConfigType(msg) =>
 					ops.registerStart(source(ctx.aCtx.self));
 					testActor.ref ! msg
@@ -122,7 +120,7 @@ class ChannelSpec extends AnyWordSpec
 			}
 		}
 
-	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSourceSignal] =
+	def senderRunner(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal]): DomainRun[Equipment.MockSourceSignal] =
 		ops.start.ackReceiver orElse {
 			implicit ctx: SignallingContext[Equipment.MockSourceSignal] => {
 				case SenderProcessType (msg, load) =>
@@ -139,11 +137,11 @@ class ChannelSpec extends AnyWordSpec
 
 
 
-	val sender = new Processor("sender", clock, testController.ref, senderConfigurer)
+	val sender = new AgentTemplate.Wrapper("sender", clock, testController.ref, senderConfigurer)
 
 
-	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal], ctx: SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] =
-		ops.end.loadReceiver orElse Processor.DomainRun {
+	def receiverRunner(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal], ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] =
+		ops.end.loadReceiver orElse DomainRun {
 			case other =>
 				log.info(s"Received Other Message at Receiver: $other")
 				fail(s"Unexpected Message $other")
@@ -151,9 +149,9 @@ class ChannelSpec extends AnyWordSpec
 		}
 
 
-	def receiverConfigurer(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal]): Processor.DomainConfigure[Equipment.MockSinkSignal] =
-		new Processor.DomainConfigure[Equipment.MockSinkSignal] {
-			override def configure(config: Equipment.MockSinkSignal)(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = config match {
+	def receiverConfigurer(implicit ops: Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal]): DomainConfigure[Equipment.MockSinkSignal] =
+		new DomainConfigure[Equipment.MockSinkSignal] {
+			override def configure(config: Equipment.MockSinkSignal)(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = config match {
 				case ReceiverConfigType(msg) =>
 					ops.registerEnd(sink(ctx.aCtx.self))
 					testActor.ref ! s"From Receiver-Cfg: $msg"
@@ -162,7 +160,7 @@ class ChannelSpec extends AnyWordSpec
 			}
 		}
 
-	val receiver = new Processor("receiver", clock, testController.ref, receiverConfigurer)
+	val receiver = new AgentTemplate.Wrapper("receiver", clock, testController.ref, receiverConfigurer)
 
 	val mockProcessorOrigin = testKit.createTestProbe[SimSignal]
 
@@ -182,7 +180,7 @@ class ChannelSpec extends AnyWordSpec
 			"A2: Transfer a load between the sender and receiver with a Delay" in {
 				testActor.expectMessage("DoneConfiguring")
 				val probe1 = ProbeLoad("probe1")
-				val msg1 = Processor.ProcessCommand(mockProcessorOrigin.ref, 5L, SenderProcessType("probe1", probe1))
+				val msg1 = Run(mockProcessorOrigin.ref, 5L, SenderProcessType("probe1", probe1))
 				enqueue(s, mockProcessorOrigin.ref, 5L, SenderProcessType("probe1", probe1))
 
 				testActor.expectMessage("FromSender: probe1")

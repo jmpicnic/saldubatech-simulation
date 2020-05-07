@@ -7,9 +7,10 @@ package com.saldubatech.units.flowspec
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate._
 import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
@@ -44,9 +45,9 @@ object VolumeGTPSpec {
 	class ReactiveShuttleCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite) extends LogEnabled {
 		private val obJobIt = outboundJobs.iterator
 		private var _manager: SimRef = _
-		lazy val configurer: Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] = new Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] {
+		lazy val configurer: DomainConfigure[EquipmentManagement.MockManagerSignal] = new DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
-			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Processor.DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
+			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal]): DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
 				config match {
 					case ManagerConfigure =>
 						_manager = ctx.from
@@ -60,7 +61,7 @@ object VolumeGTPSpec {
 				}
 			}
 		}
-		private def runLoad(ld: MaterialLoad)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Boolean = {
+		private def runLoad(ld: MaterialLoad)(implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal]): Boolean = {
 			inboundJobs.get(ld) match {
 				case None =>
 					testHost.fail(s"Unexpected load $ld at lift: ${ctx.from.path.name}")
@@ -72,18 +73,18 @@ object VolumeGTPSpec {
 			}
 		}
 
-		def RUNNING_INBOUND: Processor.DomainRun[EquipmentManagement.MockManagerSignal] = {
+		def RUNNING_INBOUND: DomainRun[EquipmentManagement.MockManagerSignal] = {
 			var busy = false
 			val loadsPending = mutable.Queue.empty[MaterialLoad]
 			var cmdsCompleted = 0
-			implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal] => {
+			implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal] => {
 				case cmd: Shuttle.CompletedCommand =>
 					cmdsCompleted += 1
 					if (loadsPending isEmpty) busy = false
 					else busy = runLoad(loadsPending.dequeue)
 					ctx.signal(_manager, cmd)
-					if (cmdsCompleted == inboundJobs.size) Processor.DomainRun.same
-					else Processor.DomainRun.same
+					if (cmdsCompleted == inboundJobs.size) DomainRun.same
+					else DomainRun.same
 				case Shuttle.LoadArrival(chName, ld) =>
 					inboundJobs.get(ld) match {
 						case None => testHost.fail(s"Unexpected load $ld at shuttle: ${ctx.from.path.name}")
@@ -91,7 +92,7 @@ object VolumeGTPSpec {
 							loadsPending += ld
 							if (!busy) busy = runLoad(loadsPending.dequeue)
 					}
-					Processor.DomainRun.same
+					DomainRun.same
 				case SWITCH_TO_OUTBOUND =>
 					if(obJobIt.hasNext) {
 						val jb = obJobIt.next
@@ -100,27 +101,27 @@ object VolumeGTPSpec {
 					RUNNING_OUTBOUND
 			}
 		}
-		val RUNNING_OUTBOUND: Processor.DomainRun[EquipmentManagement.MockManagerSignal] = {
-			implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal] => {
+		val RUNNING_OUTBOUND: DomainRun[EquipmentManagement.MockManagerSignal] = {
+			implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal] => {
 				case cmd: Shuttle.CompletedCommand =>
 					if(obJobIt.hasNext) {
 						val jb = obJobIt.next
 						ctx.signal(jb.shuttle, jb.shuttleCmd)
 					}
 					ctx.signal(_manager, cmd)
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 
 	}
-	def reactiveShuttleController(name: String, simController: SimulationController.Ref, inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite)(implicit clock: Clock.Ref, processorCreator: Processor.ProcessorCreator)  =
-		processorCreator.spawn(new Processor(name, clock, simController, new ReactiveShuttleCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
+	def reactiveShuttleController(name: String, simController: SimulationController.Ref, inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite)(implicit clock: Clock.Ref, processorCreator: AgentTemplate.AgentCreator)  =
+		processorCreator.spawn(new AgentTemplate.Wrapper(name, clock, simController, new ReactiveShuttleCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
 
 	class ReactiveLiftCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite) extends LogEnabled {
 		private var _manager: SimRef = null
-		lazy val configurer: Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] = new Processor.DomainConfigure[EquipmentManagement.MockManagerSignal] {
+		lazy val configurer: DomainConfigure[EquipmentManagement.MockManagerSignal] = new DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
-			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Processor.DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
+			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal]): DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
 				config match {
 					case ManagerConfigure =>
 						_manager = ctx.from
@@ -135,7 +136,7 @@ object VolumeGTPSpec {
 			}
 		}
 
-		private def runLoad(loadsPending: mutable.Queue[(String, MaterialLoad)])(implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal]): Boolean = {
+		private def runLoad(loadsPending: mutable.Queue[(String, MaterialLoad)])(implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal]): Boolean = {
 			val (chName, ld) = loadsPending.dequeue
 			val jobs = if (chName.contains("sorter")) inboundJobs else outboundJobs
 			jobs.get(ld) match {
@@ -153,24 +154,24 @@ object VolumeGTPSpec {
 			}
 		}
 
-		val RUNNING: Processor.DomainRun[EquipmentManagement.MockManagerSignal] = {
+		val RUNNING: DomainRun[EquipmentManagement.MockManagerSignal] = {
 			var busy = false
 			val loadsPending: mutable.Queue[(String, MaterialLoad)] = mutable.Queue.empty
-			implicit ctx: Processor.SignallingContext[EquipmentManagement.MockManagerSignal] => {
+			implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal] => {
 				case cmd: XSwitch.CompletedCommand =>
 					ctx.signal(_manager, cmd)
 					if(loadsPending isEmpty) busy = false
 					else busy = runLoad(loadsPending)
-					Processor.DomainRun.same
+					DomainRun.same
 				case XSwitch.LoadArrival(chName, ld) =>
 					loadsPending += chName -> ld
 					if(!busy) busy = runLoad(loadsPending)
-					Processor.DomainRun.same
+					DomainRun.same
 			}
 		}
 	}
-	def reactiveLiftController(name: String, simController: SimulationController.Ref, inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite)(implicit clock: Clock.Ref, processorCreator: Processor.ProcessorCreator)  =
-		processorCreator.spawn(new Processor(name, clock, simController, new ReactiveLiftCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
+	def reactiveLiftController(name: String, simController: SimulationController.Ref, inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite)(implicit clock: Clock.Ref, processorCreator: AgentTemplate.AgentCreator)  =
+		processorCreator.spawn(new AgentTemplate.Wrapper(name, clock, simController, new ReactiveLiftCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
 
 }
 
@@ -241,15 +242,15 @@ class VolumeGTPSpec
 
 		val sources = inboundInducts.values.map(chOps => new SourceFixture(chOps)(testMonitor, this))
 
-		val sourceProcessors = sources.zip(Seq("Inbound1", "Inbound2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("Inbound1", "Inbound2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
 
-		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName)).toList
+		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.name)).toList
 
 		val destinations = outboundDischarges.values.toSeq.map {
 			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
-		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor)) }
-		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
+		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new AgentTemplate.Wrapper(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor)) }
+		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.name))
 
 		val slotDimension = (0 until 20)
 		val sideDimension: Seq[Int => SlotLocator] = Seq(OnLeft, OnRight)
@@ -302,7 +303,7 @@ class VolumeGTPSpec
 				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(actors: _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
-					case Processor.RegisterProcessor(pr) =>
+					case RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
 							actorsToRegister -= pr
 							if (actorsToRegister isEmpty) FishingOutcome.Complete
@@ -333,7 +334,7 @@ class VolumeGTPSpec
 				)
 				val actorsToConfigure = mutable.Set((Seq(sorter, aisleA._1, aisleB._1) ++ allShuttles ++ liftManagers.values ++ shuttleManagers.values): _*)
 				simControllerProbe.fishForMessage(1000 millis) {
-					case Processor.CompleteConfiguration(pr) if actorsToConfigure.contains(pr) =>
+					case CompleteConfiguration(pr) if actorsToConfigure.contains(pr) =>
 						actorsToConfigure -= pr
 						if (actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
@@ -350,7 +351,7 @@ class VolumeGTPSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
-					case Processor.CompleteConfiguration(pr) =>
+					case CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
 							if (actorsToConfigure isEmpty) FishingOutcome.Complete

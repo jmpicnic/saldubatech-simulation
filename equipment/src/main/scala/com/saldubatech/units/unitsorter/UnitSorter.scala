@@ -1,9 +1,10 @@
 package com.saldubatech.units.unitsorter
 
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun, SignallingContext}
 import com.saldubatech.ddes.Clock.Tick
 import com.saldubatech.ddes.Simulation.SimRef
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -51,8 +52,8 @@ object UnitSorter {//extends EquipmentUnit[Equipment.UnitSorterSignal] {
 	                         physics: CircularPathTravel)
 
 
-	def buildProcessor(name: String, configuration: Configuration)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref): Processor[Equipment.UnitSorterSignal] =
-		new Processor[Equipment.UnitSorterSignal](name, clockRef, simController, new UnitSorter(name, configuration).configurer)
+	def buildProcessor(name: String, configuration: Configuration)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref):  AgentTemplate.Wrapper[Equipment.UnitSorterSignal] =
+		new  AgentTemplate.Wrapper[Equipment.UnitSorterSignal](name, clockRef, simController, new UnitSorter(name, configuration).configurer)
 }
 
 class UnitSorter(override val name: String, configuration: UnitSorter.Configuration) extends EquipmentUnit[Equipment.UnitSorterSignal] with LogEnabled {
@@ -67,8 +68,8 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 
 	lazy val endpointListener = dischargeListener orElse inductListener
 
-	private def configurer: Processor.DomainConfigure[Equipment.UnitSorterSignal] = new Processor.DomainConfigure[Equipment.UnitSorterSignal] {
-		override def configure(config: Equipment.UnitSorterSignal)(implicit ctx: Processor.SignallingContext[Equipment.UnitSorterSignal]): Processor.DomainMessageProcessor[Equipment.UnitSorterSignal] = {
+	private def configurer: DomainConfigure[Equipment.UnitSorterSignal] = new DomainConfigure[Equipment.UnitSorterSignal] {
+		override def configure(config: Equipment.UnitSorterSignal)(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): DomainMessageProcessor[Equipment.UnitSorterSignal] = {
 			installManager(ctx.from)
 			installSelf(ctx.aCtx.self)
 			inducts = configuration.inducts.map { case (idx, ch) => idx -> inductSink(manager, ch, ctx.aCtx.self) }
@@ -85,15 +86,15 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 		new Channel.Sink[MaterialLoad, Equipment.UnitSorterSignal] {
 			lazy override val ref = host
 			lazy val end = chOps.registerEnd(this)
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, endpoint.channelName))
 				stopCycle
-				Processor.DomainRun.same
+				DomainRun.same
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
-				Processor.DomainRun.same
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
+				DomainRun.same
 			}
 		}.end
 
@@ -101,9 +102,9 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 		new Channel.Source[MaterialLoad, Equipment.UnitSorterSignal] {
 			override lazy val ref = host
 			lazy val start = chOps.registerStart(this)
-			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
+			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad)(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
 				stopCycle
-				Processor.DomainRun.same
+				DomainRun.same
 			}
 		}.start
 

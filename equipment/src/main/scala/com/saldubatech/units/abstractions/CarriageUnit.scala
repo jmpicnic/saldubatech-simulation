@@ -1,6 +1,6 @@
 package com.saldubatech.units.abstractions
 
-import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.AgentTemplate.DomainRun
 import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.protocols.Equipment
 
@@ -14,7 +14,7 @@ trait CarriageUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal] exten
 
 		protected def rejectExternalCommand(cmd: EXTERNAL_COMMAND, msg: String)(implicit ctx: CTX): RUNNER = {
 		ctx.reply(notAcceptedNotification(cmd, msg))
-		Processor.DomainRun.same
+		DomainRun.same
 	}
 
 	private var _currentCommand: Option[EXTERNAL_COMMAND] = None
@@ -25,7 +25,7 @@ trait CarriageUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal] exten
 			body
 		} else rejectExternalCommand(cmd, s"$name is busy")
 
-	protected def completeCommand(next: => RUNNER = Processor.DomainRun.same,
+	protected def completeCommand(next: => RUNNER = DomainRun.same,
 	                              notifier: EXTERNAL_COMMAND => NOTIFICATION = completedCommandNotification)
 	                             (implicit ctx: CTX): RUNNER = {
 		assert(_currentCommand nonEmpty)

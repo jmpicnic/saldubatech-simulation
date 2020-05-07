@@ -6,9 +6,10 @@ package com.saldubatech.units.flowspec
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
@@ -20,9 +21,9 @@ import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.units.shuttle.LoadAwareShuttle
 import com.saldubatech.units.unitsorter.{CircularPathTravel, UnitSorter}
 import com.saldubatech.util.LogEnabled
-import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -89,14 +90,14 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 
 		val sources = inboundInducts.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
-		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
-		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.processorName))
+		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
+		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.name))
 
 		val destinations =  outboundDischarges.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
-		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new Processor(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
-		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.processorName))
+		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new AgentTemplate.Wrapper(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
+		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.name))
 
 
 
@@ -106,7 +107,7 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(actors: _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
-					case Processor.RegisterProcessor(pr) =>
+					case RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
 							actorsToRegister -= pr
 							if (actorsToRegister isEmpty) FishingOutcome.Complete
@@ -133,14 +134,14 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 				)
 				val actorsToConfigure = mutable.Set((Seq(sorter, aisleA._1, aisleB._1) ++ shuttles): _*)
 				simControllerProbe.fishForMessage(1000 millis) {
-					case Processor.CompleteConfiguration(pr) if actorsToConfigure.contains(pr) =>
+					case CompleteConfiguration(pr) if actorsToConfigure.contains(pr) =>
 						actorsToConfigure -= pr
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: Processor.CompleteConfiguration =>
+					case msg: CompleteConfiguration =>
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: Processor.RegisterProcessor =>
+					case msg: RegisterProcessor =>
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
 					case other => FishingOutcome.Fail(s"Unexpected message: $other with remaining actors to configure $actorsToConfigure")
@@ -156,7 +157,7 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
-					case Processor.CompleteConfiguration(pr) =>
+					case CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
 							if (actorsToConfigure isEmpty) FishingOutcome.Complete

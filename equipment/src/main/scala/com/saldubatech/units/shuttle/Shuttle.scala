@@ -5,9 +5,9 @@
 package com.saldubatech.units.shuttle
 
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Processor.DomainRun
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -57,7 +57,7 @@ object Shuttle {
 	(configuration: Configuration[UpstreamMessageType, DownstreamMessageType],
 	 initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
 		val domain = new Shuttle(configuration.name, configuration, initial)
-		new Processor[Equipment.ShuttleSignal](configuration.name, clockRef, simController, domain.configurer)
+		new  AgentTemplate.Wrapper[Equipment.ShuttleSignal](configuration.name, clockRef, simController, domain.configurer)
 	}
 }
 
@@ -109,7 +109,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 
 	private val channelFreeBehavior: (DISCHARGE, MaterialLoad, CTX) => PartialFunction[InductDischargeUnit.WaitForChannel, RUNNER] = {
 		(toCh: DISCHARGE, ld: MaterialLoad, ctx: CTX) => {
-			case NoChannelWait => Processor.DomainRun.same
+			case NoChannelWait => DomainRun.same
 			case WaitDischarging(ch, loc) =>
 				carriageComponent.dischargeTo(ch, loc)(ctx)
 				busyGuard orElse channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))
@@ -129,9 +129,9 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 	private val outboundChannels: mutable.Map[String, DISCHARGE] = mutable.Map.empty
 	private var outboundAckListener: RUNNER = _
 
-	private def configurer: Processor.DomainConfigure[Equipment.ShuttleSignal] = {
-		new Processor.DomainConfigure[Equipment.ShuttleSignal] {
-			override def configure(config: Equipment.ShuttleSignal)(implicit ctx: CTX): Processor.DomainMessageProcessor[Equipment.ShuttleSignal] = {
+	private def configurer: DomainConfigure[Equipment.ShuttleSignal] = {
+		new DomainConfigure[Equipment.ShuttleSignal] {
+			override def configure(config: Equipment.ShuttleSignal)(implicit ctx: CTX): DomainMessageProcessor[Equipment.ShuttleSignal] = {
 				config match {
 					case cmd@NoConfigure =>
 						installManager(ctx.from)
@@ -263,7 +263,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
 				carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => failEmpty("Trying to load from an empty Source")
 		}
@@ -273,7 +273,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.unloadTo(loc)
 				carriageComponent.UNLOADING(afterUnloading) orElse channelListener
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => failEmpty("Trying to load from an empty Source")
 		}
@@ -286,7 +286,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToStore(loc, from)
 				DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
 		}
 	}
@@ -298,7 +298,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToDischarge(ch, loc, from)
 				DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => failFull(s"Trying to load to a full Tray")
 		}
 	}
@@ -306,7 +306,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 	private def afterUnloading: CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.UnloadOperationOutcome.Unloaded => completeCommand(IDLE_EMPTY)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull => failFull(s"Target destination is Full")
 			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => failEmpty("Trying to unload an empty Tray")
 		}
@@ -321,7 +321,7 @@ class Shuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, D
 			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
 				endChannelWait
 				completeCommand(IDLE_EMPTY)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
 				waitDischarging(ch, loc)
 				busyGuard orElse channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc))

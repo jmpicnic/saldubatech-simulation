@@ -1,14 +1,14 @@
 package com.saldubatech.units.abstractions
 
 
-import com.saldubatech.ddes.Processor
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, SignallingContext}
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.protocols.EquipmentManagement
 
 object EquipmentUnit {
 
-		def nopRunner[Signal <: DomainSignal]: Processor.DomainRun[Signal] = (ctx: Processor.SignallingContext[Signal]) => {
-			case n: Any if false => Processor.DomainRun.same
+		def nopRunner[Signal <: DomainSignal]: DomainRun[Signal] = (ctx: SignallingContext[Signal]) => {
+			case n: Any if false => DomainRun.same
 		}
 }
 
@@ -26,7 +26,7 @@ trait EquipmentUnit[EQ_SIGNAL <: DomainSignal] {
 	type EXTERNAL_COMMAND <: EQ_SIGNAL
 	type NOTIFICATION <: EquipmentManagement.EquipmentNotification
 
-	type CTX = Processor.SignallingContext[EQ_SIGNAL]
-	type RUNNER = Processor.DomainRun[EQ_SIGNAL]
+	type CTX = SignallingContext[EQ_SIGNAL]
+	type RUNNER = DomainRun[EQ_SIGNAL]
 
 }

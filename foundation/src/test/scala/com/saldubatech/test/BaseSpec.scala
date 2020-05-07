@@ -10,7 +10,6 @@ import com.saldubatech.util.LogEnabled
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
 
 import scala.collection.mutable
-
 import scala.concurrent.duration._
 
 object BaseSpec {

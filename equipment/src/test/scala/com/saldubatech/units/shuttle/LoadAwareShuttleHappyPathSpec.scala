@@ -8,10 +8,11 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate._
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -56,14 +57,14 @@ object LoadAwareShuttleHappyPathSpec {
 
 	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
 		var _ref: Option[SimRef] = None
-		val runner: Processor.DomainRun[DomainMessage]
+		val runner: DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[Equipment.MockSourceSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
 			override lazy val ref: SimRef = _ref.head
 
-			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal]): Processor.DomainRun[Equipment.MockSourceSignal] = {
+			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
 				testMonitor ! s"Received Load Acknoledgement at Channel: ${chStart.channelName} with $load"
 				runner
@@ -71,9 +72,9 @@ object LoadAwareShuttleHappyPathSpec {
 		}
 		ops.registerStart(source)
 
-		val runner: Processor.DomainRun[Equipment.MockSourceSignal] =
+		val runner: DomainRun[Equipment.MockSourceSignal] =
 			ops.start.ackReceiver orElse {
-				implicit ctx: Processor.SignallingContext[Equipment.MockSourceSignal] => {
+				implicit ctx: SignallingContext[Equipment.MockSourceSignal] => {
 					case TestProbeMessage(msg, load) =>
 						log.info(s"Got Domain Message in Sender $msg")
 						testMonitor ! s"FromSender: $msg"
@@ -93,12 +94,12 @@ object LoadAwareShuttleHappyPathSpec {
 			override lazy val ref: SimRef = _ref.head
 
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				testMonitor ! s"Load $load arrived via channel ${endpoint.channelName}"
 				runner
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: Processor.SignallingContext[Equipment.MockSinkSignal]): Processor.DomainRun[Equipment.MockSinkSignal] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				testMonitor ! s"Load $load released on channel ${endpoint.channelName}"
 				runner
@@ -106,8 +107,8 @@ object LoadAwareShuttleHappyPathSpec {
 		}
 		ops.registerEnd(sink)
 
-		val runner: Processor.DomainRun[Equipment.MockSinkSignal] =
-			ops.end.loadReceiver orElse Processor.DomainRun {
+		val runner: DomainRun[Equipment.MockSinkSignal] =
+			ops.end.loadReceiver orElse DomainRun {
 				case other =>
 					log.info(s"Received Other Message at Receiver: $other")
 					hostTest.fail(s"SinkFixture: ${ops.ch.name}: Unexpected Message $other")
@@ -115,8 +116,8 @@ object LoadAwareShuttleHappyPathSpec {
 	}
 
 	def configurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
-		new Processor.DomainConfigure[DomainMessage] {
-			override def configure(config: DomainMessage)(implicit ctx: Processor.SignallingContext[DomainMessage]): Processor.DomainRun[DomainMessage] = {
+		new DomainConfigure[DomainMessage] {
+			override def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"
 				fixture._ref = Some(ctx.aCtx.self)
 				fixture.runner
@@ -181,11 +182,11 @@ class LoadAwareShuttleHappyPathSpec
 
 		// Sources & sinks
 		val sources = config.inbound.map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
-		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
 		val sinks = config.outbound.map(obOps => new SinkFixture(obOps)(testMonitor, this))
-		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
+		val sinkProcessors = sinks.zip(Seq("d1", "d2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sinkActors = sinkProcessors.zip(Seq("d1", "d2")).map(t => testKit.spawn(t._1.init, t._2))
 
 		implicit val clk = clock
@@ -196,10 +197,10 @@ class LoadAwareShuttleHappyPathSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
+				val actorsToRegister: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
 				startTime()
 				testControllerProbe.fishForMessage(3 second) {
-					case Processor.RegisterProcessor(pr) =>
+					case RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
 							actorsToRegister -= pr
 							if (actorsToRegister isEmpty) FishingOutcome.Complete
@@ -212,7 +213,7 @@ class LoadAwareShuttleHappyPathSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, shuttleLevelManager, 0L, LoadAwareShuttle.NoConfigure)
-				testControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
+				testControllerProbe.expectMessage(CompleteConfiguration(underTest))
 				val msg = sinkObserverProbe.receiveMessage()
 				msg should be(0L -> LoadAwareShuttle.CompletedConfiguration(underTest))
 			}
@@ -223,10 +224,10 @@ class LoadAwareShuttleHappyPathSpec
 				sinkActors.foreach(act => enqueueConfigure(act, shuttleLevelManager, 0L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ sinkActors: _*)
+				val actorsToConfigure: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
-					case Processor.CompleteConfiguration(pr) =>
+					case CompleteConfiguration(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
