@@ -8,7 +8,7 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate
 import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainRun, Run, SignallingContext}
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef, SimSignal}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.util.LogEnabled
@@ -78,7 +78,7 @@ class ChannelSpec extends AnyWordSpec
 	}
 	implicit object channelOps extends Channel.Ops[ProbeLoad, Equipment.MockSourceSignal, Equipment.MockSinkSignal](underTest)
 
-	def source(host: SimRef):Channel.Source[ProbeLoad, Equipment.MockSourceSignal] = new Channel.Source[ProbeLoad, Equipment.MockSourceSignal]{
+	def source(host: SimRef[Equipment.MockSourceSignal]):Channel.Source[ProbeLoad, Equipment.MockSourceSignal] = new Channel.Source[ProbeLoad, Equipment.MockSourceSignal]{
 		override lazy val ref = host
 		override def loadAcknowledged(chStart: Channel.Start[ProbeLoad, Equipment.MockSourceSignal], load: ProbeLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = {
 			testActor.ref ! s"${load.lid}-Acknowledged"
@@ -86,7 +86,7 @@ class ChannelSpec extends AnyWordSpec
 		}
 	}
 
-	def sink(host: SimRef) = new Channel.Sink[ProbeLoad, Equipment.MockSinkSignal] {
+	def sink(host: SimRef[Equipment.MockSinkSignal]) = new Channel.Sink[ProbeLoad, Equipment.MockSinkSignal] {
 		override lazy val ref = host
 		override def loadArrived(endpoint: Channel.End[ProbeLoad, Equipment.MockSinkSignal], load: ProbeLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
 			log.info(s"Called loadArrived with $load")

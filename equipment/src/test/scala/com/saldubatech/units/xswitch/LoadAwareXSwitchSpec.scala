@@ -7,7 +7,7 @@ package com.saldubatech.units.xswitch
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -76,7 +76,7 @@ class LoadAwareXSwitchSpec
 		// Sources & sinks
 		val sources = config.outboundInduction.values.map(ibOps => new SourceFixture(ibOps)(testMonitor, this))
 		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
-		val sourceActors: Seq[SimRef] = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2)).toSeq
+		val sourceActors: Seq[SimRef[_ <: DomainSignal]] = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2)).toSeq
 
 		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, false)(testMonitor, this)
 		val dischargeProcessor:  AgentTemplate.Wrapper[Equipment.MockSinkSignal] = new AgentTemplate.Wrapper("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
@@ -90,7 +90,7 @@ class LoadAwareXSwitchSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
@@ -115,7 +115,7 @@ class LoadAwareXSwitchSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
 				enqueueConfigure(dischargeActor, xcManager, 0L, DownstreamConfigure)
 				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
-				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
 					case CompleteConfiguration(pr) =>

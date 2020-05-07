@@ -8,7 +8,7 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate._
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -30,21 +30,21 @@ import scala.concurrent.duration._
 object VolumeGTPSpec {
 
 	trait Job {
-		val lift: SimRef
+		val lift: SimRef[Equipment.XSwitchSignal]
 		val liftCmd: XSwitch.Transfer
-		val shuttle: SimRef
+		val shuttle: SimRef[Equipment.ShuttleSignal]
 		val shuttleCmd: Shuttle.ExternalCommand
 	}
-	case class InboundJob(inbound: SimRef, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: SimRef, levelIdx: Int, override val liftCmd: XSwitch.Transfer, shuttle: SimRef, override val shuttleCmd: Shuttle.Store) extends Job
-	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: SimRef, override val liftCmd: XSwitch.Transfer, shuttle: SimRef, override val shuttleCmd: Shuttle.Retrieve) extends Job
+	case class InboundJob(inbound: SimRef[_ <: DomainSignal], load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: SimRef[_ <: DomainSignal], levelIdx: Int, override val liftCmd: XSwitch.Transfer, shuttle: SimRef[_ <: DomainSignal], override val shuttleCmd: Shuttle.Store) extends Job
+	case class OutboundJob(outboundName: String, load: MaterialLoad, sorterCmd: UnitSorter.Sort, lift: SimRef[_ <: DomainSignal], override val liftCmd: XSwitch.Transfer, shuttle: SimRef[_ <: DomainSignal], override val shuttleCmd: Shuttle.Retrieve) extends Job
 
 	case object ManagerConfigure extends Identification.Impl() with EquipmentManagement.MockManagerSignal
 	case object SWITCH_TO_OUTBOUND extends Identification.Impl() with EquipmentManagement.MockManagerSignal
-	case class ConfigurationComplete(from: SimRef) extends Identification.Impl() with EquipmentManagement.EquipmentNotification
+	case class ConfigurationComplete(from: SimRef[_ <: DomainSignal]) extends Identification.Impl() with EquipmentManagement.EquipmentNotification
 
 	class ReactiveShuttleCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Seq[Job], testHost: TestSuite) extends LogEnabled {
 		private val obJobIt = outboundJobs.iterator
-		private var _manager: SimRef = _
+		private var _manager: SimRef[_ <: DomainSignal] = _
 		lazy val configurer: DomainConfigure[EquipmentManagement.MockManagerSignal] = new DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
 			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal]): DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
@@ -118,7 +118,7 @@ object VolumeGTPSpec {
 		processorCreator.spawn(new AgentTemplate.Wrapper(name, clock, simController, new ReactiveShuttleCommandBufferController(inboundJobs, outboundJobs, testHost).configurer).init, name)
 
 	class ReactiveLiftCommandBufferController(inboundJobs: Map[MaterialLoad, Job], outboundJobs: Map[MaterialLoad, Job], testHost: TestSuite) extends LogEnabled {
-		private var _manager: SimRef = null
+		private var _manager: SimRef[_ <: DomainSignal] = null
 		lazy val configurer: DomainConfigure[EquipmentManagement.MockManagerSignal] = new DomainConfigure[EquipmentManagement.MockManagerSignal] {
 			private var configCountDown = 2
 			override def configure(config: EquipmentManagement.MockManagerSignal)(implicit ctx: SignallingContext[EquipmentManagement.MockManagerSignal]): DomainMessageProcessor[EquipmentManagement.MockManagerSignal] = {
@@ -238,19 +238,19 @@ class VolumeGTPSpec
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
 		val sorterConfig = UnitSorter.Configuration(200, sorterInducts, sorterDischarges, sorterPhysics)
-		val sorter: SimRef = UnitSorterBuilder.build("sorter", sorterConfig)
+		val sorter: SimRef[_ <: DomainSignal] = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.map(chOps => new SourceFixture(chOps)(testMonitor, this))
 
 		val sourceProcessors = sources.zip(Seq("Inbound1", "Inbound2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
 
-		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.name)).toList
+		val sourceRefs: Seq[SimRef[_ <: DomainSignal]] = sourceProcessors.map(t => testKit.spawn(t.init, t.name)).toList
 
 		val destinations = outboundDischarges.values.toSeq.map {
 			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
 		val destinationProcessors = destinations.zipWithIndex.map { case (dstSink, idx) => new AgentTemplate.Wrapper(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor)) }
-		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.name))
+		val destinationRefs: Seq[SimRef[_ <: DomainSignal]] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.name))
 
 		val slotDimension = (0 until 20)
 		val sideDimension: Seq[Int => SlotLocator] = Seq(OnLeft, OnRight)
@@ -300,7 +300,7 @@ class VolumeGTPSpec
 		"A. Configure itself" when {
 			"A01. Time is started they register for Configuration" in {
 				val actors = sourceRefs ++ shuttleManagers.values ++ liftManagers.values ++ destinationRefs ++ Seq(sorter, aisleA._1, aisleB._1) ++ aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
-				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(actors: _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(actors: _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
@@ -349,7 +349,7 @@ class VolumeGTPSpec
 				destinationRefs.foreach(ref => enqueueConfigure(ref, sorterManager, 10L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
 					case CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {

@@ -1,8 +1,8 @@
 package com.saldubatech.units.abstractions
 
 
-import com.saldubatech.ddes.AgentTemplate.{DomainRun, SignallingContext}
-import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, Ref, SignallingContext}
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.protocols.EquipmentManagement
 
 object EquipmentUnit {
@@ -14,13 +14,13 @@ object EquipmentUnit {
 
 trait EquipmentUnit[EQ_SIGNAL <: DomainSignal] {
 
-	lazy val self: SimRef = _self
-	private var _self: SimRef = null
-	def installSelf(s: SimRef) = _self = s
+	lazy val self: Ref[EQ_SIGNAL]  = _self
+	private var _self: Ref[EQ_SIGNAL] = null
+	def installSelf(s: Ref[EQ_SIGNAL]) = _self = s
 	val name: String
-	private var _manager: SimRef = _
-	protected lazy val manager: SimRef = _manager
-	def installManager(m: SimRef) = _manager = m
+	private var _manager: Ref[_ <: DomainSignal] = _
+	protected lazy val manager: Ref[_ <: DomainSignal] = _manager
+	def installManager(m: Ref[_ <: DomainSignal]) = _manager = m
 
 	type HOST <: EquipmentUnit[EQ_SIGNAL]
 	type EXTERNAL_COMMAND <: EQ_SIGNAL

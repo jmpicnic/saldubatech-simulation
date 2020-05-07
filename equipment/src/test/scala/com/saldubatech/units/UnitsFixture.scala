@@ -23,14 +23,14 @@ object UnitsFixture {
 	case object ConsumeLoad extends Identification.Impl() with Equipment.MockSinkSignal
 
 	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
-		var _ref: Option[SimRef] = None
+		var _ref: Option[SimRef[_ <: DomainSignal]] = None
 		val runner: DomainRun[DomainMessage]
 	}
 	class SourceFixture[DestinationSignal >: Equipment.ChannelSinkSignal <: DomainSignal](ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, DestinationSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSourceSignal] {
 		private val pending: mutable.Queue[MaterialLoad] = mutable.Queue.empty
 
 		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
-			override lazy val ref: SimRef = _ref.head
+			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = {
 				//log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -63,7 +63,7 @@ object UnitsFixture {
 
 	class SinkFixture[SourceSignal >: Equipment.ChannelSourceSignal <: DomainSignal](ops: Channel.Ops[MaterialLoad, SourceSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSinkSignal] {
 		val sink = new Channel.Sink[MaterialLoad, Equipment.MockSinkSignal] {
-			override lazy val ref: SimRef = _ref.head
+			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName} at ${ctx.now}"

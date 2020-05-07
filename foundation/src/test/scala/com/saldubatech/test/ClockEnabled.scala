@@ -12,9 +12,9 @@ trait ClockEnabled {
 
 		def startTime(at: Tick = 0L) = clock ! Clock.StartTime(at)
 
-	def enqueue[DomainMessage <: DomainSignal](to: SimRef, from: SimRef, at: Tick, signal: DomainMessage): Unit =
+	def enqueue[DomainMessage <: DomainSignal](to: SimRef[_ <: DomainSignal], from: SimRef[_ <: DomainSignal], at: Tick, signal: DomainMessage): Unit =
 		clock ! Clock.Enqueue(to, Run(from, at, signal))
 
-	def enqueueConfigure[ConfigureMessage <: DomainSignal](to: SimRef, from: SimRef, at: Tick, signal: ConfigureMessage): Unit =
+	def enqueueConfigure[ConfigureMessage <: DomainSignal](to: SimRef[_ <: DomainSignal], from: SimRef[_ <: DomainSignal], at: Tick, signal: ConfigureMessage): Unit =
 		clock ! Clock.Enqueue(to, Configure(from, at, signal))
 }

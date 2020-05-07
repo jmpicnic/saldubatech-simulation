@@ -10,6 +10,7 @@ import java.util.Comparator
 import akka.actor.typed.ActorRef
 import akka.dispatch.Envelope
 import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate.Ref
 import com.saldubatech.ddes.Clock.{ClockMessage, Enqueue, Tick}
 
 object Simulation extends App {
@@ -46,7 +47,7 @@ object Simulation extends App {
 		val from: ActorRef[SimSignal]
 		def payload: DomainSignal
 	}
-	type SimRef = ActorRef[SimSignal]
+	type SimRef[_ <: DomainSignal] = ActorRef[SimSignal]
 
 	/**
 	 * Supertype for all Domain Messages

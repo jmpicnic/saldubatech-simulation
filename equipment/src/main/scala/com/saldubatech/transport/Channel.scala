@@ -5,9 +5,9 @@
 package com.saldubatech.transport
 
 import com.saldubatech.base.{AssetBox, Identification}
-import com.saldubatech.ddes.AgentTemplate.{DomainRun, SignallingContext}
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, Ref, SignallingContext}
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.util.LogEnabled
@@ -90,13 +90,13 @@ object Channel {
 	}
 
 	trait Sink[L <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] {
-		val ref: SimRef
+		val ref: Ref[SinkProfile]
 		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): DomainRun[SinkProfile]
 		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): DomainRun[SinkProfile]
 	}
 
 	trait Source[L <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] {
-		val ref: SimRef
+		val ref: Ref[SourceProfile]
 		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): DomainRun[SourceProfile]
 	}
 

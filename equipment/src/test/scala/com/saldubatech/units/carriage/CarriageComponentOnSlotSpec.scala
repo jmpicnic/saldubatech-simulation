@@ -29,7 +29,7 @@ object CarriageComponentOnSlotSpec {
 
 	trait MockNotification extends DomainSignal
 	case class Notify(msg: String) extends Identification.Impl() with MockNotification
-	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with MockNotification
+	case class CompletedConfiguration(self: SimRef[_ <: DomainSignal]) extends Identification.Impl() with MockNotification
 
 	case class ELoad(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
 	case class EUnload(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
@@ -42,8 +42,8 @@ object CarriageComponentOnSlotSpec {
 	case class Induct(override val from: Channel.End[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with Equipment.MockSignal
 	case class Discharge(override val to: Channel.Start[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with Equipment.MockSignal
 	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[Equipment.MockSignal] with InductDischargeUnit[Equipment.MockSignal] {
-		override lazy val self: SimRef = _self
-		var _self: SimRef = null
+		override lazy val self: SimRef[_ <: DomainSignal] = _self
+		var _self: SimRef[_ <: DomainSignal] = null
 		override val name = "MockHost"
 
 		override type LOAD_SIGNAL = Load

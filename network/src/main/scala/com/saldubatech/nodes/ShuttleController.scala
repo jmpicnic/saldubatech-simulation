@@ -2,11 +2,9 @@ package com.saldubatech.nodes
 
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate
-import com.saldubatech.ddes.AgentTemplate.{Ref, SignallingContext}
+import com.saldubatech.ddes.AgentTemplate.Ref
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.nodes
 import com.saldubatech.protocols.Equipment.ShuttleSignal
-import com.saldubatech.protocols.NodeProtocols
 import com.saldubatech.protocols.NodeProtocols.{ShuttleController => Protocol}
 import com.saldubatech.transport.MaterialLoad
 import com.saldubatech.units.carriage.SlotLocator

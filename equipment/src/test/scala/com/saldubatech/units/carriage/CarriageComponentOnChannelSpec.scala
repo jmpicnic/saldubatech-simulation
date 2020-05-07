@@ -31,7 +31,7 @@ object CarriageComponentOnChannelSpec {
 	trait MockNotification extends MockSignal
 	case class LoadArrival(ld: MaterialLoad, at: Tick) extends Identification.Impl() with  MockNotification
 	case class Notify(msg: String) extends Identification.Impl() with  MockNotification
-	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with  MockNotification
+	case class CompletedConfiguration(self: SimRef[_ <: DomainSignal]) extends Identification.Impl() with  MockNotification
 
 
 	class MockChannel(delay: () => Option[Delay], delivery: () => Option[Delay], cards: Set[String], configuredOpenSlots: Int = 1, name: String = java.util.UUID.randomUUID().toString)
@@ -52,13 +52,13 @@ object CarriageComponentOnChannelSpec {
 	case object FixtureConfigure extends Identification.Impl() with  MockSignal
 
 	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
-		var _ref: Option[SimRef] = None
+		var _ref: Option[SimRef[_ <: DomainSignal]] = None
 		val runner: DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, MockSignal, MockSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[MockSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, MockSignal] {
-			override lazy val ref: SimRef = _ref.head
+			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -87,7 +87,7 @@ object CarriageComponentOnChannelSpec {
 
 	class SinkFixture(ops: Channel.Ops[MaterialLoad, MockSignal, MockSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[MockSignal] {
 		val sink = new Channel.Sink[MaterialLoad, MockSignal] {
-			override lazy val ref: SimRef = _ref.head
+			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				testMonitor ! s"Load $load arrived via channel ${endpoint.channelName}"
@@ -157,11 +157,11 @@ object CarriageComponentOnChannelSpec {
 	              outbound: Channel.Ops[MaterialLoad, MockSignal, MockSignal]) extends LogEnabled {
 		val host = new MOCK_CarriageUnit(monitor)
 		val carriage = new CarriageComponent[MockSignal, MOCK_CarriageUnit](physics, host)
-		var _ref: Option[SimRef] = None
-		var manager: SimRef = _
+		var _ref: Option[SimRef[_ <: DomainSignal]] = None
+		var manager: SimRef[_ <: DomainSignal] = _
 
 		lazy val outboundSource = new Channel.Source[MaterialLoad, MockSignal] {
-			override lazy val ref: SimRef = _ref.head
+			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
 
 			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, MockSignal], load: MaterialLoad)(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
@@ -172,7 +172,7 @@ object CarriageComponentOnChannelSpec {
 		val startEndpoint = outbound.registerStart(outboundSource)
 
 		lazy val inboundSink = new Channel.Sink[MaterialLoad, MockSignal] {
-			override lazy val ref: SimRef = _ref.head
+			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
 
 
 			override def loadArrived(endpoint: Channel.End[MaterialLoad, MockSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[MockSignal]): DomainRun[MockSignal] = {
@@ -296,8 +296,8 @@ object CarriageComponentOnChannelSpec {
 		}
 	}
 
-	class CommandRelayer(inboundJobs: mutable.Map[MaterialLoad, Seq[MockSignal]], target: SimRef) {
-		private var _manager: SimRef = null
+	class CommandRelayer(inboundJobs: mutable.Map[MaterialLoad, Seq[MockSignal]], target: SimRef[_ <: DomainSignal]) {
+		private var _manager: SimRef[_ <: DomainSignal] = null
 		lazy val configurer: DomainConfigure[MockSignal] = new DomainConfigure[MockSignal] {
 			override def configure(config: MockSignal)(implicit ctx: SignallingContext[MockSignal]): DomainMessageProcessor[MockSignal] = {
 				config match {

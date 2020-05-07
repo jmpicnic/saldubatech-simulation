@@ -1,8 +1,8 @@
 package com.saldubatech.units.abstractions
 
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.AgentTemplate.DomainRun
-import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, Ref}
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -25,7 +25,7 @@ object InductDischargeUnit {
 	(host: H)(loadArrivalBehavior: (host.INDUCT, MaterialLoad, Option[Distance], host.CTX) => Function1[WaitForLoad, host.RUNNER])
 	(inboundSlot: SlotLocator, chOps: Channel.Ops[MaterialLoad, _, HS])=
 		new 	Channel.Sink[MaterialLoad, HS] {
-			lazy override val ref: SimRef = host.self
+			lazy override val ref: Ref[HS] = host.self
 			lazy val end = chOps.registerEnd(this)
 			override def loadArrived(endpoint: host.INDUCT, load: MaterialLoad, at: Option[Distance])(implicit ctx: host.CTX) = loadArrivalBehavior(endpoint, load, at, ctx)(host.waitingForLoad)
 
@@ -33,10 +33,10 @@ object InductDischargeUnit {
 		}.end
 
 	def dischargeSource[HS >: Equipment.ChannelSignal <: DomainSignal, H <: InductDischargeUnit[HS]]
-	(host: H)(slot: SlotLocator, manager: SimRef, chOps: Channel.Ops[MaterialLoad, HS, _])
+	(host: H)(slot: SlotLocator, manager: Ref[_], chOps: Channel.Ops[MaterialLoad, HS, _])
 	(channelFreeBehavior: (host.DISCHARGE, MaterialLoad, host.CTX) => PartialFunction[WaitForChannel, host.RUNNER])=
 		new Channel.Source[MaterialLoad, HS] {
-			lazy override val ref: SimRef = host.self
+			lazy override val ref: Ref[HS] = host.self
 			lazy val start = chOps.registerStart(this)
 			override def loadAcknowledged(endpoint: host.DISCHARGE, load: MaterialLoad)(implicit ctx: host.CTX): host.RUNNER = channelFreeBehavior(endpoint, load, ctx)(host.waitingForChannel)
 		}.start

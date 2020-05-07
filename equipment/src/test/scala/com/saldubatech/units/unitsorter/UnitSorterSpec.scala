@@ -8,7 +8,7 @@ import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -109,7 +109,7 @@ class UnitSorterSpec
 		"A. Configure itself" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs ++ Seq(underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceRefs ++ destinationRefs ++ Seq(underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
@@ -135,7 +135,7 @@ class UnitSorterSpec
 				destinationRefs.foreach(ref => enqueueConfigure(ref, xcManager, 0L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
 					case CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {

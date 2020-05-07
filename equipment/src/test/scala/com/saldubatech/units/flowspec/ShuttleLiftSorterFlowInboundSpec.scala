@@ -7,7 +7,7 @@ package com.saldubatech.units.flowspec
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimRef}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -84,25 +84,25 @@ class ShuttleLiftSorterFlowInboundSpec
 
 		val sorterPhysics = new CircularPathTravel(60, 25, 100)
 		val sorterConfig = UnitSorter.Configuration(250, sorterInducts, sorterDischarges, sorterPhysics)
-		val sorter: SimRef = UnitSorterBuilder.build("sorter", sorterConfig)
+		val sorter: SimRef[Equipment.UnitSorterSignal] = UnitSorterBuilder.build("sorter", sorterConfig)
 
 		val sources = inboundInducts.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.UnitSorterSignal] => new SourceFixture(chOps)(testMonitor, this)}
 		val sourceProcessors = sources.zip(Seq("induct_1", "induct_2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
-		val sourceRefs: Seq[SimRef] = sourceProcessors.map(t => testKit.spawn(t.init, t.name))
+		val sourceRefs: Seq[SimRef[Equipment.MockSourceSignal]] = sourceProcessors.map(t => testKit.spawn(t.init, t.name))
 
 		val destinations =  outboundDischarges.values.toSeq.map{
 			case chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, Equipment.MockSinkSignal] => new SinkFixture(chOps)(testMonitor, this)
 		}
 		val destinationProcessors = destinations.zipWithIndex.map{case (dstSink, idx) => new AgentTemplate.Wrapper(s"discharge_$idx", clock, simController, configurer(dstSink)(testMonitor))}
-		val destinationRefs: Seq[SimRef] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.name))
+		val destinationRefs: Seq[SimRef[Equipment.MockSinkSignal]] = destinationProcessors.map(proc => testKit.spawn(proc.init, proc.name))
 
 
 
 		"A. Configure itself" when {
 			"A01. Time is started they register for Configuration" in {
 				val actors = sourceRefs ++ destinationRefs ++ Seq(sorter, aisleA._1, aisleB._1) ++ aisleA._2.map(_._2) ++ aisleB._2.map(_._2)
-				val actorsToRegister: mutable.Set[SimRef] = mutable.Set(actors: _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(actors: _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
@@ -153,7 +153,7 @@ class ShuttleLiftSorterFlowInboundSpec
 				destinationRefs.foreach(ref => enqueueConfigure(ref, systemManager, 10L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[SimRef] = mutable.Set(sourceRefs ++ destinationRefs: _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
 					case CompleteConfiguration(pr) =>
 						if (actorsToConfigure.contains(pr)) {

@@ -14,7 +14,7 @@ import com.saldubatech.util.LogEnabled
 object AgentTemplate {
 	type CTX = ActorContext[SimSignal]
 
-	type Ref[SIGNAL <: DomainSignal] = ActorRef[SimSignal]
+	type Ref[SIGNAL <: DomainSignal] = SimRef[SIGNAL]
 	type AgentCreator = {def spawn[T](behavior: Behavior[T], name: String): ActorRef[T]}
 
 	case class Configure[ConfigurationMessage <: DomainSignal]
@@ -162,14 +162,15 @@ object AgentTemplate {
 }
 
 trait AgentTemplate[DomainMessage <: DomainSignal, SELF <: AgentTemplate[DomainMessage, SELF]] extends Identification {
+	import AgentTemplate._
 
-	lazy val self: SimRef = _self
-	private var _self: SimRef = null
-	def installSelf(s: SimRef) = _self = s
+	lazy val self: Ref[DomainMessage] = _self
+	private var _self: Ref[DomainMessage] = null
+	def installSelf(s: Ref[DomainMessage]) = _self = s
 	val name: String
-	private var _manager: SimRef = _
-	protected lazy val manager: SimRef = _manager
-	def installManager(m: SimRef) = _manager = m
+	private var _manager: Ref[_] = _
+	protected lazy val manager: Ref[_] = _manager
+	def installManager(m: Ref[_]) = _manager = m
 
 	type HOST = SELF
 	type SIGNAL = DomainMessage

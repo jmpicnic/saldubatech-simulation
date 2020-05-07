@@ -5,10 +5,11 @@
 package com.saldubatech.units.shuttle
 
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
-import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun, Ref}
+import com.saldubatech.ddes.Simulation.DomainSignal
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
+import com.saldubatech.protocols.Equipment.ShuttleSignal
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.abstractions.{InductDischargeUnit, LoadAwareUnit}
@@ -45,7 +46,7 @@ object LoadAwareShuttle {
 	case class CompletedCommand(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
-	case class CompletedConfiguration(self: SimRef) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class CompletedConfiguration(self: Ref[ShuttleSignal]) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 
 	sealed trait InternalSignal extends Equipment.ShuttleSignal
 	case class Execute(cmd: ExternalCommand) extends Identification.Impl() with InternalSignal
