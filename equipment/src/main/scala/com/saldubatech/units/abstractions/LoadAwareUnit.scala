@@ -78,7 +78,7 @@ trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]
 		val cmdHandler: RUNNER = {
 			implicit ctx: CTX => {
 				case cmd: EXTERNAL_COMMAND =>
-					this += ctx.now -> cmd
+					LoadAwareUnit.this += ctx.now -> cmd
 					triggerNext(DomainRun.same, isApplicable) //orElse commandContinue(runner, isApplicable)
 			}
 		}
@@ -107,7 +107,7 @@ trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]
 		}
 	}
 
-	protected def completeCommand(next: => RUNNER, notifier: EXTERNAL_COMMAND => NOTIFICATION)(implicit ctx: CTX, extTag: ClassTag[EXTERNAL_COMMAND], prioCT: ClassTag[PRIORITY_COMMAND], ldCmd: ClassTag[INBOUND_LOAD_COMMAND]): RUNNER = {
+	protected def completeCommand(next: => RUNNER, notifier: EXTERNAL_COMMAND => MANAGER_SIGNAL)(implicit ctx: CTX, extTag: ClassTag[EXTERNAL_COMMAND], prioCT: ClassTag[PRIORITY_COMMAND], ldCmd: ClassTag[INBOUND_LOAD_COMMAND]): RUNNER = {
 		if (working nonEmpty) {
 			ctx.signal(manager, notifier(working.head._2))
 			working = None

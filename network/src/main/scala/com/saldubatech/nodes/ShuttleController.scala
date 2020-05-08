@@ -2,20 +2,21 @@ package com.saldubatech.nodes
 
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate
-import com.saldubatech.ddes.AgentTemplate.Ref
+import com.saldubatech.ddes.AgentTemplate.AgentCompanion
 import com.saldubatech.ddes.Clock.Delay
+import com.saldubatech.ddes.Simulation.SimRef
 import com.saldubatech.protocols.Equipment.ShuttleSignal
 import com.saldubatech.protocols.NodeProtocols.{ShuttleController => Protocol}
 import com.saldubatech.transport.MaterialLoad
 import com.saldubatech.units.carriage.SlotLocator
 
-object ShuttleController {
+object ShuttleController extends AgentCompanion[Protocol.ACCEPTED.Signal] {
 	trait JobCondition
 	trait Reservation
 	trait Job
 	trait Fulfillment
 
-	case class Configure(shuttle: Ref[ShuttleSignal]) extends Protocol.ACCEPTED.Configure
+	case class Configure(shuttle: SimRef[ShuttleSignal]) extends Protocol.ACCEPTED.Configure
 
 	case class IsCapable(cnd: JobCondition) extends Identification.Impl() with Protocol.ACCEPTED.Demand
 	case class CanPerform(request: IsCapable) extends Protocol.EMITTED.Demand

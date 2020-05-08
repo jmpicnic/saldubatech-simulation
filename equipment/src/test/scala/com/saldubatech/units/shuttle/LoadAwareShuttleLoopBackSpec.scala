@@ -55,15 +55,15 @@ object LoadAwareShuttleLoopBackSpec {
 	}
 
 	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
-		var _ref: Option[SimRef[_ <: DomainSignal]] = None
+		var _ref: Option[SimRef[DomainMessage]] = None
 		val runner: DomainRun[DomainMessage]
 	}
 	class SourceFixture(ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[Equipment.MockSourceSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
-			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
+			override lazy val ref: SimRef[Equipment.MockSourceSignal] = _ref.head
 
-			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = {
+			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx:  FullSignallingContext[Equipment.MockSourceSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSourceSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
 				testMonitor ! s"Received Load Acknoledgement at Channel: ${chStart.channelName} with $load"
 				runner
@@ -73,7 +73,7 @@ object LoadAwareShuttleLoopBackSpec {
 
 		val runner: DomainRun[Equipment.MockSourceSignal] =
 			ops.start.ackReceiver orElse {
-				implicit ctx: SignallingContext[Equipment.MockSourceSignal] => {
+				implicit ctx:  FullSignallingContext[Equipment.MockSourceSignal, _ <: DomainSignal] => {
 					case TestProbeMessage(msg, load) =>
 						log.info(s"Got Domain Message in Sender $msg")
 						testMonitor ! s"FromSender: $msg"
@@ -90,16 +90,17 @@ object LoadAwareShuttleLoopBackSpec {
 
 	class SinkFixture(ops: Channel.Ops[MaterialLoad, Equipment.ShuttleSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[Equipment.MockSinkSignal] {
 		val sink = new Channel.Sink[MaterialLoad, Equipment.MockSinkSignal] {
-			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
+			override lazy val ref: SimRef[Equipment.MockSinkSignal] = _ref.head
 
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])
+			                        (implicit ctx:  FullSignallingContext[Equipment.MockSinkSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				testMonitor ! s"Load $load arrived to Sink via channel ${endpoint.channelName}"
 				endpoint.getNext
 				runner
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx:  FullSignallingContext[Equipment.MockSinkSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				testMonitor ! s"Load $load released on channel ${endpoint.channelName}"
 				runner
@@ -117,7 +118,7 @@ object LoadAwareShuttleLoopBackSpec {
 
 	def configurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
 		new DomainConfigure[DomainMessage] {
-			override def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainRun[DomainMessage] = {
+			override def configure(config: DomainMessage)(implicit ctx:  FullSignallingContext[DomainMessage, _ <: DomainSignal]): DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"
 				fixture._ref = Some(ctx.aCtx.self)
 				fixture.runner
@@ -199,7 +200,7 @@ class LoadAwareShuttleLoopBackSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
 				startTime()
 				testControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
@@ -215,7 +216,7 @@ class LoadAwareShuttleLoopBackSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest,shuttleLevelManager, 0L, LoadAwareShuttle.NoConfigure)
-				testControllerProbe.expectMessage(CompleteConfiguration(underTest))
+				testControllerProbe.expectMessage(RegistrationConfigurationComplete[Equipment.ShuttleSignal](underTest))
 				val msg = shuttleLevelManagerProbe.receiveMessage()
 				msg should be(0L -> LoadAwareShuttle.CompletedConfiguration(underTest))
 			}
@@ -226,10 +227,10 @@ class LoadAwareShuttleLoopBackSpec
 				sinkActors.foreach(act => enqueueConfigure(act, shuttleLevelManager, 0L, DownstreamConfigure))
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ sinkActors: _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
@@ -246,7 +247,7 @@ class LoadAwareShuttleLoopBackSpec
 			val probeLoad = MaterialLoad("First Load")
 			"B01. it receives the load in one channel" in {
 				val probeLoadMessage = TestProbeMessage("First Load", probeLoad)
-				sourceActors.head ! Run(sourceActors.head, 2L, probeLoadMessage)
+				enqueue(sourceActors.head, sourceActors.head, 2L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: First Load")
 				shuttleLevelManagerProbe.expectMessage(15L -> LoadAwareShuttle.LoadArrival(chIb1.name, probeLoad))
 			}

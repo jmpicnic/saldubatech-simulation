@@ -7,7 +7,7 @@ package com.saldubatech.ddes
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.AgentTemplate.Run
+import com.saldubatech.ddes.AgentTemplate.SourcedRun
 import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimSignal}
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
@@ -55,7 +55,7 @@ class ClockSpec
 			"A03. Start" in {
 				underTest ! RegisterMonitor(testController.ref)
 				testController.expectMessage(RegisteredClockMonitors(1))
-				val probeMsg = Run[MockDomainMessage](mockProcessorSender.ref, 40L, MockDomainMessage("MOCK_MOCK"))
+				val probeMsg = SourcedRun(mockProcessorSender.ref, 40L, MockDomainMessage("MOCK_MOCK"))
 				underTest ! Enqueue(mockProcessorReceiver.ref, probeMsg)
 				underTest ! StartTime(37L)
 				testController.expectMessage(StartedOn(37L))
@@ -63,7 +63,7 @@ class ClockSpec
 				mockProcessorReceiver.expectMessage(probeMsg)
 				underTest ! Enqueue(mockProcessorReceiver.ref, probeMsg)
 				mockProcessorReceiver.expectMessage(probeMsg)
-				val probeMsg2 = Run[MockDomainMessage](mockProcessorSender.ref, 43L, MockDomainMessage("MOCK_MOCK2"))
+				val probeMsg2 = SourcedRun(mockProcessorSender.ref, 43L, MockDomainMessage("MOCK_MOCK2"))
 				underTest ! Enqueue(mockProcessorReceiver.ref, probeMsg2)
 				mockProcessorReceiver.expectNoMessage
 				underTest ! CompleteAction(probeMsg)

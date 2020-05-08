@@ -6,7 +6,7 @@ package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor, Run}
+import com.saldubatech.ddes.AgentTemplate.{RegistrationConfigurationComplete, RegisterProcessor}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
@@ -108,7 +108,7 @@ class FanInWaitingForSlotSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, xcManager, 0L, XSwitch.NoConfigure)
-				simControllerProbe.expectMessage(CompleteConfiguration(underTest))
+				simControllerProbe.expectMessage(RegistrationConfigurationComplete[Equipment.XSwitchSignal](underTest))
 				xcManagerProbe.expectMessage(0L -> XSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
@@ -120,7 +120,7 @@ class FanInWaitingForSlotSpec
 				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
@@ -165,7 +165,7 @@ class FanInWaitingForSlotSpec
 			"C03. One more load to force the carriage to error out and the Lift to waitforslot" in {
 				val thirdLoad = MaterialLoad("Third Load")
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
-				sourceActors.head ! Run(sourceActors.head, 275L, probeLoadMessage)
+				enqueue(sourceActors.head, sourceActors.head, 275L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Third Load")
 				enqueue(underTest, xcManager, 288L, thirdTransferCommand)
 				var found = 0

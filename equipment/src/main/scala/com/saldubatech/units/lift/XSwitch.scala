@@ -5,8 +5,8 @@
 package com.saldubatech.units.lift
 
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun, Ref}
-import com.saldubatech.ddes.Simulation.DomainSignal
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment.XSwitchSignal
@@ -31,7 +31,7 @@ object XSwitch {
 	case class FailedWaiting(msg: String) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class NotAcceptedCommand(cmd: ExternalCommand, msg: String) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
-	case class CompletedConfiguration(self: Ref[XSwitchSignal]) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
+	case class CompletedConfiguration(self: SimRef[XSwitchSignal]) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 
 	case class Configuration[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, InboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal,
 		OutboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSignal, OutboundDischargeSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
@@ -86,7 +86,7 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 			case NoLoadWait =>
 				ctx.signal(manager, LoadArrival(induct.channelName, load))
 				DomainRun.same
-			case WaitInductingToDischarge(to, toLoc, from) if (from.channelName == induct.channelName) =>
+			case WaitInductingToDischarge(to, toLoc, from) if from.channelName == induct.channelName =>
 				val loc =
 					(inboundRouting.inductByName(induct.channelName) orElse outboundRouting.inductByName(induct.channelName)).map(t => At(t._1))
 				if(loc isEmpty) throw new RuntimeException(s"Undefined induct ${induct.channelName} for XSwitch($name)")
@@ -94,7 +94,7 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 				busyGuard orElse channelListener orElse carriageComponent.INDUCTING(completeInductingAndDischarge(from, to, toLoc))
 			case w: WaitInductingToDischarge =>
 				completeCommand(IDLE,
-					cmd => FailedWaiting(s"Received On Unexpected Channel: ${induct.channelName} while waiting on ${w.discharge.channelName} for command $currentCommand"))(ctx)
+					_ => FailedWaiting(s"Received On Unexpected Channel: ${induct.channelName} while waiting on ${w.discharge.channelName} for command $currentCommand"))(ctx)
 		}
 
 	private val channelFreeBehavior: (DISCHARGE, MaterialLoad, CTX) => PartialFunction[InductDischargeUnit.WaitForChannel, RUNNER] = {
@@ -141,11 +141,11 @@ class XSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: DomainSign
 					case XSwitch.NoConfigure =>
 						installManager(ctx.from)
 						installSelf(ctx.aCtx.self)
-						inboundRouting = new RoutingGroup(
+						inboundRouting = RoutingGroup(
 							configuration.inboundInduction.map{
 								case (idx, ch) => idx -> InductDischargeUnit.inductSink[Equipment.XSwitchSignal, HOST](XSwitch.this)(loadArrivalBehavior)(At(idx), ch)},
 							configuration.inboundDischarge.map{case (idx, ch) => idx -> InductDischargeUnit.dischargeSource[Equipment.XSwitchSignal, HOST](XSwitch.this)(At(idx), manager, ch)(channelFreeBehavior)})
-						outboundRouting = new RoutingGroup(
+						outboundRouting = RoutingGroup(
 							configuration.outboundInduction.map{
 								case (idx, ch) => idx -> InductDischargeUnit.inductSink[Equipment.XSwitchSignal, HOST](XSwitch.this)(loadArrivalBehavior)(At(idx),ch)},
 							configuration.outboundDischarge.map{case (idx, ch) => idx -> InductDischargeUnit.dischargeSource[Equipment.XSwitchSignal, HOST](XSwitch.this)(At(idx), manager, ch)(channelFreeBehavior)})

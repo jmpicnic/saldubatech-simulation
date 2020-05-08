@@ -14,6 +14,7 @@ import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef,
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.Equipment
+import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
@@ -29,7 +30,7 @@ object CarriageComponentOnSlotSpec {
 
 	trait MockNotification extends DomainSignal
 	case class Notify(msg: String) extends Identification.Impl() with MockNotification
-	case class CompletedConfiguration(self: SimRef[_ <: DomainSignal]) extends Identification.Impl() with MockNotification
+	case class CompletedConfiguration(self: SimRef[Equipment.MockSignal]) extends Identification.Impl() with MockNotification
 
 	case class ELoad(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
 	case class EUnload(loc: SlotLocator) extends Identification.Impl() with Equipment.MockSignal
@@ -42,8 +43,8 @@ object CarriageComponentOnSlotSpec {
 	case class Induct(override val from: Channel.End[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends InductCmd(from, at) with Equipment.MockSignal
 	case class Discharge(override val to: Channel.Start[MaterialLoad, Equipment.MockSignal], override val at: SlotLocator) extends DischargeCmd(to, at) with Equipment.MockSignal
 	class MOCK_CarriageUnit(monitor: ActorRef[MockNotification]) extends CarriageUnit[Equipment.MockSignal] with InductDischargeUnit[Equipment.MockSignal] {
-		override lazy val self: SimRef[_ <: DomainSignal] = _self
-		var _self: SimRef[_ <: DomainSignal] = null
+		override lazy val self: SimRef[Equipment.MockSignal] = _self
+		var _self: SimRef[Equipment.MockSignal] = _
 		override val name = "MockHost"
 
 		override type LOAD_SIGNAL = Load
@@ -162,11 +163,11 @@ object CarriageComponentOnSlotSpec {
 		}
 
 		def configurer: DomainConfigure[Equipment.MockSignal] = new DomainConfigure[Equipment.MockSignal] {
-			override def configure(config: Equipment.MockSignal)(implicit ctx: SignallingContext[Equipment.MockSignal]): DomainRun[Equipment.MockSignal] = config match {
+			override def configure(config: Equipment.MockSignal)(implicit ctx:  FullSignallingContext[Equipment.MockSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSignal] = config match {
 				case DoConfigure(loc, inventory) =>
 					host._self = ctx.aCtx.self
 					carriage.atLocation(loc).withInventory(inventory)
-					ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
+					ctx.reply(CompletedConfiguration(ctx.aCtx.self))
 					ctx.aCtx.log.debug(s"Completed configuration and notifiying ${ctx.from}")
 					EIDLE
 				case other => throw new IllegalArgumentException(s"Unknown Signal; $other")
@@ -181,6 +182,7 @@ class CarriageComponentOnSlotSpec
 		with Matchers
 		with AnyWordSpecLike
 		with BeforeAndAfterAll
+		with ClockEnabled
 		with LogEnabled {
 	import CarriageComponentOnSlotSpec._
 
@@ -195,53 +197,42 @@ class CarriageComponentOnSlotSpec
 	}
 
 	"A Carriage" when {
-		val globalClock = testKit.spawn(Clock())
-
 		val testController = testKit.createTestProbe[ControllerMessage]
 
 		val harnessObserver = testKit.createTestProbe[(Tick,MockNotification)]
 
-		val shuttleHarnessProcessor = new ProcessorSink[MockNotification](harnessObserver.ref, globalClock)
+		val shuttleHarnessProcessor = new ProcessorSink[MockNotification](harnessObserver.ref, clock)
 		val shuttleHarness = testKit.spawn(shuttleHarnessProcessor.init)
 
 		val harnessMonitor = testKit.createTestProbe[MockNotification]
 
-//		val mockProcessorReceiver = testKit.createTestProbe[SimSignal]
-		val testActor = testKit.createTestProbe[SimSignal]
-
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 		val harness = new Harness(harnessMonitor.ref, physics)
-		val carriageProcessor = new  AgentTemplate.Wrapper[Equipment.MockSignal]("underTest", globalClock, testController.ref, harness.configurer)
+		val carriageProcessor = new  AgentTemplate.Wrapper[Equipment.MockSignal]("underTest", clock, testController.ref, harness.configurer)
 		val underTest = testKit.spawn(carriageProcessor.init, "undertest")
 
-		val loadProbe = new MaterialLoad("loadProbe")
-		val loadProbe2 = new MaterialLoad("loadProbe2")
+		val loadProbe = MaterialLoad("loadProbe")
+		val loadProbe2 = MaterialLoad("loadProbe2")
 		val locAt0 = OnRight(0)
-		val locAt7 = OnRight(7)
+		//val locAt7 = OnRight(7)
 		val locAt5 = OnLeft(5)
 		val locAt10 = OnRight(10)
 
 
 		"A. Register Itself for configuration" should {
-			//			globalClock ! RegisterMonitor(testController.ref)
-			//			testController.expectMessage(RegisteredClockMonitors(1))
-
-			//			testController.expectMessage(StartedOn(0L))
-
-
 			"A01. Send a registration message to the controller" in {
-				testController.expectMessage(RegisterProcessor(underTest))
+				testController.expectMessage(RegisterProcessor[Equipment.MockSignal](underTest))
 			}
 			"A02 Process a Configuration Message and notify the controller when configuration is complete" in {
-				underTest ! Configure(shuttleHarness, 0L, DoConfigure(locAt0.idx, Map(locAt0 -> loadProbe, locAt5 -> loadProbe2)))
-				globalClock ! StartTime(0L)
-				testController.expectMessage(CompleteConfiguration(underTest))
+				enqueueConfigure(underTest, shuttleHarness, 0L, DoConfigure(locAt0.idx, Map(locAt0 -> loadProbe, locAt5 -> loadProbe2)))
+				startTime()
+				testController.expectMessage(RegistrationConfigurationComplete[Equipment.MockSignal](underTest))
 				harnessObserver.expectMessage((0L, CompletedConfiguration(underTest)))
 			}
 			"A03 Load the tray when empty with the acquire delay and reject another command in between" in {
 				val loadCommand = ELoad(locAt0)
-				underTest ! Run(shuttleHarness, 2L, loadCommand)
-				underTest ! Run(shuttleHarness, 3L, loadCommand)
+				enqueue(underTest, shuttleHarness, 2L, loadCommand)
+				enqueue(underTest, shuttleHarness, 3L, loadCommand)
 				var ct = 0
 				harnessMonitor.fishForMessage(500 millis){
 					case Notify("Reject Signal ELoad(OnRight(0)) while in Transit") =>
@@ -258,25 +249,25 @@ class CarriageComponentOnSlotSpec
 			}
 			"A04 Reject a command to load again" in {
 				val loadCommand = ELoad(locAt0)
-				underTest ! Run(shuttleHarness, 11L, loadCommand)
+				enqueue(underTest, shuttleHarness, 11L, loadCommand)
 				harnessMonitor.expectMessage(500 millis, Notify("Rejecting Command ELoad(OnRight(0))"))
 				harnessMonitor.expectNoMessage(500 millis)
  			}
 			"A06 Reject an unload request for a full location"  in {
 				val unloadCommand = EUnload(locAt5)
-				underTest ! Run(shuttleHarness, 14L, unloadCommand)
+				enqueue(underTest, shuttleHarness, 14L, unloadCommand)
 				harnessMonitor.expectMessage(500 millis, Notify("Error Loading: Target Full at 29"))
 				harnessMonitor.expectNoMessage(500 millis)
 			}
 			"A07 Unload the tray with the original content" in {
 				val unloadCommand = EUnload(locAt10)
-				underTest ! Run(shuttleHarness, 15L, unloadCommand)
-				harnessMonitor.expectMessage(500 millis,Notify("Completed Unloading at 30"))
+				enqueue(underTest, shuttleHarness, 30L, unloadCommand)
+				harnessMonitor.expectMessage(500 millis,Notify("Completed Unloading at 45"))
 				harnessMonitor.expectNoMessage(500 millis)
 			}
 			"A08 Reject a command to unload again" in {
 				val unloadCommand = EUnload(locAt10)
-				underTest ! Run(shuttleHarness, 24L, unloadCommand)
+				enqueue(underTest, shuttleHarness, 46L, unloadCommand)
 				harnessMonitor.expectMessage(500 millis, Notify("Rejecting Command EUnload(OnRight(10))"))
 				harnessMonitor.expectNoMessage(500 millis)
 			}

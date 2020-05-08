@@ -6,7 +6,7 @@ package com.saldubatech.units.flowspec
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
+import com.saldubatech.ddes.AgentTemplate.{RegistrationConfigurationComplete, RegisterProcessor}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
@@ -135,14 +135,14 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 				)
 				val actorsToConfigure = mutable.Set((Seq(sorter, aisleA._1, aisleB._1) ++ shuttles): _*)
 				simControllerProbe.fishForMessage(1000 millis) {
-					case CompleteConfiguration(pr) if actorsToConfigure.contains(pr) =>
+					case RegistrationConfigurationComplete(pr) if actorsToConfigure.contains(pr) =>
 						actorsToConfigure -= pr
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: CompleteConfiguration =>
+					case msg: RegistrationConfigurationComplete[_] =>
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
-					case msg: RegisterProcessor =>
+					case msg: RegisterProcessor[_] =>
 						if(actorsToConfigure.nonEmpty) FishingOutcome.Continue
 						else FishingOutcome.Complete
 					case other => FishingOutcome.Fail(s"Unexpected message: $other with remaining actors to configure $actorsToConfigure")
@@ -158,7 +158,7 @@ class LoadAwareShuttleLiftSorterFlowInboundSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
 							if (actorsToConfigure isEmpty) FishingOutcome.Complete

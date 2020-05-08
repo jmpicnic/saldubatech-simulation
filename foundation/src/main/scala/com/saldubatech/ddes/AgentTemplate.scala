@@ -8,60 +8,67 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock._
-import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, PSimSignal, SimRef}
 import com.saldubatech.util.LogEnabled
 
 object AgentTemplate {
+	import com.saldubatech.ddes.Simulation.SimSignal
 	type CTX = ActorContext[SimSignal]
 
-	type Ref[SIGNAL <: DomainSignal] = SimRef[SIGNAL]
 	type AgentCreator = {def spawn[T](behavior: Behavior[T], name: String): ActorRef[T]}
 
-	case class Configure[ConfigurationMessage <: DomainSignal]
-	(override val from: ActorRef[SimSignal], override val tick: Tick, payload: ConfigurationMessage) extends Identification.Impl with SimSignal {
+	case class SourcedConfigure[SourceMessage <: DomainSignal, ConfigurationMessage <: DomainSignal]
+	(override val from: ActorRef[PSimSignal[SourceMessage]], override val tick: Tick, payload: ConfigurationMessage) extends Identification.Impl with PSimSignal[ConfigurationMessage]
 
+	case class SourcedRun[SourceMessage <: DomainSignal, TargetMessage <: DomainSignal]
+	(override val from: ActorRef[PSimSignal[SourceMessage]], override val tick: Tick, override val payload: TargetMessage) extends Identification.Impl() with PSimSignal[TargetMessage]
+
+	abstract class AgentNotification[DomainMessage <: DomainSignal] extends Identification.Impl() with ControllerMessage {
+		val subject: SimRef[DomainMessage]
 	}
-	case class Run[DomainMessage <: DomainSignal]
-	(override val from: Ref[_ <: DomainSignal], override val tick: Tick, payload: DomainMessage) extends Identification.Impl() with SimSignal
+	case class RegisterProcessor[DomainMessage <: DomainSignal](override val subject: SimRef[DomainMessage]) extends AgentNotification[DomainMessage]
+	case class RegistrationConfigurationComplete[DomainMessage <: DomainSignal](override val subject: SimRef[DomainMessage]) extends AgentNotification[DomainMessage]
 
-	abstract class AgentNotification extends Identification.Impl() with ControllerMessage {
-		val subject: Ref[_]
-	}
-	case class RegisterProcessor(override val subject: Ref[_  <: DomainSignal]) extends AgentNotification
-	case class CompleteConfiguration(override val subject: Ref[_  <: DomainSignal]) extends AgentNotification
-
-
-	trait SignallingContext[DomainMessage <: DomainSignal] extends LogEnabled {
-		val from: Ref[_ <: DomainSignal]
+	trait SimpleSignallingContext[DomainMessage <: DomainSignal] extends LogEnabled {
 		val now: Tick
-		val aCtx: ActorContext[SimSignal]
-		implicit val clock: ActorRef[ClockMessage]
+		val aCtx: ActorContext[PSimSignal[DomainMessage]]
+		implicit val clock: Clock.Ref
+		protected def wrap[TargetMsg <: DomainSignal](at: Tick, msg: TargetMsg): PSimSignal[TargetMsg]
 
-		protected def wrap[TargetMsg <: DomainSignal](at: Tick, msg: TargetMsg): SimSignal
+		protected def doTell[TargetSignal <: DomainSignal, TargetMsg <: TargetSignal](to: SimRef[TargetSignal], msg: TargetMsg, delay: Option[Delay]): Unit =
+			clock ! Clock.Enqueue(to, wrap(now + delay.getOrElse(0L), msg))
 
-		private def doTell[TargetMsg <: DomainSignal](to: Ref[TargetMsg], msg: DomainSignal, delay: Option[Delay]): Unit = clock ! Clock.Enqueue(to, wrap(now + delay.getOrElse(0L), msg))
-
-		def signaller[TargetMsg <: DomainSignal](to: Ref[TargetMsg]): (TargetMsg, Option[Delay]) => Unit = (m, d) => doTell(to, m, d)
-		def signal[TargetMsg <: DomainSignal](to: Ref[TargetMsg], msg: TargetMsg): Unit = doTell(to, msg, None)
-		def signal[TargetMsg <: DomainSignal](to: Ref[TargetMsg], msg: TargetMsg, delay: Delay): Unit = doTell(to, msg, Some(delay))
+		def signaller[TargetMsg <: DomainSignal](to: SimRef[TargetMsg]): (TargetMsg, Option[Delay]) => Unit = (m, d) => doTell(to, m, d)
+		def signal[TargetMsg <: DomainSignal, SG >: TargetMsg <: DomainSignal](to: SimRef[SG], msg: TargetMsg): Unit = doTell(to, msg, None)
+		def signal[TargetMsg <: DomainSignal, SG >: TargetMsg <: DomainSignal](to: SimRef[SG], msg: TargetMsg, delay: Delay): Unit = doTell(to, msg, Some(delay))
 		def signalSelf(msg: DomainMessage) = doTell(aCtx.self, msg, None)
 		def signalSelf(msg: DomainMessage, delay: Delay) = doTell(aCtx.self, msg, Some(delay))
-		def reply(msg: DomainSignal, delay: Delay) = doTell(from, msg, Some(delay))
-		def reply(msg: DomainSignal) = doTell(from, msg, None)
+	}
+	trait FullSignallingContext[DomainMessage <: DomainSignal, SourceSignal <: DomainSignal] extends SimpleSignallingContext[DomainMessage] {
 
-		def configureContext[FROM_PAYLOAD] = ConfigureContext(from, now, aCtx)
-		def commandContext[FROM_PAYLOAD] = CommandContext(from, now, aCtx)
+		def from[FR >: SourceSignal <: DomainSignal]: SimRef[FR] = _from match {
+			case lfr : SimRef[FR] => lfr
+			case other => throw new RuntimeException(s"Unexpected Type of from: $other")
+		}
+		protected val _from: SimRef[SourceSignal]
+
+		def reply[SG >: SourceSignal <: DomainSignal](msg: SG, delay: Delay) = doTell(from, msg, Some(delay))
+		def reply[SG >: SourceSignal <: DomainSignal](msg: SG) = doTell(from, msg, None)
+
+		def configureContext = ConfigureContext2(_from, now, aCtx)
+		def commandContext = CommandContext2(_from, now, aCtx)
 	}
 
+	case class CommandContext2[HostSignal <: DomainSignal, SourceSignal <: DomainSignal](override protected val _from: ActorRef[PSimSignal[SourceSignal]], override val now: Tick, override val aCtx: ActorContext[PSimSignal[HostSignal]])
+	                                                                                    (implicit override val clock: ActorRef[ClockMessage]) extends FullSignallingContext[HostSignal, SourceSignal] {
 
-	case class CommandContext[DomainMessage <: DomainSignal](override val from: Ref[_  <: DomainSignal], override val now: Tick, override val aCtx: ActorContext[SimSignal])
-	                                                        (implicit override val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
-		override protected def wrap[TargetMsg <: DomainSignal](at: Tick, msg: TargetMsg): SimSignal = Run(aCtx.self, at, msg)
+		override protected def wrap[TargetMsg <: DomainSignal](at: Tick, msg: TargetMsg): PSimSignal[TargetMsg] = new SourcedRun[HostSignal, TargetMsg](aCtx.self, at, msg)
 	}
 
-	case class ConfigureContext[DomainMessage <: DomainSignal](override val from: Ref[_ <: DomainSignal], override val now: Tick, override val aCtx: ActorContext[SimSignal])
-	                                                          (implicit override val clock: ActorRef[ClockMessage]) extends SignallingContext[DomainMessage] {
-		override protected def wrap[TargetMsg <: DomainSignal](at: Tick, msg: TargetMsg): SimSignal = Configure(aCtx.self, at, msg)
+	case class ConfigureContext2[HostSignal <: DomainSignal, SourceSignal <: DomainSignal](override protected val _from: ActorRef[PSimSignal[SourceSignal]], override val now: Tick, override val aCtx: ActorContext[PSimSignal[HostSignal]])
+	                                                                                    (implicit override val clock: ActorRef[ClockMessage]) extends FullSignallingContext[HostSignal, SourceSignal] {
+
+		override protected def wrap[TargetMsg <: DomainSignal](at: Tick, msg: TargetMsg): PSimSignal[TargetMsg] = new SourcedConfigure[HostSignal, TargetMsg](aCtx.self, at, msg)
 	}
 
 	trait DomainMessageProcessor[DomainMessage]
@@ -69,25 +76,26 @@ object AgentTemplate {
 	}
 
 	//trait DomainRun[DomainMessage] extends PartialFunction[DomainMessage, Function1[CommandContext[DomainMessage],DomainRun[DomainMessage]]]
-	trait DomainRun[DomainMessage <: DomainSignal] extends Function[SignallingContext[DomainMessage], PartialFunction[DomainMessage,DomainRun[DomainMessage]]] with DomainMessageProcessor[DomainMessage] {
-		def orElse(other: DomainRun[DomainMessage]): DomainRun[DomainMessage] = (ctx: SignallingContext[DomainMessage]) => this (ctx) orElse other(ctx)
+	trait DomainRun[DomainMessage <: DomainSignal] extends Function[FullSignallingContext[DomainMessage, _ <: DomainSignal], PartialFunction[DomainMessage,DomainRun[DomainMessage]]] with DomainMessageProcessor[DomainMessage] {
+		def orElse(other: DomainRun[DomainMessage]): DomainRun[DomainMessage] = (ctx:  FullSignallingContext[DomainMessage, _ <: DomainSignal]) => this(ctx) orElse other(ctx)
 
-		def isDefinedAt(s: DomainMessage) = (ctx: SignallingContext[DomainMessage]) => this(ctx).isDefinedAt(s)
+		def isDefinedAt(s: DomainMessage) = (ctx:  FullSignallingContext[DomainMessage, _ <: DomainSignal]) => this(ctx).isDefinedAt(s)
 	}
 	object DomainRun {
 		def apply[DomainMessage <: DomainSignal](runLogic: PartialFunction[DomainMessage, DomainRun[DomainMessage]]): DomainRun[DomainMessage] = {
-			implicit ctx: SignallingContext[DomainMessage] => runLogic
+			implicit ctx:  FullSignallingContext[DomainMessage, _ <: DomainSignal] => runLogic
 		}
 
+
 		class Same[DomainMessage <: DomainSignal] extends DomainRun[DomainMessage] {
-			override def apply(ctx: SignallingContext[DomainMessage]): PartialFunction[DomainMessage, DomainRun[DomainMessage]] = {
+			override def apply(ctx:  FullSignallingContext[DomainMessage, _ <: DomainSignal]): PartialFunction[DomainMessage, DomainRun[DomainMessage]] = {
 				case any =>
-					throw new IllegalStateException(s"The 'Same' DomainRun should never be active: Received signal: $any from ${ctx.from} as part of ${ctx.aCtx.self}")
+					throw new IllegalStateException(s"The 'Same' DomainRun should never be active: Received signal: $any from {ctx.from} as part of ${ctx.aCtx.self}")
 					this
 			}
 		}
-		def noOp[DomainMessage <: DomainSignal] = DomainRun[DomainMessage]{
-			case n: Any if false => DomainRun.same
+		def noOp[DomainMessage <: DomainSignal]: DomainRun[DomainMessage] = DomainRun[DomainMessage]{
+			case n: Any if false => throw new RuntimeException("Should never be here")
 		}
 
 		def same[DomainMessage <: DomainSignal]: DomainRun[DomainMessage] = new Same[DomainMessage]
@@ -95,7 +103,7 @@ object AgentTemplate {
 	}
 
 	trait DomainConfigure[DomainMessage <: DomainSignal] extends DomainMessageProcessor[DomainMessage] {
-		def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainMessageProcessor[DomainMessage]
+		def configure(config: DomainMessage)(implicit ctx: FullSignallingContext[DomainMessage, _ <: DomainSignal]): DomainMessageProcessor[DomainMessage]
 	}
 
 	class Wrapper[DomainMessage <: DomainSignal](val name: String,
@@ -104,51 +112,51 @@ object AgentTemplate {
 	                                             protected val initialConfigurer: AgentTemplate.DomainConfigure[DomainMessage]
 	                            ) extends LogEnabled {
 
-		lazy val ref: Ref[DomainMessage] = _ref.head
-		private var _ref: Option[Ref[DomainMessage]] = None
+		lazy val ref: SimRef[DomainMessage] = _ref.head
+		private var _ref: Option[SimRef[DomainMessage]] = None
 
-		def init = Behaviors.setup[SimSignal]{
+		def init: Behavior[PSimSignal[DomainMessage]] = Behaviors.setup[PSimSignal[DomainMessage]]{
 			implicit ctx =>
 				_ref = Some(ctx.self)
-				controller ! RegisterProcessor(ctx.self)
+				controller ! RegisterProcessor[DomainMessage](ctx.self)
 				doConfigure(initialConfigurer)
 		}
 
 
-		private def doConfigure(c: DomainConfigure[DomainMessage]): Behaviors.Receive[SimSignal] = Behaviors.receive[SimSignal]{
+		private def doConfigure(c: DomainConfigure[DomainMessage]): Behaviors.Receive[PSimSignal[DomainMessage]] = Behaviors.receive[PSimSignal[DomainMessage]]{
 			(ctx, msg) => msg match {
-				case cmd: Configure[DomainMessage] =>
+				case cmd: SourcedConfigure[_, DomainMessage] =>
 					ctx.log.debug(s"Configuring with $cmd")
 					clock ! StartActionOnReceive(cmd)
 
-					val next = c.configure(cmd.payload)(ConfigureContext[DomainMessage](cmd.from, cmd.tick, ctx)(clock))
+					val next = c.configure(cmd.payload)(ConfigureContext2(cmd.from, cmd.tick, ctx)(clock))
 					clock ! CompleteAction(cmd)
 					next match {
 						case configurer: DomainConfigure[DomainMessage] => doConfigure(configurer)
 						case runner: DomainRun[DomainMessage] =>
-							controller ! CompleteConfiguration(ref)
+							controller ! RegistrationConfigurationComplete(ref)
 							behaviorizeRunner(runner)(clock)
 					}
 
 			}
 		}
-		private def behaviorizeRunner(runner: DomainRun[DomainMessage])(implicit clock: ActorRef[ClockMessage]): Behavior[SimSignal] =
-			Behaviors.receive[SimSignal]{
+		private def behaviorizeRunner(runner: DomainRun[DomainMessage])(implicit clock: ActorRef[ClockMessage]): Behavior[PSimSignal[DomainMessage]] =
+			Behaviors.receive[PSimSignal[DomainMessage]]{
 				(ctx, msg) =>
 					msg match {
-						case cmd: Run[DomainMessage] => doProcessCommand(runner)(cmd)(clock, ctx)
+						case cmd: SourcedRun[_, DomainMessage] => doProcessCommand(runner)(cmd)(clock, ctx)
+						//case cmd: Run[DomainMessage] => doProcessCommand(runner)(cmd)(clock, ctx)
 						//case Shutdown => do something
 					}
 			}
 
-		private def doProcessCommand(runner: DomainRun[DomainMessage])(cmd: Run[DomainMessage])(implicit clock: ActorRef[ClockMessage], ctx: ActorContext[SimSignal]): Behavior[SimSignal] = {
-			ctx.log.debug(s"Processing Command: ${cmd.payload} at ${cmd.tick}")
+		private def doProcessCommand[FROM_SIGNAL <: DomainSignal](runner: DomainRun[DomainMessage])(cmd: SourcedRun[FROM_SIGNAL, DomainMessage])(implicit clock: ActorRef[ClockMessage], ctx: ActorContext[PSimSignal[DomainMessage]]): Behavior[PSimSignal[DomainMessage]] = {
+			//ctx.log.info(s"Processing Command: ${cmd.payload} at ${cmd.tick}")
 			clock ! StartActionOnReceive(cmd)
-			val next: DomainRun[DomainMessage] = runner(CommandContext(cmd.from, cmd.tick, ctx)(clock))(cmd.payload)
+			val next: DomainRun[DomainMessage] = runner(CommandContext2(cmd.from, cmd.tick, ctx)(clock))(cmd.payload)
 			clock ! CompleteAction(cmd)
 			next match {
-				case r: DomainRun.Same[DomainMessage] =>
-					behaviorizeRunner(runner)
+				case _ : DomainRun.Same[DomainMessage] => behaviorizeRunner(runner)
 				case other => behaviorizeRunner(next)
 			}
 		}
@@ -156,27 +164,29 @@ object AgentTemplate {
 
 	def buildAgent[DomainMessage <: DomainSignal, SELF <: AgentTemplate[DomainMessage, SELF]]
 	(agentDef: AgentTemplate[DomainMessage, SELF])
-	(implicit clockRef: Clock.Ref, agentCreator: AgentCreator, simController: SimulationController.Ref): Ref[DomainMessage] =
+	(implicit clockRef: Clock.Ref, agentCreator: AgentCreator, simController: SimulationController.Ref): SimRef[DomainMessage] =
 		agentCreator.spawn(new Wrapper[DomainMessage](agentDef.name, clockRef, simController, agentDef.booter).init, agentDef.name)
+
+	trait AgentCompanion[DomainMessage <: DomainSignal] {
+		type Ref = SimRef[DomainMessage]
+		type SIGNAL = DomainMessage
+		type CTX = AgentTemplate.FullSignallingContext[DomainMessage, _ <: DomainSignal]
+		type RUNNER = AgentTemplate.DomainRun[DomainMessage]
+	}
 
 }
 
 trait AgentTemplate[DomainMessage <: DomainSignal, SELF <: AgentTemplate[DomainMessage, SELF]] extends Identification {
-	import AgentTemplate._
 
-	lazy val self: Ref[DomainMessage] = _self
-	private var _self: Ref[DomainMessage] = null
-	def installSelf(s: Ref[DomainMessage]) = _self = s
+	lazy val self: SimRef[DomainMessage] = _self
+	private var _self: SimRef[DomainMessage] = _
+	def installSelf(s: SimRef[DomainMessage]) = _self = s
 	val name: String
-	private var _manager: Ref[_] = _
-	protected lazy val manager: Ref[_] = _manager
-	def installManager(m: Ref[_]) = _manager = m
+	private var _manager: SimRef[_ <: DomainSignal]= _
+	protected lazy val manager: SimRef[_ <: DomainSignal] = _manager
+	def installManager(m: SimRef[_ <: DomainSignal]) = _manager = m
 
 	type HOST = SELF
-	type SIGNAL = DomainMessage
-
-	type CTX = AgentTemplate.SignallingContext[DomainMessage]
-	type RUNNER = AgentTemplate.DomainRun[DomainMessage]
 
 	def booter: AgentTemplate.DomainConfigure[DomainMessage]
 

@@ -5,9 +5,9 @@
 package com.saldubatech.transport
 
 import com.saldubatech.base.{AssetBox, Identification}
-import com.saldubatech.ddes.AgentTemplate.{DomainRun, Ref, SignallingContext}
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, FullSignallingContext}
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Simulation.DomainSignal
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment
 import com.saldubatech.util.LogEnabled
@@ -66,8 +66,8 @@ object Channel {
 
 		def availableCards: Int
 		def reserveCard: Option[String]
-		def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean
-		def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean
+		def send(load: LOAD)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean
+		def send(load: LOAD, withCard: String)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean
 		def ackReceiver: DomainRun[SourceProfile]
 
 		override def toString = s"ChannelStart($channelName)"
@@ -78,10 +78,10 @@ object Channel {
 	trait End[LOAD <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] extends Endpoint {
 		val sink: Sink[LOAD, SinkProfile]
 		val receivingSlots: Int
-		//def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int]
-		def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
-		def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
-		def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
+		//def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx:  FullSignallingContect[1, XXX]): Option[Int]
+		def getNext(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)]
+		def get(l: LOAD)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)]
+		def get(idx: Int)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)]
 		def peekNext: Option[(LOAD, String)]
 		def peek(l: LOAD): Option[(LOAD, String)]
 		def peek(idx: Int): Option[(LOAD, String)]
@@ -90,14 +90,14 @@ object Channel {
 	}
 
 	trait Sink[L <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] {
-		val ref: Ref[SinkProfile]
-		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): DomainRun[SinkProfile]
-		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): DomainRun[SinkProfile]
+		val ref: SimRef[SinkProfile]
+		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx:  FullSignallingContext[SinkProfile, _ <: DomainSignal]): DomainRun[SinkProfile]
+		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx:  FullSignallingContext[SinkProfile, _ <: DomainSignal]): DomainRun[SinkProfile]
 	}
 
 	trait Source[L <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] {
-		val ref: Ref[SourceProfile]
-		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): DomainRun[SourceProfile]
+		val ref: SimRef[SourceProfile]
+		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx:  FullSignallingContext[SourceProfile, _ <: DomainSignal]): DomainRun[SourceProfile]
 	}
 
 	object Ops {
@@ -124,12 +124,12 @@ object Channel {
 
 			override def reserveCard: Option[String] = localBox.checkoutAny.map { rs => reserved += rs; rs }
 
-			override def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean =
+			override def send(load: LOAD, withCard: String)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean =
 				reserved.find(_ == withCard).map(c => doSend(load, c)).isDefined
-			override def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean =
+			override def send(load: LOAD)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean =
 				localBox.checkoutAny.map(c => doSend(load, c)).isDefined
 
-			private def doSend(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]) = {
+			private def doSend(load: LOAD, withCard: String)(implicit ctx:  FullSignallingContext[SourceProfile, _]) = {
 				if(_end isEmpty) throw new IllegalStateException(s"Cannot send through a channel without its End configured ${ch.name}")
 				(
 					for {
@@ -143,7 +143,7 @@ object Channel {
 			override def availableCards: Int = localBox.available
 
 			override def ackReceiver: DomainRun[SourceProfile] = {
-				implicit ctx: SignallingContext[SourceProfile] => {
+				implicit ctx:  FullSignallingContext[SourceProfile, _ <: DomainSignal] => {
 					case ackMsg: AcknowledgeLoad[LOAD] if ackMsg.channel == ch.name =>
 						log.debug(s"Processing Load Acknowledgement for ${ackMsg.load}")
 						localBox.checkin(ackMsg.resource)
@@ -168,9 +168,9 @@ object Channel {
 				private val delivered: mutable.SortedMap[Int, (LOAD, String)] = mutable.SortedMap.empty
 				private val pending: mutable.Queue[(LOAD, String)] = mutable.Queue.empty
 
-				override def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
-				override def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
-				override def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
+				override def getNext(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
+				override def get(l: LOAD)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
+				override def get(idx: Int)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)] = {
 					var r = delivered.get(idx)
 					if (r nonEmpty) {
 						delivered -= idx
@@ -185,7 +185,7 @@ object Channel {
 				override def peek(l: LOAD): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => peek(e._1))
 				override def peek(idx: Int): Option[(LOAD, String)] = delivered.get(idx)
 
-				private def acknowledgeLoad(load: LOAD, rs: String, idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Unit = {
+				private def acknowledgeLoad(load: LOAD, rs: String, idx: Int)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Unit = {
 					log.debug(s"Start Acknowledge Load $load with endpoint ${_start}, from $delivered")
 					for {
 						st <- _start
@@ -196,7 +196,7 @@ object Channel {
 						//delivered.remove(idx)
 					}
 				}
-				private def tryDeliverToEndpoint(implicit ctx: SignallingContext[SinkProfile]): Option[(Int, LOAD)] = {
+				private def tryDeliverToEndpoint(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(Int, LOAD)] = {
 					if (openSlots.nonEmpty && pending.nonEmpty) {
 						val idx = openSlots.dequeue
 						val (ld, rsc) = pending.dequeue
@@ -209,7 +209,7 @@ object Channel {
 					}
 				}
 				override def loadReceiver: DomainRun[SinkProfile] = {
-					implicit ctx: SignallingContext[SinkProfile] => {
+					implicit ctx:  FullSignallingContext[SinkProfile, _ <: DomainSignal] => {
 						case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
 							log.debug(s"Receiving load(${tr.load}) in channel ${tr.channel}, enqueued: $pending, openSlots: $openSlots")
 							pending.enqueue((tr.load -> tr.resource))
@@ -229,8 +229,6 @@ object Channel {
 
 			}
 		}
-		/*	def simpleDelayChannel[L <: Identification, SourceProfile, SinkProfile](name: String, delay: Delay, capacity: Int, boundedLookup: Option[Int] = None) =
-		new Channel[L, SourceProfile, SinkProfile]((1 to capacity).map(_ => java.util.UUID.randomUUID.toString).toSet, () => Some(delay), boundedLookup, name)*/
 	}
 
 	trait Afferent[LOAD <: Identification, SinkProfile >: Equipment.ChannelSinkSignal] {

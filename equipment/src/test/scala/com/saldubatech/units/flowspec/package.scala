@@ -1,10 +1,11 @@
 package com.saldubatech.units
 
-import com.saldubatech.ddes.AgentTemplate.SignallingContext
+import com.saldubatech.ddes.AgentTemplate.FullSignallingContext
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.protocols.Equipment
+import com.saldubatech.protocols.Equipment.{ShuttleSignal, UnitSorterSignal, XSwitchSignal}
 import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.Conveyance.{LoadAwareLiftToLoadAwareShuttle, LoadAwareShuttleToLoadAwareLift}
 import com.saldubatech.units.carriage.{CarriageTravel, SlotLocator}
@@ -20,12 +21,12 @@ package object flowspec {
 		object ShuttleBuilder {
 			def build[InductSourceSignal >: Equipment.ChannelSourceSignal <: DomainSignal, DischargeDestinatationSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 			(config: Shuttle.Configuration[InductSourceSignal, DischargeDestinatationSignal],
-			 initialState: Shuttle.InitialState = Shuttle.InitialState(0, Map.empty))(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[_ <: DomainSignal] = {
+			 initialState: Shuttle.InitialState = Shuttle.InitialState(0, Map.empty))(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[ShuttleSignal] = {
 				val shuttleLevelProcessor = Shuttle.buildProcessor(config, initialState)
 				actorCreator.spawn(shuttleLevelProcessor.init, config.name)
 			}
 
-			def configure(shuttle: SimRef[_ <: DomainSignal])(implicit ctx: SignallingContext[_]): Unit = ctx.signal(shuttle, Shuttle.NoConfigure)
+			def configure(shuttle: SimRef[ShuttleSignal])(implicit ctx:  FullSignallingContext[ShuttleSignal, _ <: DomainSignal]): Unit = ctx.signal(shuttle, Shuttle.NoConfigure)
 		}
 
 		object LiftBuilder {
@@ -36,17 +37,16 @@ package object flowspec {
 			(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator) =
 				actorCreator.spawn(XSwitch.buildProcessor(name, config).init, name)
 
-			def configure(lift: SimRef[_ <: DomainSignal])(implicit ctx: SignallingContext[_]): Unit = ctx.signal(lift, XSwitch.NoConfigure)
+			def configure(lift: SimRef[XSwitchSignal])(implicit ctx:  FullSignallingContext[XSwitchSignal, _ <: DomainSignal]): Unit = ctx.signal(lift, XSwitch.NoConfigure)
 		}
 
 		object UnitSorterBuilder {
 
 			import com.saldubatech.units.unitsorter.UnitSorter
 
-			def build(name: String, config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[_ <: DomainSignal] =
+			def build(name: String, config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[UnitSorterSignal] =
 				actorCreator.spawn(UnitSorter.buildProcessor(name, config).init, name)
 
-			def configure(lift: SimRef[_ <: DomainSignal])(implicit ctx: SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter.NoConfigure)
 		}
 
 		class LiftShuttleChannel(override val delay: () => Option[Delay], override val deliveryTime: () => Option[Delay], override val cards: Set[String], override val configuredOpenSlots: Int = 1, override val name: String)
@@ -175,7 +175,7 @@ package object flowspec {
 		 inductChannel: (Int, Channel.Ops[MaterialLoad, InductSourceSignal, Equipment.XSwitchSignal]),
 		 dischargeChannel: (Int, Channel.Ops[MaterialLoad, Equipment.XSwitchSignal, DischargeSinkSignal]),
 		 shuttles: Seq[Int],
-		 initialInventory: Map[Int, Map[SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): (SimRef[_ <: DomainSignal], Seq[(Int, SimRef[_ <: DomainSignal])]) = {
+		 initialInventory: Map[Int, Map[SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): (SimRef[XSwitchSignal], Seq[(Int, SimRef[ShuttleSignal])]) = {
 			val liftShuttles =
 				shuttles.map { idx =>
 					val inboundChannel = Channel.Ops(new LiftShuttleChannel(() => Some(5), () => Some(3), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_in"))
@@ -200,12 +200,11 @@ package object flowspec {
 		object ShuttleBuilder {
 			def build[InductSourceSignal >: Equipment.ChannelSourceSignal <: DomainSignal, DischargeDestinatationSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 			(name: String, config: LoadAwareShuttle.Configuration[InductSourceSignal, DischargeDestinatationSignal],
-			 initialState: LoadAwareShuttle.InitialState = LoadAwareShuttle.InitialState(0, Map.empty))(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[_ <: DomainSignal] = {
+			 initialState: LoadAwareShuttle.InitialState = LoadAwareShuttle.InitialState(0, Map.empty))(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[ShuttleSignal] = {
 				val shuttleLevelProcessor = LoadAwareShuttle.buildProcessor(name, config, initialState)
 				actorCreator.spawn(shuttleLevelProcessor.init, name)
 			}
 
-			def configure(shuttle: SimRef[_ <: DomainSignal])(implicit ctx: SignallingContext[_]): Unit = ctx.signal(shuttle, LoadAwareShuttle.NoConfigure)
 		}
 
 		object LiftBuilder {
@@ -215,17 +214,15 @@ package object flowspec {
 			(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator) =
 				actorCreator.spawn(LoadAwareXSwitch.buildProcessor(name, config).init, name)
 
-			def configure(lift: SimRef[_ <: DomainSignal])(implicit ctx: SignallingContext[_]): Unit = ctx.signal(lift, LoadAwareXSwitch.NoConfigure)
 		}
 
 		object UnitSorterBuilder {
 
 			import com.saldubatech.units.unitsorter.UnitSorter
 
-			def build(name: String, config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[_ <: DomainSignal] =
+			def build(name: String, config: UnitSorter.Configuration)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): SimRef[UnitSorterSignal] =
 				actorCreator.spawn(UnitSorter.buildProcessor(name, config).init, name)
 
-			def configure(lift: SimRef[_ <: DomainSignal])(implicit ctx: SignallingContext[_]): Unit = ctx.signal(lift, UnitSorter.NoConfigure)
 		}
 
 
@@ -265,8 +262,8 @@ package object flowspec {
 		 inductChannel: (Int, Channel.Ops[MaterialLoad, InductSourceSignal, Equipment.XSwitchSignal]),
 		 dischargeChannel: (Int, Channel.Ops[MaterialLoad, Equipment.XSwitchSignal, DischargeSinkSignal]),
 		 shuttles: Seq[Int],
-		 initialInventory: Map[Int, Map[SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): (SimRef[_ <: DomainSignal], Seq[(Int, SimRef[_ <: DomainSignal])]) = {
-			val liftShuttles =
+		 initialInventory: Map[Int, Map[SlotLocator, MaterialLoad]] = Map.empty)(implicit clock: Clock.Ref, simController: SimulationController.Ref, actorCreator: AgentTemplate.AgentCreator): (SimRef[XSwitchSignal], Seq[(Int, SimRef[ShuttleSignal])]) = {
+			val liftShuttles: Seq[(SimRef[ShuttleSignal], Seq[(Int, Channel.Ops[MaterialLoad, XSwitchSignal, ShuttleSignal])], Seq[(Int, Channel.Ops[MaterialLoad, ShuttleSignal, XSwitchSignal])])] =
 				shuttles.map { idx =>
 					val inboundChannel = Channel.Ops(new LoadAwareLiftToLoadAwareShuttle(() => Some(5), () => Some(3), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_in"))
 					val outboundChannel = Channel.Ops(new LoadAwareShuttleToLoadAwareLift(() => Some(5), () => Some(3), Set("c1", "c2"), 1, s"shuttle_${name}_${idx}_out"))

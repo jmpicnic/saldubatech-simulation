@@ -4,10 +4,11 @@
 
 package com.saldubatech.units.lift
 
+import akka.actor.typed.ActorRef
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun, Ref}
-import com.saldubatech.ddes.Simulation.DomainSignal
-import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.ddes.{AgentTemplate, Clock, Simulation, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment.XSwitchSignal
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -32,7 +33,7 @@ object LoadAwareXSwitch {
 	case class FailedWaiting(msg: String) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class NotAcceptedCommand(cmd: ExternalCommand, msg: String) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
-	case class CompletedConfiguration(self: Ref[XSwitchSignal]) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
+	case class CompletedConfiguration(self: SimRef[XSwitchSignal]) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 	case class MaxCommandsReached(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.XSwitchNotification
 
 	sealed trait InternalSignal extends Equipment.XSwitchSignal
@@ -101,6 +102,8 @@ class LoadAwareXSwitch[InboundInductSignal >: Equipment.ChannelSourceSignal <: D
 	override def unloader(loc: SlotLocator) = Unload(loc)
 	override def inducter(from: INDUCT, at: SlotLocator) = Induct(from, at)
 	override def discharger(to: DISCHARGE, at: SlotLocator) = Discharge(to, at)
+
+
 
 	override protected val maxPendingCommands = configuration.maxPendingCommands
 	override protected def maxCommandsReached(cmd: ExternalCommand) = MaxCommandsReached(cmd)

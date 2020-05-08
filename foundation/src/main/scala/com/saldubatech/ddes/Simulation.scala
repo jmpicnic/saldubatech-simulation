@@ -10,13 +10,9 @@ import java.util.Comparator
 import akka.actor.typed.ActorRef
 import akka.dispatch.Envelope
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.AgentTemplate.Ref
 import com.saldubatech.ddes.Clock.{ClockMessage, Enqueue, Tick}
 
 object Simulation extends App {
-
-	//================================================== TO BE DEFINED =======================================
-	//========================================================================================================
 
 	// Message Taxonomy
 
@@ -33,27 +29,22 @@ object Simulation extends App {
 	trait ControllerMessage extends Identification
 
 	/**
-	@deprecated
-	 Not needed
-	 */
-	@Deprecated
-	trait Notification extends Signal
-
-	/**
 	Exchanged between simulation agents, carrying domain messages
 	 */
-	trait SimSignal extends Identification {
+	type SimSignal = PSimSignal[_ <: DomainSignal]
+	trait PSimSignal[+DS <: DomainSignal] extends Identification {
 		val tick: Tick
-		val from: ActorRef[SimSignal]
-		def payload: DomainSignal
+		val from: ActorRef[_ <: SimSignal]
+		def payload: DS
 	}
-	type SimRef[_ <: DomainSignal] = ActorRef[SimSignal]
 
 	/**
-	 * Supertype for all Domain Messages
+	 * Supertype for all Domain Messages (payload of SimSignal
 	 *
 	 */
 	trait DomainSignal extends Identification
+
+	type SimRef[DS <: DomainSignal] = ActorRef[PSimSignal[DS]]
 
 	/*
 	Getting it ready to use UnboundedStablePriorityMailbox to ensure that self messages have higher priority.

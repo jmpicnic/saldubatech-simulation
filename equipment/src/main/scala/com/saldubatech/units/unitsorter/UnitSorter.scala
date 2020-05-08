@@ -3,7 +3,7 @@ package com.saldubatech.units.unitsorter
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate._
 import com.saldubatech.ddes.Clock.Tick
-import com.saldubatech.ddes.Simulation.DomainSignal
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment.UnitSorterSignal
@@ -23,7 +23,7 @@ object UnitSorter {//extends EquipmentUnit[Equipment.UnitSorterSignal] {
 	sealed abstract class ExternalCommand extends Identification.Impl() with Equipment.UnitSorterSignal
 	case class Sort(load: MaterialLoad, destination: String) extends ExternalCommand
 
-	case class CompletedConfiguration(self: Ref[UnitSorterSignal]) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
+	case class CompletedConfiguration(self: SimRef[UnitSorterSignal]) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
 	case class CompletedCommand(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
 	case class MaxCommandsReached(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
 	case class LoadArrival(load: MaterialLoad, channel: String) extends Identification.Impl() with EquipmentManagement.UnitSorterNotification
@@ -58,8 +58,11 @@ object UnitSorter {//extends EquipmentUnit[Equipment.UnitSorterSignal] {
 }
 
 class UnitSorter(override val name: String, configuration: UnitSorter.Configuration) extends EquipmentUnit[Equipment.UnitSorterSignal] with LogEnabled {
-
 	import UnitSorter._
+
+	override type HOST = UnitSorter
+	override type EXTERNAL_COMMAND = ExternalCommand
+	override type NOTIFICATION = EquipmentManagement.UnitSorterNotification
 
 	private var discharges: Map[Int, Channel.Start[MaterialLoad, Equipment.UnitSorterSignal]] = _
 	private var dischargeIndex: Map[String, Int] = _
@@ -70,7 +73,7 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 	lazy val endpointListener = dischargeListener orElse inductListener
 
 	private def configurer: DomainConfigure[Equipment.UnitSorterSignal] = new DomainConfigure[Equipment.UnitSorterSignal] {
-		override def configure(config: Equipment.UnitSorterSignal)(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): DomainMessageProcessor[Equipment.UnitSorterSignal] = {
+		override def configure(config: Equipment.UnitSorterSignal)(implicit ctx:  CTX): DomainMessageProcessor[Equipment.UnitSorterSignal] = {
 			installManager(ctx.from)
 			installSelf(ctx.aCtx.self)
 			inducts = configuration.inducts.map { case (idx, ch) => idx -> inductSink(manager, ch, ctx.aCtx.self) }
@@ -78,32 +81,32 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 			discharges = configuration.discharges.map { case (idx, ch) => idx -> dischargeSource(manager, ch, ctx.aCtx.self) }
 			dischargeIndex = configuration.discharges.map { case (idx, ch) => ch.ch.name -> idx }
 			dischargeListener = discharges.values.map(_.ackReceiver).reduce(_ orElse _)
-			ctx.reply(UnitSorter.CompletedConfiguration(ctx.aCtx.self))
+			ctx.signal(manager, UnitSorter.CompletedConfiguration(ctx.aCtx.self))
 			RUNNING
 		}
 	}
 
-	private def inductSink(manager: Ref[_ <: DomainSignal], chOps: Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal], host: Ref[UnitSorterSignal]) =
+	private def inductSink(manager: SimRef[MANAGER_SIGNAL], chOps: Channel.Ops[MaterialLoad, _, Equipment.UnitSorterSignal], host: SimRef[UnitSorterSignal]) =
 		new Channel.Sink[MaterialLoad, Equipment.UnitSorterSignal] {
 			lazy override val ref = host
 			lazy val end = chOps.registerEnd(this)
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx:  CTX): RUNNER = {
 				//ctx.aCtx.log.info(s"Load Arrived: $load at ${endpoint.channelName}")
 				ctx.signal(manager, LoadArrival(load, endpoint.channelName))
 				stopCycle
 				DomainRun.same
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad, at: Option[Int])(implicit ctx:  CTX): RUNNER = {
 				DomainRun.same
 			}
 		}.end
 
-	private def dischargeSource(manager: Ref[_ <: DomainSignal], chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _], host: Ref[UnitSorterSignal]) =
+	private def dischargeSource(manager: SimRef[MANAGER_SIGNAL], chOps: Channel.Ops[MaterialLoad, Equipment.UnitSorterSignal, _], host: SimRef[UnitSorterSignal]) =
 		new Channel.Source[MaterialLoad, Equipment.UnitSorterSignal] {
 			override lazy val ref = host
 			lazy val start = chOps.registerStart(this)
-			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad)(implicit ctx: SignallingContext[Equipment.UnitSorterSignal]): RUNNER = {
+			override def loadAcknowledged(ep: Channel.Start[MaterialLoad, Equipment.UnitSorterSignal], load: MaterialLoad)(implicit ctx:  CTX): RUNNER = {
 				stopCycle
 				DomainRun.same
 			}
@@ -120,7 +123,7 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 				//log.info(s"Got Command $sortCmd at ${ctx.now}")
 				assert(dischargeIndex contains destination, s"$destination is not a known discharge channel")
 				if (receivedCommands.size < configuration.maxRoutingMap) receivedCommands += load -> PendingSortCommand(dischargeIndex(destination), sortCmd)
-				else ctx.reply(MaxCommandsReached(sortCmd))
+				else ctx.signal(manager, MaxCommandsReached(sortCmd))
 				stopCycle
 				RUNNING
 			case Arrive(_) =>
@@ -128,7 +131,16 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 				RUNNING
 		}
 	}
-
+	var lastUpdate: Tick = 0
+	private def stopCycle(implicit ctx: CTX) = {
+		if(ctx.now != lastUpdate) {
+			lastUpdate = ctx.now
+			val sorterAt = new configuration.physics.Position(ctx.now)
+			doDischarges(sorterAt)
+			doInducts(sorterAt)
+			nextStop(sorterAt)
+		}
+	}
 	private def doDischarges(sorterAt: configuration.physics.Position)(implicit ctx: CTX) = {
 		for{
 			(dischargeIdx, ep) <- discharges
@@ -160,7 +172,7 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 		val inductTimes = for{
 			emptyTraySlot <- (0 until configuration.physics.nSlots).filter(idx => !loadedTrays.contains(idx))
 			(inductIdx, ep) <- inducts.filter(_._2.peekNext nonEmpty)
-			cmd <- ep.peekNext.flatMap(t => receivedCommands.get(t._1))
+			_ <- ep.peekNext.flatMap(t => receivedCommands.get(t._1))
 			trayIdx = sorterAt.indexForSlot(emptyTraySlot)
 		} yield if(trayIdx == inductIdx) configuration.physics.oneTurnTime else configuration.physics.travelTime(trayIdx, inductIdx)
 		val candidates = dischargeTimes ++ inductTimes
@@ -169,16 +181,5 @@ class UnitSorter(override val name: String, configuration: UnitSorter.Configurat
 			ctx.signalSelf(Arrive(s"with Delay $delay"), delay)
 		}
 	}
-	var lastUpdate: Tick = 0
-	private def stopCycle(implicit ctx: CTX) = {
-		if(ctx.now != lastUpdate) {
-			lastUpdate = ctx.now
-			val sorterAt = new configuration.physics.Position(ctx.now)
-			doDischarges(sorterAt)
-			doInducts(sorterAt)
-			nextStop(sorterAt)
-		}
-	}
-
 
 }

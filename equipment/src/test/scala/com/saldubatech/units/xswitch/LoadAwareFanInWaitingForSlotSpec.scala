@@ -6,10 +6,11 @@ package com.saldubatech.units.xswitch
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor, Run}
+import akka.actor.typed.ActorRef
+import com.saldubatech.ddes.AgentTemplate.{RegistrationConfigurationComplete, RegisterProcessor}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{AgentTemplate, Clock}
+import com.saldubatech.ddes.{AgentTemplate, Clock, Simulation}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -84,7 +85,7 @@ class LoadAwareFanInWaitingForSlotSpec
 
 		implicit val clk = clock
 		val underTestProcessor = LoadAwareXSwitch.buildProcessor("underTest", config)
-		val underTest = testKit.spawn(underTestProcessor.init, "underTest")
+		val underTest: ActorRef[Simulation.PSimSignal[Equipment.XSwitchSignal]] = testKit.spawn(underTestProcessor.init, "underTest")
 
 
 		"A. Register Itself for configuration" when {
@@ -106,7 +107,7 @@ class LoadAwareFanInWaitingForSlotSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, xcManager, 0L, LoadAwareXSwitch.NoConfigure)
-				simControllerProbe.expectMessage(CompleteConfiguration(underTest))
+				simControllerProbe.expectMessage(RegistrationConfigurationComplete[Equipment.XSwitchSignal](underTest))
 				xcManagerProbe.expectMessage(0L -> LoadAwareXSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
@@ -118,7 +119,7 @@ class LoadAwareFanInWaitingForSlotSpec
 				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
@@ -163,7 +164,7 @@ class LoadAwareFanInWaitingForSlotSpec
 			}
 			"C03. One more load to force the carriage to error out and the Lift to waitforslot" in {
 				val probeLoadMessage = TestProbeMessage("Third Load", thirdLoad)
-				sourceActors.head ! Run(sourceActors.head, 275L, probeLoadMessage)
+				enqueue(sourceActors.head, sourceActors.head, 275L, probeLoadMessage)
 				testMonitorProbe.expectMessage("FromSender: Third Load")
 				enqueue(underTest, xcManager, 288L, thirdTransferCommand)
 			}

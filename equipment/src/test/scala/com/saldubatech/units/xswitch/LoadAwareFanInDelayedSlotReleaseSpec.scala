@@ -7,8 +7,8 @@ package com.saldubatech.units.xswitch
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
-import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
-import com.saldubatech.ddes.Simulation.{ControllerMessage, SimSignal}
+import com.saldubatech.ddes.AgentTemplate.{RegistrationConfigurationComplete, RegisterProcessor}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
@@ -93,7 +93,7 @@ class LoadAwareFanInDelayedSlotReleaseSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
@@ -109,7 +109,7 @@ class LoadAwareFanInDelayedSlotReleaseSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, xcManager, 0L, LoadAwareXSwitch.NoConfigure)
-				simControllerProbe.expectMessage(CompleteConfiguration(underTest))
+				simControllerProbe.expectMessage(RegistrationConfigurationComplete[Equipment.XSwitchSignal](underTest))
 				xcManagerProbe.expectMessage(0L -> LoadAwareXSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
@@ -118,10 +118,10 @@ class LoadAwareFanInDelayedSlotReleaseSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				enqueueConfigure(dischargeActor, xcManager, 0L, DownstreamConfigure)
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr

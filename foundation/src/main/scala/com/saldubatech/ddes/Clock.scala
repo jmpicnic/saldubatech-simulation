@@ -7,7 +7,7 @@ package com.saldubatech.ddes
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.saldubatech.base.{Identification, Monitored}
-import com.saldubatech.ddes.AgentTemplate.Run
+import com.saldubatech.ddes.AgentTemplate.SourcedRun
 import com.saldubatech.ddes.Simulation.{ControllerMessage, Signal, SimSignal}
 import com.saldubatech.util.LogEnabled
 
@@ -169,7 +169,7 @@ class Clock[ACTION <: SimSignal] private() extends Monitored[Clock.ClockNotifica
 	private def sendNow(to: ActorRef[ACTION], cmd: ACTION): Unit = {
 		openAction(cmd)
 		cmd match {
-			case pcmd: Run[_] => log.info(s"MSC: ${cmd.from.path.name} -> ${to.path.name}: [$now] ${pcmd.payload}")
+			case pcmd: SourcedRun[_, _] => log.info(s"MSC: ${cmd.from.path.name} -> ${to.path.name}: [$now] ${pcmd.payload}")
 			case other => log.info(s"Sending Non Process Command: $other")
 		}
 		log.debug(s"Sending Now($now): To: $to($cmd)")

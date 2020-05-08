@@ -18,7 +18,9 @@ import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, MaterialLoad}
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -63,15 +65,15 @@ object ShuttleHappyPathSpec {
 	}
 
 	trait Fixture[DomainMessage <: DomainSignal] extends LogEnabled {
-		var _ref: Option[SimRef[_ <: DomainSignal]] = None
+		var _ref: Option[SimRef[DomainMessage]] = None
 		val runner: DomainRun[DomainMessage]
 	}
-	class SourceFixture(ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSourceSignal] {
+	class SourceFixture(ops: Channel.Ops[MaterialLoad, Equipment.MockSourceSignal, Equipment.ShuttleSignal])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[Equipment.MockSourceSignal] {
 
 		lazy val source = new Channel.Source[MaterialLoad, Equipment.MockSourceSignal] {
-			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
+			override lazy val ref: SimRef[Equipment.MockSourceSignal] = _ref.head
 
-			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx: SignallingContext[Equipment.MockSourceSignal]): DomainRun[Equipment.MockSourceSignal] = {
+			override def loadAcknowledged(chStart: Channel.Start[MaterialLoad, Equipment.MockSourceSignal], load: MaterialLoad)(implicit ctx:  FullSignallingContext[Equipment.MockSourceSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSourceSignal] = {
 				log.info(s"SourceFixture: Acknowledging Load $load in channel ${chStart.channelName}")
 				testMonitor ! s"Received Load Acknoledgement at Channel: ${chStart.channelName} with $load"
 				runner
@@ -81,7 +83,7 @@ object ShuttleHappyPathSpec {
 
 		val runner: DomainRun[Equipment.MockSourceSignal] =
 			ops.start.ackReceiver orElse {
-				implicit ctx: SignallingContext[Equipment.MockSourceSignal] => {
+				implicit ctx:  FullSignallingContext[Equipment.MockSourceSignal, _ <: DomainSignal] => {
 					case TestProbeMessage(msg, load) =>
 						log.info(s"Got Domain Message in Sender $msg")
 						testMonitor ! s"FromSender: $msg"
@@ -96,17 +98,17 @@ object ShuttleHappyPathSpec {
 	}
 
 
-	class SinkFixture(ops: Channel.Ops[MaterialLoad, Equipment.ShuttleSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: WordSpec) extends Fixture[Equipment.MockSinkSignal] {
+	class SinkFixture(ops: Channel.Ops[MaterialLoad, Equipment.ShuttleSignal, Equipment.MockSinkSignal])(testMonitor: ActorRef[String], hostTest: AnyWordSpec) extends Fixture[Equipment.MockSinkSignal] {
 		val sink = new Channel.Sink[MaterialLoad, Equipment.MockSinkSignal] {
-			override lazy val ref: SimRef[_ <: DomainSignal] = _ref.head
+			override lazy val ref: SimRef[Equipment.MockSinkSignal] = _ref.head
 
 
-			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
+			override def loadArrived(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx:  FullSignallingContext[Equipment.MockSinkSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				testMonitor ! s"Load $load arrived via channel ${endpoint.channelName}"
 				runner
 			}
 
-			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx: SignallingContext[Equipment.MockSinkSignal]): DomainRun[Equipment.MockSinkSignal] = {
+			override def loadReleased(endpoint: Channel.End[MaterialLoad, Equipment.MockSinkSignal], load: MaterialLoad, at: Option[Int])(implicit ctx:  FullSignallingContext[Equipment.MockSinkSignal, _ <: DomainSignal]): DomainRun[Equipment.MockSinkSignal] = {
 				log.debug(s"Releasing Load $load in channel ${endpoint.channelName}")
 				testMonitor ! s"Load $load released on channel ${endpoint.channelName}"
 				runner
@@ -124,7 +126,7 @@ object ShuttleHappyPathSpec {
 
 	def configurer[DomainMessage <: DomainSignal](fixture: Fixture[DomainMessage])(monitor: ActorRef[String]) =
 		new DomainConfigure[DomainMessage] {
-			override def configure(config: DomainMessage)(implicit ctx: SignallingContext[DomainMessage]): DomainRun[DomainMessage] = {
+			override def configure(config: DomainMessage)(implicit ctx:  FullSignallingContext[DomainMessage, _ <: DomainSignal]): DomainRun[DomainMessage] = {
 				monitor ! s"Received Configuration: $config"
 				fixture._ref = Some(ctx.aCtx.self)
 				fixture.runner
@@ -134,9 +136,9 @@ object ShuttleHappyPathSpec {
 }
 
 class ShuttleHappyPathSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
@@ -204,8 +206,8 @@ class ShuttleHappyPathSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
-				startTime(0L)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ sinkActors ++ Seq(underTest): _*)
+				startTime()
 				testControllerProbe.fishForMessage(3 second) {
 					case RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
@@ -220,21 +222,21 @@ class ShuttleHappyPathSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, shuttleLevelManager, 0L, Shuttle.NoConfigure)
-				testControllerProbe.expectMessage(CompleteConfiguration(underTest))
+				testControllerProbe.expectMessage(RegistrationConfigurationComplete[Equipment.ShuttleSignal](underTest))
 				val msg = shuttleLevelManagerProbe.receiveMessage()
 				msg should be(0L -> Shuttle.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
 				sourceActors.foreach(act => enqueueConfigure(act, shuttleLevelManager, 0L, UpstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${UpstreamConfigure}")
+				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
+				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				sinkActors.foreach(act => enqueueConfigure(act, shuttleLevelManager, 0L, DownstreamConfigure))
-				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
-				testMonitorProbe.expectMessage(s"Received Configuration: ${DownstreamConfigure}")
-				val actorsToConfigure: mutable.Set[ActorRef[SimSignal]] = mutable.Set(sourceActors ++ sinkActors: _*)
+				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
+				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ sinkActors: _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				testControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
@@ -267,20 +269,20 @@ class ShuttleHappyPathSpec
 			"C01. receiving a Store Command" in {
 				val storeCmd = Shuttle.Store("Inbound1", OnRight(4))
 				enqueue(underTest, shuttleLevelManager, 100L, storeCmd)
-				shuttleLevelManagerProbe.expectMessage((115L -> Shuttle.LoadArrival("Inbound1",MaterialLoad("Second Load"))))
-				shuttleLevelManagerProbe.expectMessage((128L -> Shuttle.CompletedCommand(storeCmd)))
+				shuttleLevelManagerProbe.expectMessage(115L -> Shuttle.LoadArrival("Inbound1",MaterialLoad("Second Load")))
+				shuttleLevelManagerProbe.expectMessage(128L -> Shuttle.CompletedCommand(storeCmd))
 			}
 			"C02. And then move it to a different location with a Groom Command" in {
 				val groomCmd = Shuttle.Groom(OnRight(4), OnLeft(7))
 				log.info(s"Queuing Groom Command: $groomCmd")
 				enqueue(underTest, shuttleLevelManager, 130L, groomCmd)
-				shuttleLevelManagerProbe.expectMessage((151L -> Shuttle.CompletedCommand(groomCmd)))
+				shuttleLevelManagerProbe.expectMessage(151L -> Shuttle.CompletedCommand(groomCmd))
 			}
 			"C03. And finally send it through an outbound channel with a Retrieve Command" in {
 				val retrieveCmd = Shuttle.Retrieve(OnLeft(7), "Outbound2")
 				log.info(s"Queuing Retrieve Command: $retrieveCmd")
 				enqueue(underTest, shuttleLevelManager, 155, retrieveCmd)
-				shuttleLevelManagerProbe.expectMessage((180L -> Shuttle.CompletedCommand(retrieveCmd)))
+				shuttleLevelManagerProbe.expectMessage(180L -> Shuttle.CompletedCommand(retrieveCmd))
 				testMonitorProbe.expectMessage("Received Load Acknoledgement at Channel: Inbound1 with MaterialLoad(First Load)")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) arrived via channel Outbound2")
 			}

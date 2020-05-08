@@ -6,11 +6,12 @@ package com.saldubatech.units.unitsorter
 
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.AgentTemplate.{CompleteConfiguration, RegisterProcessor}
+import com.saldubatech.ddes.AgentTemplate.{RegistrationConfigurationComplete, RegisterProcessor}
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
+import com.saldubatech.protocols.Equipment.{UnitSorterSignal, XSwitchSignal}
 import com.saldubatech.protocols.{Equipment, EquipmentManagement}
 import com.saldubatech.test.ClockEnabled
 import com.saldubatech.transport.{Channel, MaterialLoad}
@@ -125,7 +126,7 @@ class UnitSorterSpec
 			}
 			"A02. Process its configuration" in {
 				enqueueConfigure(underTest, xcManager, 0L, UnitSorter.NoConfigure)
-				simControllerProbe.expectMessage(CompleteConfiguration(underTest))
+				simControllerProbe.expectMessage(RegistrationConfigurationComplete[UnitSorterSignal](underTest))
 				xcManagerProbe.expectMessage(0L -> UnitSorter.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
@@ -137,7 +138,7 @@ class UnitSorterSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
 				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceRefs ++ destinationRefs: _*)
 				simControllerProbe.fishForMessage(500 millis) {
-					case CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
 							if (actorsToConfigure isEmpty) FishingOutcome.Complete
