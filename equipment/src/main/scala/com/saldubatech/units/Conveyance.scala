@@ -1,8 +1,8 @@
 package com.saldubatech.units
 
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.protocols.Equipment
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.units.shuttle.LoadAwareShuttle
 import com.saldubatech.units.unitsorter.UnitSorter

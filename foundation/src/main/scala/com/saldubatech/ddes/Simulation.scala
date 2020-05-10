@@ -17,13 +17,6 @@ object Simulation extends App {
 	// Message Taxonomy
 
 	/**
-	 * Exchanged between elements of the simulation engine implementation to control its workings
-	 *
-	 */
-	trait Signal extends Identification
-	trait EngineSignal extends Signal
-
-	/**
 	 * Messages accepted by the Simulation Controller
 	 */
 	trait ControllerMessage extends Identification

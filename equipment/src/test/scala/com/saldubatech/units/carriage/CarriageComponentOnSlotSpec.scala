@@ -13,9 +13,9 @@ import com.saldubatech.ddes.Clock._
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
-import com.saldubatech.protocols.Equipment
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.abstractions.{CarriageUnit, InductDischargeUnit}
 import com.saldubatech.util.LogEnabled

@@ -13,9 +13,9 @@ import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock}
-import com.saldubatech.protocols.{Equipment, EquipmentManagement}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}
 import com.saldubatech.util.LogEnabled
 import org.scalatest.BeforeAndAfterAll

@@ -4,8 +4,8 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate.DomainRun
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
-import com.saldubatech.protocols.Equipment
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.carriage.SlotLocator
 
 

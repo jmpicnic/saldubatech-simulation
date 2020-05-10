@@ -1,8 +1,7 @@
 package com.saldubatech.units.carriage
 
 import com.saldubatech.ddes.Simulation.DomainSignal
-import com.saldubatech.protocols.Equipment
-import com.saldubatech.transport.MaterialLoad
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
 import com.saldubatech.units.abstractions.{EquipmentUnit, InductDischargeUnit}
 
 import scala.collection.mutable

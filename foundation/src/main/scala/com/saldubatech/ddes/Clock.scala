@@ -64,7 +64,7 @@ object Clock {
 	trait ClockMessage
 	type Ref = ActorRef[ClockMessage]
 
-	sealed trait ClockCommand extends Signal with ClockMessage
+	sealed trait ClockCommand extends ClockMessage
 
 	sealed trait ClockAction[ACTION <: SimSignal] extends ClockCommand
 	case class Enqueue[ACTION <: SimSignal](to: ActorRef[ACTION], act: ACTION) extends Identification.Impl() with ClockAction[ACTION]

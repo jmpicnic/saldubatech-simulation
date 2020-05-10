@@ -4,9 +4,9 @@ import com.saldubatech.ddes.AgentTemplate.FullSignallingContext
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
-import com.saldubatech.protocols.Equipment
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
 import com.saldubatech.protocols.Equipment.{ShuttleSignal, UnitSorterSignal, XSwitchSignal}
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.Conveyance.{LoadAwareLiftToLoadAwareShuttle, LoadAwareShuttleToLoadAwareLift}
 import com.saldubatech.units.carriage.{CarriageTravel, SlotLocator}
 import com.saldubatech.units.unitsorter.UnitSorter

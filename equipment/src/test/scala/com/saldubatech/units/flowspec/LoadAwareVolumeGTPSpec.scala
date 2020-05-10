@@ -12,10 +12,10 @@ import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.protocols.Equipment.{ShuttleSignal, UnitSorterSignal, XSwitchSignal}
-import com.saldubatech.protocols.{Equipment, EquipmentManagement}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
 import com.saldubatech.test.BaseSpec.TestProbeExt
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.Conveyance.{LoadAwareLiftToUnitSorter, UnitSorterToLoadAwareLift}
 import com.saldubatech.units.UnitsFixture._
 import com.saldubatech.units.carriage.{CarriageTravel, OnLeft, OnRight, SlotLocator}

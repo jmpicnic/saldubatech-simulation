@@ -3,8 +3,7 @@ package com.saldubatech.units.abstractions
 import com.saldubatech.ddes.AgentTemplate.DomainRun
 import com.saldubatech.ddes.Clock.Tick
 import com.saldubatech.ddes.Simulation.DomainSignal
-import com.saldubatech.protocols.Equipment
-import com.saldubatech.transport.MaterialLoad
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
 import com.saldubatech.util.LogEnabled
 
 import scala.collection.mutable

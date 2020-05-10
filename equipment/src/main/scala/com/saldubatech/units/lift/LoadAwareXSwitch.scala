@@ -11,8 +11,8 @@ import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{AgentTemplate, Clock, Simulation, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment.XSwitchSignal
-import com.saldubatech.protocols.{Equipment, EquipmentManagement}
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.abstractions.InductDischargeUnit.{DischargeCmd, InductCmd, LoadCmd, UnloadCmd}
 import com.saldubatech.units.abstractions.{InductDischargeUnit, LoadAwareUnit}
 import com.saldubatech.units.carriage.{At, CarriageComponent, CarriageTravel, SlotLocator}

@@ -7,13 +7,13 @@ package com.saldubatech.units.xswitch
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
-import com.saldubatech.ddes.AgentTemplate.{RegistrationConfigurationComplete, RegisterProcessor}
+import com.saldubatech.ddes.AgentTemplate.{RegisterProcessor, RegistrationConfigurationComplete}
 import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef}
 import com.saldubatech.ddes.testHarness.ProcessorSink
 import com.saldubatech.ddes.{AgentTemplate, Clock, Simulation}
-import com.saldubatech.protocols.{Equipment, EquipmentManagement}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.carriage.CarriageTravel
 import com.saldubatech.units.lift.LoadAwareXSwitch
 import com.saldubatech.util.LogEnabled

@@ -10,8 +10,8 @@ import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.protocols.Equipment.ShuttleSignal
-import com.saldubatech.protocols.{Equipment, EquipmentManagement}
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.abstractions.{InductDischargeUnit, LoadAwareUnit}
 import com.saldubatech.units.carriage._
 import com.saldubatech.util.LogEnabled

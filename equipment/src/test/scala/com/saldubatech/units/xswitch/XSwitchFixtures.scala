@@ -5,8 +5,8 @@ import com.saldubatech.base.Identification
 import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainRun, FullSignallingContext}
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
-import com.saldubatech.protocols.Equipment
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.util.LogEnabled
 import org.scalatest.wordspec.AnyWordSpec
 

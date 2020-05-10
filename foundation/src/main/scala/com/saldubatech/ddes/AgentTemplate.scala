@@ -178,15 +178,16 @@ object AgentTemplate {
 
 trait AgentTemplate[DomainMessage <: DomainSignal, SELF <: AgentTemplate[DomainMessage, SELF]] extends Identification {
 
-	lazy val self: SimRef[DomainMessage] = _self
-	private var _self: SimRef[DomainMessage] = _
-	def installSelf(s: SimRef[DomainMessage]) = _self = s
+	final lazy val self: SimRef[DomainMessage] = _self
+	final private var _self: SimRef[DomainMessage] = _
+	final def installSelf(s: SimRef[DomainMessage]) = _self = s
 	val name: String
 	private var _manager: SimRef[_ <: DomainSignal]= _
-	protected lazy val manager: SimRef[_ <: DomainSignal] = _manager
-	def installManager(m: SimRef[_ <: DomainSignal]) = _manager = m
+	final protected lazy val manager: SimRef[_ <: DomainSignal] = _manager
+	final def installManager(m: SimRef[_ <: DomainSignal]) = _manager = m
 
-	type HOST = SELF
+	final type SIGNAL = DomainMessage
+	final type HOST = SELF
 
 	def booter: AgentTemplate.DomainConfigure[DomainMessage]
 
