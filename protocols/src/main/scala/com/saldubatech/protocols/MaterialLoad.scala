@@ -1,8 +1,4 @@
-/*
- * Copyright (c) 2020. Salduba Technologies LLC, all right reserved
- */
-
-package com.saldubatech.transport
+package com.saldubatech.protocols
 
 import com.saldubatech.base.Identification
 

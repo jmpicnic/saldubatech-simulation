@@ -1,34 +1,36 @@
 package com.saldubatech.units.abstractions
 
 
-import com.saldubatech.ddes.Processor
-import com.saldubatech.transport.MaterialLoad
-
-import scala.collection.mutable
-import scala.reflect.ClassTag
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, FullSignallingContext}
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.protocols.EquipmentManagement
 
 object EquipmentUnit {
 
-		def nopRunner[Signal]: Processor.DomainRun[Signal] = (ctx: Processor.SignallingContext[Signal]) => {
-			case n: Any if false => Processor.DomainRun.same
+		def nopRunner[Signal <: DomainSignal]: DomainRun[Signal] = (ctx:  FullSignallingContext[Signal, _]) => {
+			case n: Any if false => DomainRun.same
 		}
 }
 
-trait EquipmentUnit[EQ_SIGNAL] {
-
-	lazy val self: Processor.Ref = _self
-	private var _self: Processor.Ref = null
-	def installSelf(s: Processor.Ref) = _self = s
-	val name: String
-	private var _manager: Processor.Ref = _
-	protected lazy val manager: Processor.Ref = _manager
-	def installManager(m: Processor.Ref) = _manager = m
-
+trait EquipmentUnit[EQ_SIGNAL <: DomainSignal] {
 	type HOST <: EquipmentUnit[EQ_SIGNAL]
 	type EXTERNAL_COMMAND <: EQ_SIGNAL
-	type NOTIFICATION <: EquipmentManager.Notification
+	type NOTIFICATION <: EquipmentManagement.EquipmentNotification
 
-	type CTX = Processor.SignallingContext[EQ_SIGNAL]
-	type RUNNER = Processor.DomainRun[EQ_SIGNAL]
+	type MANAGER_SIGNAL >: NOTIFICATION <: DomainSignal
+
+	lazy val self: SimRef[EQ_SIGNAL]  = _self
+	private var _self: SimRef[EQ_SIGNAL] = null
+	def installSelf(s: SimRef[EQ_SIGNAL]) = _self = s
+	val name: String
+	private var _manager: SimRef[MANAGER_SIGNAL] = _
+	lazy val manager: SimRef[MANAGER_SIGNAL] = _manager
+	def installManager(m: SimRef[_ <: DomainSignal]) = m match {
+		case ms :SimRef[MANAGER_SIGNAL] => _manager = ms
+		case other => throw new RuntimeException(s"Illegal Manager Type for $other")
+	}
+
+	type CTX = FullSignallingContext[EQ_SIGNAL, _ <: DomainSignal]
+	type RUNNER = DomainRun[EQ_SIGNAL]
 
 }

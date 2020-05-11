@@ -1,11 +1,10 @@
 package com.saldubatech.units.abstractions
 
-import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate.DomainRun
 import com.saldubatech.ddes.Clock.Tick
-import com.saldubatech.ddes.Processor
-import com.saldubatech.transport.{ChannelConnections, MaterialLoad}
+import com.saldubatech.ddes.Simulation.DomainSignal
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
 import com.saldubatech.util.LogEnabled
-import com.sun.tools.javac.code.TypeTag
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -15,7 +14,7 @@ object LoadAwareUnit {
 	}
 }
 
-trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Identification]
+trait LoadAwareUnit[HOST_SIGNAL >: Equipment.ChannelSignal <: DomainSignal]
 	extends EquipmentUnit[HOST_SIGNAL] with InductDischargeUnit[HOST_SIGNAL] with LogEnabled {
 
 	import LoadAwareUnit._
@@ -78,8 +77,8 @@ trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Ident
 		val cmdHandler: RUNNER = {
 			implicit ctx: CTX => {
 				case cmd: EXTERNAL_COMMAND =>
-					this += ctx.now -> cmd
-					triggerNext(Processor.DomainRun.same, isApplicable) //orElse commandContinue(runner, isApplicable)
+					LoadAwareUnit.this += ctx.now -> cmd
+					triggerNext(DomainRun.same, isApplicable) //orElse commandContinue(runner, isApplicable)
 			}
 		}
 		cmdHandler orElse runner
@@ -107,12 +106,12 @@ trait LoadAwareUnit[HOST_SIGNAL >: ChannelConnections.ChannelSourceSink <: Ident
 		}
 	}
 
-	protected def completeCommand(next: => RUNNER, notifier: EXTERNAL_COMMAND => NOTIFICATION)(implicit ctx: CTX, extTag: ClassTag[EXTERNAL_COMMAND], prioCT: ClassTag[PRIORITY_COMMAND], ldCmd: ClassTag[INBOUND_LOAD_COMMAND]): RUNNER = {
+	protected def completeCommand(next: => RUNNER, notifier: EXTERNAL_COMMAND => MANAGER_SIGNAL)(implicit ctx: CTX, extTag: ClassTag[EXTERNAL_COMMAND], prioCT: ClassTag[PRIORITY_COMMAND], ldCmd: ClassTag[INBOUND_LOAD_COMMAND]): RUNNER = {
 		if (working nonEmpty) {
 			ctx.signal(manager, notifier(working.head._2))
 			working = None
 			triggerNext(continueCommand(next))
-		} else Processor.DomainRun.same
+		} else DomainRun.same
 	}
 	protected def maxCommandsReached(cmd: EXTERNAL_COMMAND): NOTIFICATION
 	protected def execSignal(cmd: EXTERNAL_COMMAND): HOST_SIGNAL

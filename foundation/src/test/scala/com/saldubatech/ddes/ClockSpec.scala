@@ -6,19 +6,21 @@
 package com.saldubatech.ddes
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import com.saldubatech.ddes.Clock.{ClockShuttingDown, CompleteAction, DeregisterMonitor, Enqueue, NoMoreWork, NotifyAdvance, RegisterMonitor, RegisteredClockMonitors, StartTime, StartedOn, Tick}
-import com.saldubatech.ddes.Processor.{ProcessCommand, ProcessorMessage}
-import com.saldubatech.ddes.SimulationController.ControllerMessage
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import com.saldubatech.base.Identification
+import com.saldubatech.ddes.AgentTemplate.SourcedRun
+import com.saldubatech.ddes.Clock._
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimSignal}
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
+import org.scalatest.{BeforeAndAfterAll, Matchers}
 
 
 class ClockSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-    with WordSpecLike
+    with AnyWordSpecLike
     with BeforeAndAfterAll {
 	val testKit = ActorTestKit()
-	case class MockDomainMessage(msg: String)
+	case class MockDomainMessage(msg: String) extends Identification.Impl() with DomainSignal
 
   override def beforeAll: Unit = {
 
@@ -33,8 +35,8 @@ class ClockSpec
 
 		val testController = testKit.createTestProbe[ControllerMessage]
 		val testController2 = testKit.createTestProbe[ControllerMessage]
-		val mockProcessorSender = testKit.createTestProbe[ProcessorMessage]
-		val mockProcessorReceiver = testKit.createTestProbe[ProcessorMessage]
+		val mockProcessorSender = testKit.createTestProbe[SimSignal]
+		val mockProcessorReceiver = testKit.createTestProbe[SimSignal]
 		"A. is not yet operating" should {
 			"A01. allow registration of Time Monitors" in {
 				underTest ! RegisterMonitor(testController.ref)
@@ -53,7 +55,7 @@ class ClockSpec
 			"A03. Start" in {
 				underTest ! RegisterMonitor(testController.ref)
 				testController.expectMessage(RegisteredClockMonitors(1))
-				val probeMsg = ProcessCommand[MockDomainMessage](mockProcessorSender.ref, 40L, MockDomainMessage("MOCK_MOCK"))
+				val probeMsg = SourcedRun(mockProcessorSender.ref, 40L, MockDomainMessage("MOCK_MOCK"))
 				underTest ! Enqueue(mockProcessorReceiver.ref, probeMsg)
 				underTest ! StartTime(37L)
 				testController.expectMessage(StartedOn(37L))
@@ -61,7 +63,7 @@ class ClockSpec
 				mockProcessorReceiver.expectMessage(probeMsg)
 				underTest ! Enqueue(mockProcessorReceiver.ref, probeMsg)
 				mockProcessorReceiver.expectMessage(probeMsg)
-				val probeMsg2 = ProcessCommand[MockDomainMessage](mockProcessorSender.ref, 43L, MockDomainMessage("MOCK_MOCK2"))
+				val probeMsg2 = SourcedRun(mockProcessorSender.ref, 43L, MockDomainMessage("MOCK_MOCK2"))
 				underTest ! Enqueue(mockProcessorReceiver.ref, probeMsg2)
 				mockProcessorReceiver.expectNoMessage
 				underTest ! CompleteAction(probeMsg)

@@ -1,7 +1,8 @@
 package com.saldubatech.units.carriage
 
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.abstractions.{CarriageUnit, EquipmentUnit, InductDischargeUnit}
+import com.saldubatech.ddes.Simulation.DomainSignal
+import com.saldubatech.protocols.{Equipment, MaterialLoad}
+import com.saldubatech.units.abstractions.{EquipmentUnit, InductDischargeUnit}
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
@@ -26,7 +27,7 @@ object CarriageComponent {
 	}
 
 }
-class CarriageComponent[HS >: ChannelConnections.ChannelSourceSink, HOST <: EquipmentUnit[HS]  with InductDischargeUnit[HS]]
+class CarriageComponent[HS >: Equipment.ChannelSignal <: DomainSignal, HOST <: EquipmentUnit[HS]  with InductDischargeUnit[HS]]
 (travelPhysics: CarriageTravel, val host: HOST) {
 	import CarriageComponent._
 

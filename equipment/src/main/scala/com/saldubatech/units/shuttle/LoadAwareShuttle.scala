@@ -4,27 +4,26 @@
 
 package com.saldubatech.units.shuttle
 
-import com.saldubatech
 import com.saldubatech.base.Identification
-import com.saldubatech.ddes.Clock.Tick
-import com.saldubatech.ddes.Processor.DomainRun
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.AgentTemplate.{DomainConfigure, DomainMessageProcessor, DomainRun}
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
+import com.saldubatech.ddes.{AgentTemplate, Clock, SimulationController}
 import com.saldubatech.physics.Travel.Distance
-import com.saldubatech.transport
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
-import com.saldubatech.units.abstractions.{EquipmentManager, InductDischargeUnit, LoadAwareUnit}
+import com.saldubatech.protocols.Equipment.ShuttleSignal
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
+import com.saldubatech.transport.Channel
+import com.saldubatech.units.abstractions.{InductDischargeUnit, LoadAwareUnit}
 import com.saldubatech.units.carriage._
 import com.saldubatech.util.LogEnabled
 
-import scala.collection.{Set, mutable}
+import scala.collection.mutable
 
 object LoadAwareShuttle {
-	trait LoadAwareShuttleSignal extends Identification
 
-	sealed abstract class ShuttleLevelConfigurationCommand extends Identification.Impl() with LoadAwareShuttleSignal
+	sealed abstract class ShuttleLevelConfigurationCommand extends Identification.Impl() with Equipment.ShuttleSignal
 	case object NoConfigure extends ShuttleLevelConfigurationCommand
 
-	sealed abstract class ExternalCommand extends Identification.Impl() with LoadAwareShuttleSignal
+	sealed abstract class ExternalCommand extends Identification.Impl() with Equipment.ShuttleSignal
 
 	trait InboundCommand extends ExternalCommand {
 		val load: MaterialLoad
@@ -40,72 +39,71 @@ object LoadAwareShuttle {
 	case class PutawayFromTray(to: SlotLocator) extends RecoveryCommand
 	case class DeliverFromTray(override val to: String) extends RecoveryCommand with OutboundCommand
 
-	sealed abstract class Notification extends Identification.Impl with EquipmentManager.Notification
-	case class FailedEmpty(cmd: ExternalCommand, reason: String) extends Notification
-	case class FailedBusy(cmd: ExternalCommand, reason: String) extends Notification
-	case class NotAcceptedCommand(cmd: ExternalCommand, reason: String) extends Notification
-	case class MaxCommandsReached(cmd: ExternalCommand) extends Notification
-	case class CompletedCommand(cmd: ExternalCommand) extends Notification
-	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Notification
-	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Notification
-	case class CompletedConfiguration(self: Processor.Ref) extends Notification
+	case class FailedEmpty(cmd: ExternalCommand, reason: String) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class FailedBusy(cmd: ExternalCommand, reason: String) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class NotAcceptedCommand(cmd: ExternalCommand, reason: String) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class MaxCommandsReached(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class CompletedCommand(cmd: ExternalCommand) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class LoadArrival(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class LoadAcknowledged(fromCh: String, load: MaterialLoad) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
+	case class CompletedConfiguration(self: SimRef[ShuttleSignal]) extends Identification.Impl() with EquipmentManagement.ShuttleNotification
 
-	sealed trait InternalSignal extends LoadAwareShuttleSignal
+	sealed trait InternalSignal extends Equipment.ShuttleSignal
 	case class Execute(cmd: ExternalCommand) extends Identification.Impl() with InternalSignal
 
-	trait AfferentChannel extends Channel.Afferent[MaterialLoad, LoadAwareShuttleSignal] { self =>
-		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with LoadAwareShuttleSignal
-		override type PullSignal = Channel.PulledLoad[MaterialLoad] with LoadAwareShuttleSignal
-		override type DeliverSignal = Channel.DeliverLoad[MaterialLoad] with LoadAwareShuttleSignal
+	trait AfferentChannel extends Channel.Afferent[MaterialLoad, Equipment.ShuttleSignal] { self =>
+		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with Equipment.ShuttleSignal
+		override type PullSignal = Channel.PulledLoad[MaterialLoad] with Equipment.ShuttleSignal
+		override type DeliverSignal = Channel.DeliverLoad[MaterialLoad] with Equipment.ShuttleSignal
 
-		override def transferBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with LoadAwareShuttleSignal
-		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Distance) = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with LoadAwareShuttleSignal
-		override def deliverBuilder(channel: String) = new Channel.DeliverLoadImpl[MaterialLoad](channel) with LoadAwareShuttleSignal
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with Equipment.ShuttleSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Distance) = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with Equipment.ShuttleSignal
+		override def deliverBuilder(channel: String) = new Channel.DeliverLoadImpl[MaterialLoad](channel) with Equipment.ShuttleSignal
 	}
 
-	trait EfferentChannel extends Channel.Efferent[MaterialLoad, LoadAwareShuttleSignal] {
-		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with LoadAwareShuttleSignal
-		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with LoadAwareShuttleSignal
+	trait EfferentChannel extends Channel.Efferent[MaterialLoad, Equipment.ShuttleSignal] {
+		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with Equipment.ShuttleSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with Equipment.ShuttleSignal
 	}
 
-	case class Configuration[UpstreamMessage >: ChannelConnections.ChannelSourceMessage, DownStreamMessage >: ChannelConnections.ChannelDestinationMessage]
+	case class Configuration[UpstreamMessage >: Equipment.ChannelSourceSignal <: DomainSignal, DownStreamMessage >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(maxCommandsQueued: Int,
 	 depth: Int,
 	 physics: CarriageTravel,
-	 inbound: Seq[Channel.Ops[MaterialLoad, UpstreamMessage, LoadAwareShuttleSignal]],
-	 outbound: Seq[Channel.Ops[MaterialLoad, LoadAwareShuttleSignal, DownStreamMessage]])
+	 inbound: Seq[Channel.Ops[MaterialLoad, UpstreamMessage, Equipment.ShuttleSignal]],
+	 outbound: Seq[Channel.Ops[MaterialLoad, Equipment.ShuttleSignal, DownStreamMessage]])
 
 	case class InitialState(position: Int, inventory: Map[SlotLocator, MaterialLoad])
 
-	def buildProcessor[UpstreamMessageType >: ChannelConnections.ChannelSourceMessage, DownstreamMessageType >: ChannelConnections.ChannelDestinationMessage]
+	def buildProcessor[UpstreamMessageType >: Equipment.ChannelSourceSignal <: DomainSignal, DownstreamMessageType >: Equipment.ChannelSinkSignal <: DomainSignal]
 	(name: String,
 	 configuration: Configuration[UpstreamMessageType, DownstreamMessageType],
 	 initial: InitialState)(implicit clockRef: Clock.Ref, simController: SimulationController.Ref) = {
 		val domain = new LoadAwareShuttle(name, configuration, initial)
-		new Processor[LoadAwareShuttleSignal](name, clockRef, simController, domain.configurer)
+		new  AgentTemplate.Wrapper[Equipment.ShuttleSignal](name, clockRef, simController, domain.configurer)
 	}
 }
 
-class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage, DownstreamSignal >: ChannelConnections.ChannelDestinationMessage]
+class LoadAwareShuttle[UpstreamSignal >: Equipment.ChannelSourceSignal <: DomainSignal, DownstreamSignal >: Equipment.ChannelSinkSignal <: DomainSignal]
 (override val name: String,
  configuration: LoadAwareShuttle.Configuration[UpstreamSignal, DownstreamSignal],
- initial: LoadAwareShuttle.InitialState) extends Identification.Impl(name) with LoadAwareUnit[LoadAwareShuttle.LoadAwareShuttleSignal] with LogEnabled {
+ initial: LoadAwareShuttle.InitialState) extends Identification.Impl(name) with LoadAwareUnit[Equipment.ShuttleSignal] with LogEnabled {
 
 	import LoadAwareShuttle._
 
-	sealed trait CarriageSignal extends LoadAwareShuttleSignal
+	sealed trait CarriageSignal extends Equipment.ShuttleSignal
 	case class Load(override val loc: SlotLocator) extends InductDischargeUnit.LoadCmd(loc) with CarriageSignal
 	case class Unload(override val loc: SlotLocator) extends InductDischargeUnit.UnloadCmd(loc) with CarriageSignal
 	case class Induct(override val from: INDUCT, override val at: SlotLocator)
-		extends InductDischargeUnit.InductCmd[LoadAwareShuttleSignal](from, at) with CarriageSignal
+		extends InductDischargeUnit.InductCmd[Equipment.ShuttleSignal](from, at) with CarriageSignal
 	case class Discharge(override val to: DISCHARGE, override val at: SlotLocator)
-		extends InductDischargeUnit.DischargeCmd[LoadAwareShuttleSignal](to, at) with CarriageSignal
+		extends InductDischargeUnit.DischargeCmd[Equipment.ShuttleSignal](to, at) with CarriageSignal
 
 	override type HOST = LoadAwareShuttle[UpstreamSignal, DownstreamSignal]
 	override type EXTERNAL_COMMAND = ExternalCommand
 	override type PRIORITY_COMMAND = RecoveryCommand
 	override type INBOUND_LOAD_COMMAND = InboundCommand
-	override type NOTIFICATION = Notification
+	override type NOTIFICATION = EquipmentManagement.ShuttleNotification
 	override type LOAD_SIGNAL = Load
 	override type UNLOAD_SIGNAL = Unload
 	override type INDUCT_SIGNAL = Induct
@@ -146,7 +144,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 		(toCh: DISCHARGE, ld: MaterialLoad, ctx: CTX) => {
 			case NoChannelWait =>
 				implicit val iCtx = ctx
-				triggerNext(Processor.DomainRun.same)
+				triggerNext(DomainRun.same)
 			case WaitDischarging(ch, loc) =>
 				implicit val iCtx = ctx
 				carriageComponent.dischargeTo(ch, loc)(ctx)
@@ -154,8 +152,8 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 		}
 	}
 
-	private val carriageComponent: CarriageComponent[LoadAwareShuttleSignal, HOST] =
-		new CarriageComponent[LoadAwareShuttleSignal, HOST](configuration.physics, this).atLocation(initial.position).withInventory(initial.inventory)
+	private val carriageComponent: CarriageComponent[Equipment.ShuttleSignal, HOST] =
+		new CarriageComponent[Equipment.ShuttleSignal, HOST](configuration.physics, this).atLocation(initial.position).withInventory(initial.inventory)
 
 	private val inboundSlots: mutable.Map[String, SlotLocator] = mutable.Map.empty
 	private val inboundChannels: mutable.Map[String, INDUCT] = mutable.Map.empty
@@ -167,21 +165,21 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 
 	private def isLoadAvailable(ld: MaterialLoad) = inboundChannels.values.find(induct => induct.peekNext.exists(_._1 == ld))
 
-	private def configurer: Processor.DomainConfigure[LoadAwareShuttleSignal] = {
-		new Processor.DomainConfigure[LoadAwareShuttleSignal] {
-			override def configure(config: LoadAwareShuttleSignal)(implicit ctx: CTX): Processor.DomainMessageProcessor[LoadAwareShuttleSignal] = {
+	private def configurer: DomainConfigure[Equipment.ShuttleSignal] = {
+		new DomainConfigure[Equipment.ShuttleSignal] {
+			override def configure(config: Equipment.ShuttleSignal)(implicit ctx: CTX): DomainMessageProcessor[Equipment.ShuttleSignal] = {
 				config match {
 					case cmd@NoConfigure =>
 						installManager(ctx.from)
 						installSelf(ctx.aCtx.self)
 						inboundSlots ++= configuration.inbound.zip(-configuration.inbound.size until 0).map(t => t._1.ch.name -> OnLeft(t._2))
-						inboundChannels ++= configuration.inbound.map { chOps => chOps.ch.name -> InductDischargeUnit.inductSink[LoadAwareShuttleSignal, HOST](LoadAwareShuttle.this)(loadArrivalBehavior)(inboundSlots(chOps.ch.name), chOps) }
+						inboundChannels ++= configuration.inbound.map { chOps => chOps.ch.name -> InductDischargeUnit.inductSink[Equipment.ShuttleSignal, HOST](LoadAwareShuttle.this)(loadArrivalBehavior)(inboundSlots(chOps.ch.name), chOps) }
 						inboundLoadListener = configuration.inbound.map(chOps => chOps.end.loadReceiver).reduce((l, r) => l orElse r)
 
 						outboundSlots ++= configuration.outbound.zip(-configuration.outbound.size until 0).map { c => c._1.ch.name -> OnRight(c._2) }
-						outboundChannels ++= configuration.outbound.map { chOps => chOps.ch.name -> InductDischargeUnit.dischargeSource[LoadAwareShuttleSignal, HOST](LoadAwareShuttle.this)(outboundSlots(chOps.ch.name), manager, chOps)(channelFreeBehavior) }
+						outboundChannels ++= configuration.outbound.map { chOps => chOps.ch.name -> InductDischargeUnit.dischargeSource[Equipment.ShuttleSignal, HOST](LoadAwareShuttle.this)(outboundSlots(chOps.ch.name), manager, chOps)(channelFreeBehavior) }
 						outboundAckListener = configuration.outbound.map(chOps => chOps.start.ackReceiver).reduce((l, r) => l orElse r)
-						ctx.configureContext.reply(CompletedConfiguration(ctx.aCtx.self))
+						ctx.configureContext.signal(manager, CompletedConfiguration(ctx.aCtx.self))
 						idleExecutor
 				}
 			}
@@ -284,7 +282,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.dischargeTo(ch, loc)
 				continueCommand(carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)) orElse channelListener)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleListener, failEmptyNotification(_,s"Trying to load from an empty Source"))
 		}
@@ -294,7 +292,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 			case CarriageComponent.LoadOperationOutcome.Loaded =>
 				carriageComponent.unloadTo(loc)
 				continueCommand(carriageComponent.UNLOADING(afterUnloading) orElse channelListener)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to load from an empty Source"))
 		}
@@ -307,7 +305,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToStore(loc, from)
 				DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 		}
 	}
@@ -319,7 +317,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 			case CarriageComponent.LoadOperationOutcome.ErrorTargetEmpty =>
 				waitInductingToDischarge(ch, loc, from)
 				DomainRun.same
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.LoadOperationOutcome.ErrorTrayFull => completeCommand(trayFullListener, failFullNotification(_,s"Trying to load to a full Tray"))
 		}
 	}
@@ -327,7 +325,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 	private def afterUnloading: CTX => PartialFunction[CarriageComponent.UnloadOperationOutcome, RUNNER] = {
 		implicit ctx => {
 			case CarriageComponent.UnloadOperationOutcome.Unloaded => completeCommand(idleListener, completedCommandNotification)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull => completeCommand(trayFullListener, failFullNotification(_, s"Target destination is Full"))
 			case CarriageComponent.UnloadOperationOutcome.ErrorTrayEmpty => completeCommand(idleListener, failEmptyNotification(_, "Trying to unload an empty Tray"))
 		}
@@ -338,7 +336,7 @@ class LoadAwareShuttle[UpstreamSignal >: ChannelConnections.ChannelSourceMessage
 			case CarriageComponent.UnloadOperationOutcome.Unloaded =>
 				endChannelWait
 				completeCommand(idleListener, completedCommandNotification)
-			case CarriageComponent.OperationOutcome.InTransit => Processor.DomainRun.same
+			case CarriageComponent.OperationOutcome.InTransit => DomainRun.same
 			case CarriageComponent.UnloadOperationOutcome.ErrorTargetFull =>
 				waitDischarging(ch, loc)
 				continueCommand(channelListener orElse carriageComponent.DISCHARGING(afterTryDischarge(ch, loc)))

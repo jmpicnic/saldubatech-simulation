@@ -7,16 +7,19 @@ package com.saldubatech.units.xswitch
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
-import com.saldubatech.ddes.Clock.{Delay, Enqueue}
-import com.saldubatech.ddes.Processor.Ref
+import com.saldubatech.ddes.AgentTemplate.{RegisterProcessor, RegistrationConfigurationComplete}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, DomainSignal, SimRef, SimSignal}
 import com.saldubatech.ddes.testHarness.ProcessorSink
-import com.saldubatech.ddes.{Clock, Processor, SimulationController}
+import com.saldubatech.ddes.{AgentTemplate, Clock}
+import com.saldubatech.protocols.{Equipment, EquipmentManagement, MaterialLoad}
 import com.saldubatech.test.ClockEnabled
-import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
+import com.saldubatech.transport.Channel
 import com.saldubatech.units.carriage.CarriageTravel
 import com.saldubatech.units.lift.XSwitch
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -27,9 +30,9 @@ object FanInLargeDischargeBufferSpec {
 }
 
 class FanInLargeDischargeBufferSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with ClockEnabled
 		with LogEnabled {
@@ -50,11 +53,11 @@ class FanInLargeDischargeBufferSpec
 	val testMonitorProbe = testKit.createTestProbe[String]
 	implicit val testMonitor = testMonitorProbe.ref
 
-	val simControllerProbe = testKit.createTestProbe[SimulationController.ControllerMessage]
+	val simControllerProbe = testKit.createTestProbe[ControllerMessage]
 	implicit val simController = simControllerProbe.ref
 
 
-	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, XSwitch.Notification)]
+	val xcManagerProbe = testKit.createTestProbe[(Clock.Tick, EquipmentManagement.XSwitchNotification)]
 	val xcManagerRef = xcManagerProbe.ref
 	val xcManagerProcessor = new ProcessorSink(xcManagerRef, clock)
 	val xcManager = testKit.spawn(xcManagerProcessor.init, "FanInManager")
@@ -65,22 +68,22 @@ class FanInLargeDischargeBufferSpec
 		val physics = new CarriageTravel(2, 6, 4, 8, 8)
 
 		// Channels
-		val chIb1 = new InboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
-		val chIb2 = new InboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
+		val chIb1 = new InboundChannelImpl[Equipment.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound1")
+		val chIb2 = new InboundChannelImpl[Equipment.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ib1_c1"), 1, "Inbound2")
 		val obInduct = Map(0 -> new Channel.Ops(chIb1), 1 -> new Channel.Ops(chIb2))
 
-		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[XSwitch.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
+		val obDischarge = Map((-1, new Channel.Ops(new OutboundChannelImpl[Equipment.XSwitchSignal](() => Some(10L), () => Some(3L), Set("Ob1_c1", "Ob1_c2"), 1, "Discharge"))))
 
 		val config = XSwitch.Configuration(physics, Map.empty, Map.empty, obInduct, obDischarge, 0)
 
 
 		// Sources & sinks
 		val sources = config.outboundInduction.values.map(ibOps => new SourceFixture(ibOps)(testMonitor, this)).toSeq
-		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new Processor(t._2, clock, simController, configurer(t._1)(testMonitor)))
+		val sourceProcessors = sources.zip(Seq("u1", "u2")).map(t => new AgentTemplate.Wrapper(t._2, clock, simController, configurer(t._1)(testMonitor)))
 		val sourceActors = sourceProcessors.zip(Seq("u1", "u2")).map(t => testKit.spawn(t._1.init, t._2))
 
 		val dischargeSink =  new SinkFixture(config.outboundDischarge.head._2, true)(testMonitor, this)
-		val dischargeProcessor: Processor[ChannelConnections.DummySinkMessageType] = new Processor("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
+		val dischargeProcessor:  AgentTemplate.Wrapper[Equipment.MockSinkSignal] = new AgentTemplate.Wrapper("discharge", clock, simController, configurer(dischargeSink)(testMonitor))
 		val dischargeActor = testKit.spawn(dischargeProcessor.init, "discharge")
 
 		implicit val clk = clock
@@ -91,10 +94,10 @@ class FanInLargeDischargeBufferSpec
 		"A. Register Itself for configuration" when {
 
 			"A01. Time is started they register for Configuration" in {
-				val actorsToRegister: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
+				val actorsToRegister: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor, underTest): _*)
 				startTime()
 				simControllerProbe.fishForMessage(3 second) {
-					case Processor.RegisterProcessor(pr) =>
+					case RegisterProcessor(pr) =>
 						if (actorsToRegister.contains(pr)) {
 							actorsToRegister -= pr
 							if (actorsToRegister isEmpty) FishingOutcome.Complete
@@ -107,7 +110,7 @@ class FanInLargeDischargeBufferSpec
 			}
 			"A02. Register its Lift when it gets Configured" in {
 				enqueueConfigure(underTest, xcManager, 0L, XSwitch.NoConfigure)
-				simControllerProbe.expectMessage(Processor.CompleteConfiguration(underTest))
+				simControllerProbe.expectMessage(RegistrationConfigurationComplete[Equipment.XSwitchSignal](underTest))
 				xcManagerProbe.expectMessage(0L -> XSwitch.CompletedConfiguration(underTest))
 			}
 			"A03. Sinks and Sources accept Configuration" in {
@@ -116,10 +119,10 @@ class FanInLargeDischargeBufferSpec
 				testMonitorProbe.expectMessage(s"Received Configuration: $UpstreamConfigure")
 				enqueueConfigure(dischargeActor, xcManager, 0L, DownstreamConfigure)
 				testMonitorProbe.expectMessage(s"Received Configuration: $DownstreamConfigure")
-				val actorsToConfigure: mutable.Set[ActorRef[Processor.ProcessorMessage]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
+				val actorsToConfigure: mutable.Set[SimRef[_ <: DomainSignal]] = mutable.Set(sourceActors ++ Seq(dischargeActor): _*)
 				log.info(s"Actors to Configure: $actorsToConfigure")
 				simControllerProbe.fishForMessage(500 millis) {
-					case Processor.CompleteConfiguration(pr) =>
+					case RegistrationConfigurationComplete(pr) =>
 						log.info(s"Seeing $pr")
 						if (actorsToConfigure.contains(pr)) {
 							actorsToConfigure -= pr
@@ -177,7 +180,7 @@ class FanInLargeDischargeBufferSpec
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(First Load),Ob1_c2))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(First Load) released on channel Discharge")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) arrived to Sink via channel Discharge")
-				enqueue(dischargeActor, dischargeActor, 340L, ConsumeLoad)
+				enqueue(dischargeActor, dischargeActor, 342L, ConsumeLoad)
 				xcManagerProbe.expectMessage(328L -> XSwitch.CompletedCommand(thirdTransferCommand)) //330?
 				testMonitorProbe.expectMessage(s"Got load Some((MaterialLoad(Second Load),Ob1_c1))")
 				testMonitorProbe.expectMessage("Load MaterialLoad(Second Load) released on channel Discharge")

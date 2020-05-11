@@ -5,19 +5,18 @@
 package com.saldubatech.transport
 
 import com.saldubatech.base.{AssetBox, Identification}
+import com.saldubatech.ddes.AgentTemplate.{DomainRun, FullSignallingContext}
 import com.saldubatech.ddes.Clock.Delay
-import com.saldubatech.ddes.Processor
-import com.saldubatech.ddes.Processor.{DomainRun, SignallingContext}
+import com.saldubatech.ddes.Simulation.{DomainSignal, SimRef}
 import com.saldubatech.physics.Travel.Distance
+import com.saldubatech.protocols.Equipment
 import com.saldubatech.util.LogEnabled
-import org.scalatest.concurrent.Signaler
 
 import scala.collection.mutable
-import scala.reflect.ClassTag
 
 object Channel {
 
-	trait AcknowledgeLoad[L <: Identification] extends ChannelConnections.ChannelSourceMessage {
+	trait AcknowledgeLoad[L <: Identification] extends Equipment.ChannelSourceSignal {
 		val channel: String;
 		val load: L;
 		val resource: String
@@ -29,7 +28,7 @@ object Channel {
 
 
 
-	trait TransferLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
+	trait TransferLoad[L <: Identification] extends Equipment.ChannelSinkSignal {
 		val channel: String;
 		val load: L;
 		val resource: String
@@ -39,14 +38,14 @@ object Channel {
 		override def toString = s"TransferLoad(load: $load, channel: $channel, resource: $resource)"
 	}
 
-	trait DeliverLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage{
+	trait DeliverLoad[L <: Identification] extends Equipment.ChannelSinkSignal{
 		val channel: String
 	}
 	abstract class DeliverLoadImpl[L <: Identification](override val channel: String) extends Identification.Impl() with DeliverLoad[L]{
 		override def toString = s"Deliverload($channel)--$uid"
 	}
 
-	trait PulledLoad[L <: Identification] extends ChannelConnections.ChannelDestinationMessage {
+	trait PulledLoad[L <: Identification] extends Equipment.ChannelSinkSignal {
 		val load: L
 		val resource: String
 		val channel: String
@@ -62,51 +61,51 @@ object Channel {
 	trait Endpoint {
 		val channelName: String
 	}
-	trait Start[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] extends Endpoint {
+	trait Start[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] extends Endpoint {
 		val source: Source[LOAD, SourceProfile]
 
 		def availableCards: Int
 		def reserveCard: Option[String]
-		def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean
-		def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean
-		def ackReceiver: Processor.DomainRun[SourceProfile]
+		def send(load: LOAD)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean
+		def send(load: LOAD, withCard: String)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean
+		def ackReceiver: DomainRun[SourceProfile]
 
 		override def toString = s"ChannelStart($channelName)"
 	}
 
 
 
-	trait End[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] extends Endpoint {
+	trait End[LOAD <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] extends Endpoint {
 		val sink: Sink[LOAD, SinkProfile]
 		val receivingSlots: Int
-		//def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx: SignallingContext[SinkProfile]): Option[Int]
-		def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
-		def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
-		def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)]
+		//def doEndpointReceiving(load: LOAD, resource: String)(implicit ctx:  FullSignallingContect[1, XXX]): Option[Int]
+		def getNext(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)]
+		def get(l: LOAD)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)]
+		def get(idx: Int)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)]
 		def peekNext: Option[(LOAD, String)]
 		def peek(l: LOAD): Option[(LOAD, String)]
 		def peek(idx: Int): Option[(LOAD, String)]
-		def loadReceiver: Processor.DomainRun[SinkProfile]
+		def loadReceiver: DomainRun[SinkProfile]
 		override def toString = s"ChannelEnd($channelName)"
 	}
 
-	trait Sink[L <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] {
-		val ref: Processor.Ref
-		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
-		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx: SignallingContext[SinkProfile]): Processor.DomainRun[SinkProfile]
+	trait Sink[L <: Identification, SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal] {
+		val ref: SimRef[SinkProfile]
+		def loadArrived(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx:  FullSignallingContext[SinkProfile, _ <: DomainSignal]): DomainRun[SinkProfile]
+		def loadReleased(endpoint: End[L, SinkProfile], load: L, at: Option[Int] = None)(implicit ctx:  FullSignallingContext[SinkProfile, _ <: DomainSignal]): DomainRun[SinkProfile]
 	}
 
-	trait Source[L <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] {
-		val ref: Processor.Ref
-		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx: SignallingContext[SourceProfile]): Processor.DomainRun[SourceProfile]
+	trait Source[L <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal] {
+		val ref: SimRef[SourceProfile]
+		def loadAcknowledged(ep: Channel.Start[L, SourceProfile], load: L)(implicit ctx:  FullSignallingContext[SourceProfile, _ <: DomainSignal]): DomainRun[SourceProfile]
 	}
 
 	object Ops {
-		def apply[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage,
-			SinkProfile >: ChannelConnections.ChannelDestinationMessage](ch: Channel[LOAD, SourceProfile, SinkProfile]) = new Ops(ch)
+		def apply[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal,
+			SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal](ch: Channel[LOAD, SourceProfile, SinkProfile]) = new Ops(ch)
 	}
-	class Ops[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage,
-		SinkProfile >: ChannelConnections.ChannelDestinationMessage](val ch: Channel[LOAD, SourceProfile, SinkProfile])
+	class Ops[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal <: DomainSignal,
+		SinkProfile >: Equipment.ChannelSinkSignal <: DomainSignal](val ch: Channel[LOAD, SourceProfile, SinkProfile])
 		extends LogEnabled {
 
 		private var _start: Option[Start[LOAD, SourceProfile]] = None
@@ -125,12 +124,12 @@ object Channel {
 
 			override def reserveCard: Option[String] = localBox.checkoutAny.map { rs => reserved += rs; rs }
 
-			override def send(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]): Boolean =
+			override def send(load: LOAD, withCard: String)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean =
 				reserved.find(_ == withCard).map(c => doSend(load, c)).isDefined
-			override def send(load: LOAD)(implicit ctx: SignallingContext[SourceProfile]): Boolean =
+			override def send(load: LOAD)(implicit ctx:  FullSignallingContext[SourceProfile, _]): Boolean =
 				localBox.checkoutAny.map(c => doSend(load, c)).isDefined
 
-			private def doSend(load: LOAD, withCard: String)(implicit ctx: SignallingContext[SourceProfile]) = {
+			private def doSend(load: LOAD, withCard: String)(implicit ctx:  FullSignallingContext[SourceProfile, _]) = {
 				if(_end isEmpty) throw new IllegalStateException(s"Cannot send through a channel without its End configured ${ch.name}")
 				(
 					for {
@@ -143,8 +142,8 @@ object Channel {
 			}
 			override def availableCards: Int = localBox.available
 
-			override def ackReceiver: Processor.DomainRun[SourceProfile] = {
-				implicit ctx: SignallingContext[SourceProfile] => {
+			override def ackReceiver: DomainRun[SourceProfile] = {
+				implicit ctx:  FullSignallingContext[SourceProfile, _ <: DomainSignal] => {
 					case ackMsg: AcknowledgeLoad[LOAD] if ackMsg.channel == ch.name =>
 						log.debug(s"Processing Load Acknowledgement for ${ackMsg.load}")
 						localBox.checkin(ackMsg.resource)
@@ -169,9 +168,9 @@ object Channel {
 				private val delivered: mutable.SortedMap[Int, (LOAD, String)] = mutable.SortedMap.empty
 				private val pending: mutable.Queue[(LOAD, String)] = mutable.Queue.empty
 
-				override def getNext(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
-				override def get(l: LOAD)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
-				override def get(idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Option[(LOAD, String)] = {
+				override def getNext(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)] = delivered.headOption.flatMap { e => get(e._1) }
+				override def get(l: LOAD)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => get(e._1))
+				override def get(idx: Int)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(LOAD, String)] = {
 					var r = delivered.get(idx)
 					if (r nonEmpty) {
 						delivered -= idx
@@ -186,7 +185,7 @@ object Channel {
 				override def peek(l: LOAD): Option[(LOAD, String)] = delivered.find(e => e._2._1 == l).flatMap(e => peek(e._1))
 				override def peek(idx: Int): Option[(LOAD, String)] = delivered.get(idx)
 
-				private def acknowledgeLoad(load: LOAD, rs: String, idx: Int)(implicit ctx: SignallingContext[SinkProfile]): Unit = {
+				private def acknowledgeLoad(load: LOAD, rs: String, idx: Int)(implicit ctx:  FullSignallingContext[SinkProfile, _]): Unit = {
 					log.debug(s"Start Acknowledge Load $load with endpoint ${_start}, from $delivered")
 					for {
 						st <- _start
@@ -197,7 +196,7 @@ object Channel {
 						//delivered.remove(idx)
 					}
 				}
-				private def tryDeliverToEndpoint(implicit ctx: SignallingContext[SinkProfile]): Option[(Int, LOAD)] = {
+				private def tryDeliverToEndpoint(implicit ctx:  FullSignallingContext[SinkProfile, _]): Option[(Int, LOAD)] = {
 					if (openSlots.nonEmpty && pending.nonEmpty) {
 						val idx = openSlots.dequeue
 						val (ld, rsc) = pending.dequeue
@@ -209,8 +208,8 @@ object Channel {
 						None
 					}
 				}
-				override def loadReceiver: Processor.DomainRun[SinkProfile] = {
-					implicit ctx: SignallingContext[SinkProfile] => {
+				override def loadReceiver: DomainRun[SinkProfile] = {
+					implicit ctx:  FullSignallingContext[SinkProfile, _ <: DomainSignal] => {
 						case tr: Channel.TransferLoad[LOAD] if tr.channel == ch.name =>
 							log.debug(s"Receiving load(${tr.load}) in channel ${tr.channel}, enqueued: $pending, openSlots: $openSlots")
 							pending.enqueue((tr.load -> tr.resource))
@@ -230,11 +229,9 @@ object Channel {
 
 			}
 		}
-		/*	def simpleDelayChannel[L <: Identification, SourceProfile, SinkProfile](name: String, delay: Delay, capacity: Int, boundedLookup: Option[Int] = None) =
-		new Channel[L, SourceProfile, SinkProfile]((1 to capacity).map(_ => java.util.UUID.randomUUID.toString).toSet, () => Some(delay), boundedLookup, name)*/
 	}
 
-	trait Afferent[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] {
+	trait Afferent[LOAD <: Identification, SinkProfile >: Equipment.ChannelSinkSignal] {
 		val name: String
 		type TransferSignal <: Channel.TransferLoad[LOAD] with SinkProfile
 		type PullSignal <: Channel.PulledLoad[LOAD] with SinkProfile
@@ -245,13 +242,13 @@ object Channel {
 		def deliverBuilder(channel: String): DeliverSignal
 	}
 
-	trait Efferent[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] {
+	trait Efferent[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal] {
 		type AckSignal <: Channel.AcknowledgeLoad[LOAD] with SourceProfile
 		def acknowledgeBuilder(channel: String, load: LOAD, resource: String): AckSignal
 	}
 }
 
-abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage, SinkProfile >: ChannelConnections.ChannelDestinationMessage]
+abstract class Channel[LOAD <: Identification, SourceProfile >: Equipment.ChannelSourceSignal, SinkProfile >: Equipment.ChannelSinkSignal]
 (val delay: () => Option[Delay], val deliveryTime: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, override val name:String = java.util.UUID.randomUUID().toString)
 	extends Identification.Impl(name)
 		with Channel.Afferent[LOAD, SinkProfile]
