@@ -35,6 +35,21 @@ object LoadAwareXSwitch {
 	sealed trait InternalSignal extends XSwitchSignal
 	case class Execute(cmd: ExternalCommand) extends Identification.Impl() with InternalSignal
 
+	trait AfferentChannel extends Channel.Afferent[MaterialLoad, XSwitchSignal] { self =>
+		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with XSwitchSignal
+		override type PullSignal = Channel.PulledLoad[MaterialLoad] with XSwitchSignal
+		override type DeliverSignal = Channel.DeliverLoad[MaterialLoad] with XSwitchSignal
+
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with XSwitchSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Distance) = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with XSwitchSignal
+		override def deliverBuilder(channel: String) = new Channel.DeliverLoadImpl[MaterialLoad](channel) with XSwitchSignal
+	}
+
+	trait EfferentChannel extends Channel.Efferent[MaterialLoad, XSwitchSignal] {
+		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with XSwitchSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with XSwitchSignal
+	}
+
 	case class Configuration[InboundInductSignal >: ChannelConnections.ChannelSourceMessage, InboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage,
 		OutboundInductSignal >: ChannelConnections.ChannelSourceMessage, OutboundDischargeSignal >: ChannelConnections.ChannelDestinationMessage]
 	(physics: CarriageTravel,

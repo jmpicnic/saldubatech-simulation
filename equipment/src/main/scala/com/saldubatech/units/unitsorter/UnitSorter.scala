@@ -5,7 +5,8 @@ import java.util.concurrent.atomic.AtomicReference
 import com.saldubatech.base.Identification
 import com.saldubatech.ddes.Clock.{Delay, Tick}
 import com.saldubatech.ddes.{Clock, Processor, SimulationController}
-import com.saldubatech.transport.{Channel, MaterialLoad}
+import com.saldubatech.physics.Travel.Distance
+import com.saldubatech.transport.{Channel, ChannelConnections, MaterialLoad}
 import com.saldubatech.units.abstractions.{EquipmentManager, EquipmentUnit}
 import com.saldubatech.util.LogEnabled
 
@@ -31,6 +32,22 @@ object UnitSorter {//extends EquipmentUnit[UnitSorterSignal] {
 
 	abstract class InternalSignal extends Identification.Impl() with UnitSorterSignal
 	case class Arrive(msg: String) extends InternalSignal
+
+	trait AfferentChannel extends Channel.Afferent[MaterialLoad, UnitSorterSignal] { self =>
+		override type TransferSignal = Channel.TransferLoad[MaterialLoad] with UnitSorterSignal
+		override type PullSignal = Channel.PulledLoad[MaterialLoad] with UnitSorterSignal
+		override type DeliverSignal = Channel.DeliverLoad[MaterialLoad] with UnitSorterSignal
+
+		override def transferBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.TransferLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
+		override def loadPullBuilder(ld: MaterialLoad, card: String, idx: Distance) = new Channel.PulledLoadImpl[MaterialLoad](ld, card, idx, this.name) with UnitSorterSignal
+		override def deliverBuilder(channel: String) = new Channel.DeliverLoadImpl[MaterialLoad](channel) with UnitSorterSignal
+	}
+
+	trait EfferentChannel extends Channel.Efferent[MaterialLoad, UnitSorterSignal] {
+		override type AckSignal = Channel.AcknowledgeLoad[MaterialLoad] with UnitSorterSignal
+		override def acknowledgeBuilder(channel: String, load: MaterialLoad, resource: String) = new Channel.AckLoadImpl[MaterialLoad](channel, load, resource) with UnitSorterSignal
+	}
+
 
 	case class Configuration(maxRoutingMap: Int,
 	                         inducts: Map[Int, Channel.Ops[MaterialLoad, _, UnitSorterSignal]],

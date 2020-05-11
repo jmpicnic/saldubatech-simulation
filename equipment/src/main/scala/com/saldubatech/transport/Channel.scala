@@ -8,9 +8,12 @@ import com.saldubatech.base.{AssetBox, Identification}
 import com.saldubatech.ddes.Clock.Delay
 import com.saldubatech.ddes.Processor
 import com.saldubatech.ddes.Processor.{DomainRun, SignallingContext}
+import com.saldubatech.physics.Travel.Distance
 import com.saldubatech.util.LogEnabled
+import org.scalatest.concurrent.Signaler
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
 
 object Channel {
 
@@ -229,26 +232,30 @@ object Channel {
 		}
 		/*	def simpleDelayChannel[L <: Identification, SourceProfile, SinkProfile](name: String, delay: Delay, capacity: Int, boundedLookup: Option[Int] = None) =
 		new Channel[L, SourceProfile, SinkProfile]((1 to capacity).map(_ => java.util.UUID.randomUUID.toString).toSet, () => Some(delay), boundedLookup, name)*/
-
 	}
 
+	trait Afferent[LOAD <: Identification, SinkProfile >: ChannelConnections.ChannelDestinationMessage] {
+		val name: String
+		type TransferSignal <: Channel.TransferLoad[LOAD] with SinkProfile
+		type PullSignal <: Channel.PulledLoad[LOAD] with SinkProfile
+		type DeliverSignal <: Channel.DeliverLoad[LOAD] with SinkProfile
+
+		def transferBuilder(channel: String, load: LOAD, resource: String): TransferSignal
+		def loadPullBuilder(ld: LOAD, card: String, idx: Distance): PullSignal
+		def deliverBuilder(channel: String): DeliverSignal
+	}
+
+	trait Efferent[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage] {
+		type AckSignal <: Channel.AcknowledgeLoad[LOAD] with SourceProfile
+		def acknowledgeBuilder(channel: String, load: LOAD, resource: String): AckSignal
+	}
 }
 
 abstract class Channel[LOAD <: Identification, SourceProfile >: ChannelConnections.ChannelSourceMessage, SinkProfile >: ChannelConnections.ChannelDestinationMessage]
-(val delay: () => Option[Delay], val deliveryTime: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, val name:String = java.util.UUID.randomUUID().toString)
-	extends Identification.Impl(name) {
-	type TransferSignal <: Channel.TransferLoad[LOAD]
-	type PullSignal <: Channel.PulledLoad[LOAD]
-	type DeliverSignal <: Channel.DeliverLoad[LOAD]
-
-	def transferBuilder(channel: String, load: LOAD, resource: String): TransferSignal
-	def deliverBuilder(channel: String): DeliverSignal
-	def loadPullBuilder(ld: LOAD, card: String, idx: Int): PullSignal
-
-	type AckSignal <: Channel.AcknowledgeLoad[LOAD]
-
-	def acknowledgeBuilder(channel: String, load: LOAD, resource: String): AckSignal
-
-
+(val delay: () => Option[Delay], val deliveryTime: () => Option[Delay], val cards: Set[String], val configuredOpenSlots: Int = 1, override val name:String = java.util.UUID.randomUUID().toString)
+	extends Identification.Impl(name)
+		with Channel.Afferent[LOAD, SinkProfile]
+		with Channel.Efferent[LOAD, SourceProfile]
+{
 	override def toString = s"Channel($name)"
 }
