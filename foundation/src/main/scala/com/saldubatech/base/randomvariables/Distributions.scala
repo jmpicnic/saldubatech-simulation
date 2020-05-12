@@ -21,9 +21,9 @@ object Distributions {
 
   implicit def toLong(dVar: DoubleRVar): LongRVar = {() => math.round(dVar())}
 
-  def exponential(mean: Double): DoubleRVar = new ExponentialDistribution(mean).sample
+  def exponential(mean: Double): DoubleRVar = () => new ExponentialDistribution(mean).sample
 
-  def geometric(p: Double): LongRVar = new GeometricDistribution(p).sample
+  def geometric(p: Double): LongRVar = () => new GeometricDistribution(p).sample
 
   def discreteExponential(l: Double): LongRVar = //() => Math.round(exponential(l)())
   {
