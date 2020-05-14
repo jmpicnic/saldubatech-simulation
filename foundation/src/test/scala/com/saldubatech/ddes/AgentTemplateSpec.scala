@@ -24,7 +24,7 @@ import scala.concurrent.duration._
 
 
 
-class ProcessorSpec
+class AgentTemplateSpec
 	extends AnyWordSpec
 		with Matchers
     with AnyWordSpecLike

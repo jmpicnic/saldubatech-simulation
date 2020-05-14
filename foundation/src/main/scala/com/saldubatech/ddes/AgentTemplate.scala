@@ -13,7 +13,6 @@ import com.saldubatech.util.LogEnabled
 
 object AgentTemplate {
 	import com.saldubatech.ddes.Simulation.SimSignal
-	type CTX = ActorContext[SimSignal]
 
 	type AgentCreator = {def spawn[T](behavior: Behavior[T], name: String): ActorRef[T]}
 
@@ -167,16 +166,11 @@ object AgentTemplate {
 	(implicit clockRef: Clock.Ref, agentCreator: AgentCreator, simController: SimulationController.Ref): SimRef[DomainMessage] =
 		agentCreator.spawn(new Wrapper[DomainMessage](agentDef.name, clockRef, simController, agentDef.booter).init, agentDef.name)
 
-	trait AgentCompanion[DomainMessage <: DomainSignal] {
-		type Ref = SimRef[DomainMessage]
-		type SIGNAL = DomainMessage
-		type CTX = AgentTemplate.FullSignallingContext[DomainMessage, _ <: DomainSignal]
-		type RUNNER = AgentTemplate.DomainRun[DomainMessage]
-	}
 
 }
 
 trait AgentTemplate[DomainMessage <: DomainSignal, SELF <: AgentTemplate[DomainMessage, SELF]] extends Identification {
+	import AgentTemplate._
 
 	final lazy val self: SimRef[DomainMessage] = _self
 	final private var _self: SimRef[DomainMessage] = _
@@ -188,6 +182,10 @@ trait AgentTemplate[DomainMessage <: DomainSignal, SELF <: AgentTemplate[DomainM
 
 	final type SIGNAL = DomainMessage
 	final type HOST = SELF
+
+	type Ref = SimRef[SIGNAL]
+	type CTX = AgentTemplate.FullSignallingContext[SIGNAL, _ <: DomainSignal]
+	type RUNNER = AgentTemplate.DomainRun[SIGNAL]
 
 	def booter: AgentTemplate.DomainConfigure[DomainMessage]
 

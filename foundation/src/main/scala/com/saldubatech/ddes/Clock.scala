@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 import com.saldubatech.base.{Identification, Monitored}
 import com.saldubatech.ddes.AgentTemplate.SourcedRun
-import com.saldubatech.ddes.Simulation.{ControllerMessage, Signal, SimSignal}
+import com.saldubatech.ddes.Simulation.{ControllerMessage, SimSignal}
 import com.saldubatech.util.LogEnabled
 
 import scala.collection.mutable
