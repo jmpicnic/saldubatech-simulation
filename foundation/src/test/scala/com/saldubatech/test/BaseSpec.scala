@@ -7,7 +7,9 @@ package com.saldubatech.test
 import akka.actor.testkit.typed.FishingOutcome
 import akka.actor.testkit.typed.scaladsl.TestProbe
 import com.saldubatech.util.LogEnabled
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec, WordSpecLike}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}
 
 import scala.collection.mutable
 import scala.concurrent.duration._
@@ -35,9 +37,9 @@ object BaseSpec {
 }
 
 trait BaseSpec
-	extends WordSpec
+	extends AnyWordSpec
 		with Matchers
-		with WordSpecLike
+		with AnyWordSpecLike
 		with BeforeAndAfterAll
 		with LogEnabled  {
 

@@ -59,7 +59,7 @@ class AssetBoxSpec extends BaseSpec {
 					underTest.checkin(2)
 					fail(s"Should have rejected 2")
 				} catch {
-					case e: IllegalStateException =>
+					case _: IllegalStateException =>
 						underTest.available shouldBe 1
 				}
 			}
@@ -68,7 +68,7 @@ class AssetBoxSpec extends BaseSpec {
 					underTest.checkin(33)
 					fail(s"Should have rejected 33")
 				} catch {
-					case e: IllegalArgumentException =>
+					case _: IllegalArgumentException =>
 						underTest.available shouldBe 1
 				}
 			}
